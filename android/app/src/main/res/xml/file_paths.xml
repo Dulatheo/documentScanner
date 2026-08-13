@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Page images + originals, stored under filesDir/pages -->
+    <files-path name="pages" path="pages/" />
+    <!-- Generated PDF/JPG exports, stored under filesDir/exports -->
+    <files-path name="exports" path="exports/" />
+    <!-- ML Kit / camera temp captures -->
+    <cache-path name="captures" path="captures/" />
+</paths>

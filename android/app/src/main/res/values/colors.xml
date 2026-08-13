@@ -1,0 +1,8 @@
+<resources>
+    <!-- Design tokens (§3.1) — light values, used for XML-level window chrome.
+         The full light/dark palette used at runtime lives in ui/theme/Color.kt. -->
+    <color name="bg_light">#F6F4F1</color>
+    <color name="clay">#A4552E</color>
+    <color name="paper">#FFFDFB</color>
+    <color name="paper_line">#D9D4CD</color>
+</resources>
