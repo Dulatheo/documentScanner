@@ -1,0 +1,18 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# SPM
+.swiftpm/
+.build/
+
+# macOS
+.DS_Store
+
+# Simulator / device logs
+*.ips
