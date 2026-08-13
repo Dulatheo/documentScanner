@@ -19,7 +19,7 @@ struct ToastView: View {
 }
 
 private struct ToastOverlayModifier: ViewModifier {
-    @EnvironmentObject private var toastCenter: ToastCenter
+    @ObservedObject var toastCenter: ToastCenter
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .bottom) {
@@ -33,5 +33,11 @@ private struct ToastOverlayModifier: ViewModifier {
 }
 
 extension View {
-    func toastOverlay() -> some View { modifier(ToastOverlayModifier()) }
+    /// Pass the shared `ToastCenter` explicitly rather than resolving it via
+    /// `@EnvironmentObject`, so the toast overlay doesn't depend on the
+    /// environment propagating correctly across `.sheet`/`.fullScreenCover`
+    /// presentation boundaries.
+    func toastOverlay(_ toastCenter: ToastCenter) -> some View {
+        modifier(ToastOverlayModifier(toastCenter: toastCenter))
+    }
 }

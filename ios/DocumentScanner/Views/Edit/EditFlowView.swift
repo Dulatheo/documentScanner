@@ -6,13 +6,13 @@ import SwiftUI
 /// contextual hint, and the four-tool bottom bar.
 struct EditFlowView: View {
     @ObservedObject var session: EditSession
+    @ObservedObject var toastCenter: ToastCenter
     var onCancel: () -> Void
     var onSaved: (DocumentModel) -> Void
 
     @Environment(\.theme) private var theme
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var toastCenter: ToastCenter
 
     @State private var activeTool: EditTool?
     @State private var showOCRSheet = false

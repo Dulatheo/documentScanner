@@ -54,8 +54,7 @@ struct RootView: View {
                 exportTarget = ExportTarget(document: document, pendingSave: pendingSave)
             }
         ))
-        .environmentObject(toastCenter)
-        .toastOverlay()
+        .toastOverlay(toastCenter)
         .fullScreenCover(isPresented: $showCamera) {
             DocumentCameraView(
                 onFinish: { images in
@@ -82,6 +81,7 @@ struct RootView: View {
         .fullScreenCover(item: $editSession) { session in
             EditFlowView(
                 session: session,
+                toastCenter: toastCenter,
                 onCancel: { editSession = nil },
                 onSaved: { document in
                     editSession = nil
