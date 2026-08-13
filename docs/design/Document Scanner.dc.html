@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+--font:-apple-system,"SF Pro Text","SF Pro Display",system-ui,sans-serif;
+--bg:#F6F4F1;--surface:#FFFFFF;--ink:#171614;--ink2:rgba(23,22,20,.60);--ink3:rgba(23,22,20,.36);
+--line:rgba(23,22,20,.10);--accent:#A4552E;--accentSoft:rgba(164,85,46,.10);
+--paper:#FFFDFB;--paperLine:rgba(23,22,20,.13);--hl:rgba(226,178,62,.55);
+--shadow:0 1px 2px rgba(23,22,20,.06),0 10px 28px rgba(23,22,20,.07);
+}
+[data-dark="true"]{
+--bg:#121110;--surface:#1B1A18;--ink:#F2F0EC;--ink2:rgba(242,240,236,.60);--ink3:rgba(242,240,236,.32);
+--line:rgba(242,240,236,.12);--accent:#DE8E60;--accentSoft:rgba(222,142,96,.15);
+--paper:#242120;--paperLine:rgba(242,240,236,.17);--hl:rgba(226,178,62,.32);
+--shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.35);
+}
+[data-plat="Android"]{--font:Roboto,system-ui,sans-serif;}
+body{margin:0;background:#E9E6E1;font-family:var(--font);-webkit-font-smoothing:antialiased;}
+[data-dark="true"] .om-page{color-scheme:dark}
+a{color:var(--accent);text-decoration:none}a:hover{opacity:.65}
+@keyframes flyToStack{from{transform:translate(0,0) scale(1);opacity:1}to{transform:translate(280px,476px) scale(.17);opacity:.75}}
+@keyframes riseIn{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes sheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scanSweep{0%{top:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+@keyframes shutterFlash{0%{opacity:0}18%{opacity:.9}100%{opacity:0}}
+</style>
+</helmet>
+
+<div data-dark="{{ isDark }}" data-plat="{{ plat }}" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:22px;padding:36px 20px 60px;background:#E9E6E1;font-family:var(--font)">
+
+  <div style="display:flex;align-items:center;gap:8px;padding:7px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)">
+    <button onClick="{{ toggleTheme }}" style="border:0;cursor:pointer;font:500 12px var(--font);padding:8px 13px;border-radius:8px;background:#F1EEEA;color:#171614">{{ themeLabel }}</button>
+    <button onClick="{{ togglePlat }}" style="border:0;cursor:pointer;font:500 12px var(--font);padding:8px 13px;border-radius:8px;background:#F1EEEA;color:#171614">{{ platLabel }}</button>
+    <button onClick="{{ toggleSeed }}" style="border:0;cursor:pointer;font:500 12px var(--font);padding:8px 13px;border-radius:8px;background:#F1EEEA;color:#171614">{{ seedLabel }}</button>
+  </div>
+
+  <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ darkBool }}" hint-size="402px,874px">
+
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="height:100%;position:relative;background:var(--bg);overflow:hidden">
+        <div style="height:100%;overflow:auto;padding:66px 20px 150px;box-sizing:border-box">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px">
+            <div>
+              <div style="font:600 30px/1.15 var(--font);letter-spacing:-.5px;color:var(--ink)">Documents</div>
+              <div style="margin-top:5px;font:400 13px var(--font);color:var(--ink3)">{{ docCountLabel }}</div>
+            </div>
+            <sc-if value="{{ hasDocs }}" hint-placeholder-val="{{ true }}">
+              <div style="width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink2)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasDocs }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <sc-for list="{{ docs }}" as="doc" hint-placeholder-count="2">
+                <div onClick="{{ doc.open }}" style="cursor:pointer;animation:riseIn .32s ease both">
+                  <div style="position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);padding:14px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px">
+                    <div style="height:7px;width:52%;border-radius:2px;background:var(--paperLine);margin-bottom:4px"></div>
+                    <div style="height:4px;width:92%;border-radius:2px;background:var(--paperLine);opacity:.7"></div>
+                    <div style="height:4px;width:86%;border-radius:2px;background:var(--paperLine);opacity:.7"></div>
+                    <div style="height:4px;width:94%;border-radius:2px;background:var(--paperLine);opacity:.7"></div>
+                    <div style="height:4px;width:64%;border-radius:2px;background:var(--paperLine);opacity:.7"></div>
+                    <div style="height:4px;width:90%;border-radius:2px;background:var(--paperLine);opacity:.7"></div>
+                    <div style="height:4px;width:78%;border-radius:2px;background:var(--paperLine);opacity:.7"></div>
+                    <div style="position:absolute;right:8px;bottom:8px;font:500 9px var(--font);letter-spacing:.06em;padding:3px 6px;border-radius:5px;background:var(--accentSoft);color:var(--accent)">{{ doc.pagesLabel }}</div>
+                  </div>
+                  <div style="margin-top:9px;font:500 13px var(--font);color:var(--ink)">{{ doc.name }}</div>
+                  <div style="margin-top:2px;font:400 11px var(--font);color:var(--ink3)">{{ doc.date }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ noDocs }}" hint-placeholder-val="{{ false }}">
+            <div style="height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px">
+              <div style="width:112px;height:112px;border-radius:26px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);color:var(--accent);margin-bottom:20px">
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5.5A2.5 2.5 0 015.5 3H8"></path><path d="M16 3h2.5A2.5 2.5 0 0121 5.5V8"></path><path d="M21 16v2.5A2.5 2.5 0 0118.5 21H16"></path><path d="M8 21H5.5A2.5 2.5 0 013 18.5V16"></path><path d="M3.5 12h17"></path></svg>
+              </div>
+              <div style="font:600 19px var(--font);color:var(--ink)">No documents yet</div>
+              <div style="max-width:250px;font:400 14px/1.5 var(--font);color:var(--ink2);text-wrap:pretty">Scanned documents are saved here. Point your camera at a page to begin.</div>
+              <button onClick="{{ goCamera }}" style="margin-top:20px;cursor:pointer;border:0;display:flex;align-items:center;gap:9px;padding:14px 22px;border-radius:14px;background:var(--accent);color:#fff;font:500 15px var(--font);box-shadow:var(--shadow)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 8V5.5A2.5 2.5 0 015.5 3H8"></path><path d="M16 3h2.5A2.5 2.5 0 0121 5.5V8"></path><path d="M21 16v2.5A2.5 2.5 0 0118.5 21H16"></path><path d="M8 21H5.5A2.5 2.5 0 013 18.5V16"></path><path d="M3.5 12h17"></path></svg>
+                Scan a document
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;bottom:0;height:120px;pointer-events:none;background:linear-gradient(to top,var(--bg) 40%,transparent)"></div>
+        <button onClick="{{ goCamera }}" title="Scan" style="position:absolute;left:50%;bottom:46px;transform:translateX(-50%);width:64px;height:64px;border-radius:32px;border:0;cursor:pointer;background:var(--accent);color:#fff;display:grid;place-items:center;box-shadow:0 6px 20px rgba(0,0,0,.22)">
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5.5A2.5 2.5 0 015.5 3H8"></path><path d="M16 3h2.5A2.5 2.5 0 0121 5.5V8"></path><path d="M21 16v2.5A2.5 2.5 0 0118.5 21H16"></path><path d="M8 21H5.5A2.5 2.5 0 013 18.5V16"></path><path d="M3.5 12h17"></path></svg>
+        </button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCamera }}" hint-placeholder-val="{{ false }}">
+      <div style="height:100%;position:relative;background:#0B0B0C;overflow:hidden;animation:fadeIn .2s ease both">
+        <div style="position:absolute;left:0;right:0;top:56px;display:flex;justify-content:center">
+          <div style="font:500 12px var(--font);color:rgba(255,255,255,.72);padding:7px 13px;border-radius:20px;background:rgba(255,255,255,.10)">Position the document in the frame</div>
+        </div>
+
+        <div style="position:absolute;left:36px;top:120px;width:330px;height:440px;border-radius:6px;overflow:hidden;background:linear-gradient(160deg,#2A2724,#191817)">
+          <div style="position:absolute;inset:26px 22px;background:rgba(255,255,255,.055);border:1.5px solid rgba(255,255,255,.5);border-radius:3px"></div>
+          <div style="position:absolute;left:0;right:0;height:2px;background:rgba(255,255,255,.5);animation:scanSweep 2.6s linear infinite"></div>
+          <div style="position:absolute;left:12px;top:12px;width:26px;height:26px;border-left:2px solid #fff;border-top:2px solid #fff"></div>
+          <div style="position:absolute;right:12px;top:12px;width:26px;height:26px;border-right:2px solid #fff;border-top:2px solid #fff"></div>
+          <div style="position:absolute;left:12px;bottom:12px;width:26px;height:26px;border-left:2px solid #fff;border-bottom:2px solid #fff"></div>
+          <div style="position:absolute;right:12px;bottom:12px;width:26px;height:26px;border-right:2px solid #fff;border-bottom:2px solid #fff"></div>
+        </div>
+
+        {{ flyEl }}
+        {{ flashEl }}
+
+        <sc-if value="{{ hasCaptures }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ finishScan }}" style="position:absolute;left:316px;top:596px;width:56px;height:74px;border-radius:5px;cursor:pointer;background:#F7F5F2;box-shadow:0 4px 14px rgba(0,0,0,.5),0 0 0 2px rgba(255,255,255,.85);padding:8px 7px;box-sizing:border-box;display:flex;flex-direction:column;gap:4px">
+            <div style="height:3px;width:70%;border-radius:2px;background:rgba(0,0,0,.28)"></div>
+            <div style="height:2px;width:100%;border-radius:2px;background:rgba(0,0,0,.16)"></div>
+            <div style="height:2px;width:92%;border-radius:2px;background:rgba(0,0,0,.16)"></div>
+            <div style="height:2px;width:96%;border-radius:2px;background:rgba(0,0,0,.16)"></div>
+            <div style="position:absolute;top:-7px;right:-7px;min-width:20px;height:20px;border-radius:10px;background:var(--accent);color:#fff;font:600 11px var(--font);display:grid;place-items:center">{{ captures }}</div>
+          </div>
+        </sc-if>
+
+        <div style="position:absolute;left:0;right:0;bottom:0;height:174px;background:rgba(12,12,13,.92);display:flex;align-items:flex-start;justify-content:space-between;padding:26px 30px 0;box-sizing:border-box">
+          <button onClick="{{ cancelScan }}" style="border:0;background:none;cursor:pointer;font:400 15px var(--font);color:rgba(255,255,255,.8);width:76px;text-align:left">Cancel</button>
+          <button onClick="{{ shoot }}" title="Scan" style="width:72px;height:72px;border-radius:36px;cursor:pointer;background:#fff;border:4px solid rgba(255,255,255,.28);box-shadow:0 0 0 3px rgba(255,255,255,.14)"></button>
+          <button onClick="{{ pickGallery }}" title="Gallery" style="width:76px;display:flex;justify-content:flex-end;border:0;background:none;cursor:pointer;color:rgba(255,255,255,.85)">
+            <span style="width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.12)">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"></rect><circle cx="8.5" cy="9.5" r="1.6"></circle><path d="M3.5 17l5-5 3.5 3.5 2.5-2.5 6 6"></path></svg>
+            </span>
+          </button>
+        </div>
+
+        <sc-if value="{{ hasCaptures }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ finishScan }}" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);border:0;cursor:pointer;padding:11px 26px;border-radius:22px;background:var(--accent);color:#fff;font:500 14px var(--font)">{{ finishLabel }}</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+      <div style="height:100%;position:relative;background:var(--bg);overflow:hidden;animation:fadeIn .2s ease both">
+        <div style="position:absolute;top:0;left:0;right:0;height:100px;padding:56px 18px 0;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--line);z-index:5">
+          <button onClick="{{ cancelEdit }}" style="border:0;background:none;cursor:pointer;font:400 15px var(--font);color:var(--ink2)">Cancel</button>
+          <div style="font:500 13px var(--font);color:var(--ink)">{{ pageLabel }}</div>
+          <button onClick="{{ saveDoc }}" style="border:0;background:none;cursor:pointer;font:600 15px var(--font);color:var(--accent)">Save</button>
+        </div>
+
+        <div style="position:absolute;top:100px;bottom:196px;left:0;right:0;overflow:auto;padding:22px 26px;box-sizing:border-box">
+          <div style="position:relative;background:var(--paper);border:1px solid var(--line);border-radius:4px;box-shadow:var(--shadow);padding:34px 28px 44px;min-height:430px">
+            <div style="font:600 15px var(--font);color:var(--ink);margin-bottom:4px">Lease Agreement</div>
+            <div style="font:400 11px var(--font);color:var(--ink3);margin-bottom:20px">Page {{ pageNum }} · 12 Aug 2026</div>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ lines }}" as="ln" hint-placeholder-count="9">
+                <div onClick="{{ ln.tap }}" style="height:9px;border-radius:2px;cursor:{{ ln.cursor }};width:{{ ln.w }};background:{{ ln.bg }}"></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ sigPlaced }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:{{ sigLeft }};top:{{ sigTop }};width:{{ sigWidth }};animation:fadeIn .3s ease both">
+                <svg viewBox="{{ sigBox }}" width="100%" style="display:block;overflow:visible" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <sc-for list="{{ strokes }}" as="st" hint-placeholder-count="1">
+                    <polyline points="{{ st.pts }}" stroke="{{ st.color }}" stroke-width="{{ st.w }}"></polyline>
+                  </sc-for>
+                </svg>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isPlacing }}" hint-placeholder-val="{{ false }}">
+              <div onPointerDown="{{ dragStart }}" onPointerMove="{{ dragMove }}" onPointerUp="{{ dragEnd }}" style="touch-action:none;cursor:grab;position:absolute;left:{{ sigLeft }};top:{{ sigTop }};width:{{ sigWidth }};padding:10px;box-sizing:content-box;border:1px dashed var(--accent);border-radius:4px;background:var(--accentSoft);z-index:4">
+                <svg viewBox="{{ sigBox }}" width="100%" style="display:block;overflow:visible;pointer-events:none" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <sc-for list="{{ strokes }}" as="st" hint-placeholder-count="1">
+                    <polyline points="{{ st.pts }}" stroke="{{ st.color }}" stroke-width="{{ st.w }}"></polyline>
+                  </sc-for>
+                </svg>
+                <div onPointerDown="{{ resizeStart }}" onPointerMove="{{ resizeMove }}" onPointerUp="{{ dragEnd }}" title="Resize" style="touch-action:none;position:absolute;right:-11px;bottom:-11px;width:26px;height:26px;border-radius:13px;background:var(--accent);border:2px solid var(--paper);cursor:nwse-resize;display:grid;place-items:center">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" style="pointer-events:none"><path d="M20 10V4h-6"></path><path d="M4 14v6h6"></path></svg>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isCropping }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;inset:14px;border:1.5px solid var(--accent);background:rgba(255,255,255,.02)">
+                <div style="position:absolute;left:-4px;top:-4px;width:20px;height:20px;border-left:4px solid var(--accent);border-top:4px solid var(--accent)"></div>
+                <div style="position:absolute;right:-4px;top:-4px;width:20px;height:20px;border-right:4px solid var(--accent);border-top:4px solid var(--accent)"></div>
+                <div style="position:absolute;left:-4px;bottom:-4px;width:20px;height:20px;border-left:4px solid var(--accent);border-bottom:4px solid var(--accent)"></div>
+                <div style="position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-right:4px solid var(--accent);border-bottom:4px solid var(--accent)"></div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:12px 14px 40px;box-sizing:border-box;z-index:6">
+          <div style="min-height:26px;display:flex;align-items:center;justify-content:center;font:400 12px var(--font);color:var(--ink2);padding:0 20px 6px;text-align:center">{{ hint }}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <button onClick="{{ toolCrop }}" style="border:0;cursor:pointer;padding:11px 4px 9px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 11px var(--font);background:{{ cropBg }};color:{{ cropFg }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 2v14a2 2 0 002 2h14"></path><path d="M2 6h14a2 2 0 012 2v14"></path></svg>
+              Crop
+            </button>
+            <button onClick="{{ toolHl }}" style="border:0;cursor:pointer;padding:11px 4px 9px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 11px var(--font);background:{{ hlBg }};color:{{ hlFg }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 15.5l7.5-7.5 3 3L11 18.5H8v-3z"></path><path d="M4 21.5h16"></path></svg>
+              Highlight
+            </button>
+            <button onClick="{{ toolOcr }}" style="border:0;cursor:pointer;padding:11px 4px 9px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 11px var(--font);background:{{ ocrBg }};color:{{ ocrFg }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 7V4h4"></path><path d="M21 7V4h-4"></path><path d="M3 17v3h4"></path><path d="M21 17v3h-4"></path><path d="M8 9.5V8h8v1.5"></path><path d="M12 8v8"></path></svg>
+              Text
+            </button>
+            <button onClick="{{ toolSign }}" style="border:0;cursor:pointer;padding:11px 4px 9px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 11px var(--font);background:{{ signBg }};color:{{ signFg }}">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16c3 0 4.5-11 7.5-11S13 13 15 13s2-2 4.5-2"></path><path d="M3 20.5h18"></path></svg>
+              Sign
+            </button>
+          </div>
+        </div>
+
+        <sc-if value="{{ showOcr }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:20;display:flex;align-items:flex-end;animation:fadeIn .2s ease both">
+            <div style="width:100%;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 22px 42px;box-sizing:border-box;animation:sheetIn .28s cubic-bezier(.32,.72,0,1) both">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <div style="font:600 16px var(--font);color:var(--ink)">Recognized text</div>
+                <button onClick="{{ closeSheets }}" style="border:0;background:none;cursor:pointer;font:400 14px var(--font);color:var(--ink2)">Done</button>
+              </div>
+              <sc-if value="{{ ocrBusy }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:26px 0;font:400 13px var(--font);color:var(--ink2)">Reading page…</div>
+              </sc-if>
+              <sc-if value="{{ ocrDone }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="max-height:250px;overflow:auto;padding:14px;border-radius:12px;background:var(--bg);border:1px solid var(--line);font:400 13px/1.65 var(--font);color:var(--ink);white-space:pre-wrap">{{ ocrText }}</div>
+                  <div style="display:flex;gap:10px;margin-top:14px">
+                    <button onClick="{{ copyText }}" style="flex:1;border:0;cursor:pointer;padding:13px;border-radius:12px;background:var(--accent);color:#fff;font:500 14px var(--font)">Copy text</button>
+                    <button onClick="{{ closeSheets }}" style="flex:1;border:1px solid var(--line);cursor:pointer;padding:13px;border-radius:12px;background:transparent;color:var(--ink);font:500 14px var(--font)">Keep as searchable</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isPlacing }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);padding:14px 18px 40px;box-sizing:border-box;animation:sheetIn .26s cubic-bezier(.32,.72,0,1) both">
+            <div style="font:400 12px var(--font);color:var(--ink2);text-align:center;margin-bottom:12px">Drag to position · pull the corner to resize</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <sc-for list="{{ colorOpts }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.tap }}" title="{{ c.name }}" style="width:30px;height:30px;border-radius:15px;cursor:pointer;background:{{ c.value }};border:2px solid {{ c.ring }};box-shadow:0 0 0 1px var(--line)"></button>
+              </sc-for>
+              <div style="flex:1"></div>
+              <button onClick="{{ redrawSig }}" style="border:0;background:none;cursor:pointer;font:400 13px var(--font);color:var(--ink2)">Redraw</button>
+              <button onClick="{{ commitSig }}" style="border:0;cursor:pointer;padding:11px 24px;border-radius:12px;background:var(--accent);color:#fff;font:600 14px var(--font)">Done</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDrawing }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:30;background:var(--bg);animation:fadeIn .22s ease both">
+            <div style="position:absolute;top:50%;left:50%;width:874px;height:402px;transform:translate(-50%,-50%) rotate(90deg);display:flex;flex-direction:column;box-sizing:border-box;padding:14px 22px 14px 58px">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 4px 10px">
+                <button onClick="{{ cancelDraw }}" style="border:0;background:none;cursor:pointer;font:400 15px var(--font);color:var(--ink2)">Cancel</button>
+                <div style="font:500 13px var(--font);color:var(--ink)">Sign with your finger</div>
+                <button onClick="{{ finishDraw }}" style="border:0;cursor:pointer;padding:9px 22px;border-radius:11px;background:var(--accent);color:#fff;font:600 14px var(--font)">Done</button>
+              </div>
+
+              <div onPointerDown="{{ padDown }}" onPointerMove="{{ padMove }}" onPointerUp="{{ padUp }}" onPointerLeave="{{ padUp }}" style="touch-action:none;position:relative;flex:1;border-radius:10px;background:var(--paper);border:1px solid var(--line);cursor:crosshair;overflow:hidden">
+                <svg viewBox="0 0 834 250" width="100%" height="100%" preserveAspectRatio="none" fill="none" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;inset:0;pointer-events:none">
+                  <sc-for list="{{ strokes }}" as="st" hint-placeholder-count="1">
+                    <polyline points="{{ st.pts }}" stroke="{{ st.color }}" stroke-width="{{ st.w }}"></polyline>
+                  </sc-for>
+                </svg>
+                <div style="position:absolute;left:40px;right:40px;bottom:52px;height:1px;background:var(--paperLine);pointer-events:none"></div>
+                <div style="position:absolute;left:40px;bottom:30px;font:400 11px var(--font);color:var(--ink3);pointer-events:none">Sign above the line</div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:22px;padding:12px 4px 2px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <sc-for list="{{ colorOpts }}" as="c" hint-placeholder-count="4">
+                    <button onClick="{{ c.tap }}" title="{{ c.name }}" style="width:30px;height:30px;border-radius:15px;cursor:pointer;background:{{ c.value }};border:2px solid {{ c.ring }};box-shadow:0 0 0 1px var(--line)"></button>
+                  </sc-for>
+                </div>
+                <div style="flex:1;display:flex;align-items:center;gap:12px">
+                  <div style="font:400 11px var(--font);color:var(--ink3);white-space:nowrap">Thickness</div>
+                  <div onPointerDown="{{ thickDown }}" onPointerMove="{{ thickMove }}" onPointerUp="{{ thickUp }}" style="touch-action:none;position:relative;flex:1;height:28px;display:flex;align-items:center;cursor:pointer">
+                    <div style="width:100%;height:4px;border-radius:2px;background:var(--line);pointer-events:none"></div>
+                    <div style="position:absolute;left:0;top:12px;height:4px;border-radius:2px;width:{{ thickPct }};background:var(--accent);pointer-events:none"></div>
+                    <div style="position:absolute;top:50%;left:{{ thickPct }};transform:translate(-50%,-50%);width:22px;height:22px;border-radius:11px;background:var(--accent);border:2px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.25);pointer-events:none"></div>
+                  </div>
+                  <div style="width:52px;display:flex;align-items:center;justify-content:flex-end">
+                    <div style="width:34px;border-radius:6px;background:{{ sigColor }};height:{{ thickPx }}"></div>
+                  </div>
+                </div>
+                <button onClick="{{ clearSig }}" style="border:1px solid var(--line);background:transparent;cursor:pointer;padding:9px 18px;border-radius:11px;font:500 13px var(--font);color:var(--ink2)">Clear</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDoc }}" hint-placeholder-val="{{ false }}">
+      <div style="height:100%;position:relative;background:var(--bg);overflow:hidden;animation:fadeIn .2s ease both">
+        <div style="position:absolute;top:0;left:0;right:0;height:100px;padding:56px 14px 0 8px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--line);z-index:5">
+          <button onClick="{{ goHome }}" style="border:0;background:none;cursor:pointer;display:flex;align-items:center;gap:2px;font:400 15px var(--font);color:var(--accent)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+            Documents
+          </button>
+          <div style="font:500 13px var(--font);color:var(--ink)">{{ openName }}</div>
+          <div style="width:56px"></div>
+        </div>
+
+        <div style="position:absolute;top:100px;bottom:104px;left:0;right:0;overflow:auto;padding:20px 26px 30px;box-sizing:border-box">
+          <div style="position:relative;background:var(--paper);border:1px solid var(--line);border-radius:4px;box-shadow:var(--shadow);padding:30px 26px 40px;min-height:400px">
+            <div style="font:600 15px var(--font);color:var(--ink);margin-bottom:18px">Lease Agreement</div>
+            <div style="display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ lines }}" as="ln" hint-placeholder-count="9">
+                <div style="height:9px;border-radius:2px;width:{{ ln.w }};background:{{ ln.bg }}"></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ sigPlaced }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:{{ sigLeft }};top:{{ sigTop }};width:{{ sigWidth }}">
+                <svg viewBox="{{ sigBox }}" width="100%" style="display:block;overflow:visible" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <sc-for list="{{ strokes }}" as="st" hint-placeholder-count="1">
+                    <polyline points="{{ st.pts }}" stroke="{{ st.color }}" stroke-width="{{ st.w }}"></polyline>
+                  </sc-for>
+                </svg>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasComments }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px">
+              <div style="font:500 12px var(--font);color:var(--ink3);letter-spacing:.04em">COMMENTS</div>
+              <sc-for list="{{ comments }}" as="c" hint-placeholder-count="1">
+                <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;animation:riseIn .28s ease both">
+                  <div style="font:400 13px/1.5 var(--font);color:var(--ink)">{{ c.text }}</div>
+                  <div style="margin-top:5px;font:400 11px var(--font);color:var(--ink3)">{{ c.meta }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:12px 18px 40px;box-sizing:border-box;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;z-index:6">
+          <button onClick="{{ openComment }}" style="border:0;cursor:pointer;background:none;padding:8px 0;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 11px var(--font);color:var(--ink2)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5z"></path></svg>
+            Comment
+          </button>
+          <button onClick="{{ openExport }}" style="border:0;cursor:pointer;background:none;padding:8px 0;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 11px var(--font);color:var(--ink2)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"></path><path d="M8 10l4 4 4-4"></path><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"></path></svg>
+            Export
+          </button>
+        </div>
+
+        <sc-if value="{{ showComment }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:20;display:flex;align-items:flex-end;animation:fadeIn .2s ease both">
+            <div style="width:100%;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 22px 42px;box-sizing:border-box;animation:sheetIn .28s cubic-bezier(.32,.72,0,1) both">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+                <div style="font:600 16px var(--font);color:var(--ink)">Add comment</div>
+                <button onClick="{{ closeSheets }}" style="border:0;background:none;cursor:pointer;font:400 14px var(--font);color:var(--ink2)">Cancel</button>
+              </div>
+              <textarea onChange="{{ draftChange }}" value="{{ draft }}" placeholder="Note for this page" rows="3" style="width:100%;box-sizing:border-box;resize:none;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--font);padding:12px"></textarea>
+              <button onClick="{{ postComment }}" style="width:100%;margin-top:12px;border:0;cursor:pointer;padding:14px;border-radius:12px;background:var(--accent);color:#fff;font:500 15px var(--font)">Post</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showExport }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:24;display:flex;align-items:flex-end;animation:fadeIn .2s ease both">
+        <div style="width:100%;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 22px 40px;box-sizing:border-box;animation:sheetIn .28s cubic-bezier(.32,.72,0,1) both">
+          <div style="text-align:center;margin-bottom:4px;font:600 16px var(--font);color:var(--ink)">Export document</div>
+          <div style="text-align:center;margin-bottom:18px;font:400 12px var(--font);color:var(--ink3)">{{ exportSubtitle }}</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button onClick="{{ exportPdf }}" style="text-align:left;border:1px solid var(--line);cursor:pointer;background:var(--bg);border-radius:14px;padding:15px 16px;display:flex;align-items:center;gap:13px">
+              <span style="width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--accentSoft);color:var(--accent);font:600 10px var(--font)">PDF</span>
+              <span style="display:block"><span style="display:block;font:500 14px var(--font);color:var(--ink)">PDF document</span><span style="display:block;margin-top:2px;font:400 11px var(--font);color:var(--ink3)">Searchable text, all pages</span></span>
+            </button>
+            <button onClick="{{ exportJpg }}" style="text-align:left;border:1px solid var(--line);cursor:pointer;background:var(--bg);border-radius:14px;padding:15px 16px;display:flex;align-items:center;gap:13px">
+              <span style="width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--accentSoft);color:var(--accent);font:600 10px var(--font)">JPG</span>
+              <span style="display:block"><span style="display:block;font:500 14px var(--font);color:var(--ink)">JPG images</span><span style="display:block;margin-top:2px;font:400 11px var(--font);color:var(--ink3)">One image per page</span></span>
+            </button>
+          </div>
+          <button onClick="{{ dismissExport }}" style="width:100%;margin-top:14px;border:1px solid var(--line);cursor:pointer;background:transparent;border-radius:14px;padding:14px;font:500 15px var(--font);color:var(--ink)">{{ exportDismissLabel }}</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showShare }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:26;display:flex;align-items:flex-end;animation:fadeIn .2s ease both">
+        <div style="width:100%;background:var(--surface);border-radius:20px 20px 0 0;padding:14px 0 34px;box-sizing:border-box;animation:sheetIn .28s cubic-bezier(.32,.72,0,1) both">
+          <div style="width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 14px"></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:0 20px 14px;border-bottom:1px solid var(--line)">
+            <div style="width:44px;height:56px;border-radius:5px;background:var(--paper);border:1px solid var(--line);display:grid;place-items:center;font:600 10px var(--font);color:var(--accent)">{{ shareFmt }}</div>
+            <div>
+              <div style="font:500 14px var(--font);color:var(--ink)">{{ shareFileName }}</div>
+              <div style="margin-top:2px;font:400 11px var(--font);color:var(--ink3)">{{ shareFileMeta }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:18px;padding:18px 20px;overflow:auto">
+            <sc-for list="{{ shareTargets }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.tap }}" style="border:0;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;padding:0;min-width:62px">
+                <span style="width:58px;height:58px;border-radius:29px;display:grid;place-items:center;background:var(--accentSoft);color:var(--accent);font:600 17px var(--font)">{{ t.initial }}</span>
+                <span style="font:400 11px var(--font);color:var(--ink2)">{{ t.label }}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="border-top:1px solid var(--line);padding:0 20px">
+            <sc-for list="{{ shareActions }}" as="row" hint-placeholder-count="3">
+              <button onClick="{{ row.tap }}" style="width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;padding:15px 2px;font:400 15px var(--font);color:var(--ink)">{{ row.label }}</button>
+            </sc-for>
+          </div>
+          <div style="padding:14px 20px 0">
+            <button onClick="{{ dismissShare }}" style="width:100%;border:0;cursor:pointer;background:var(--bg);border-radius:14px;padding:14px;font:500 15px var(--font);color:var(--ink)">{{ shareDismissLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:50%;bottom:170px;transform:translateX(-50%);z-index:40;padding:11px 18px;border-radius:20px;background:rgba(20,19,18,.92);color:#fff;font:500 13px var(--font);white-space:nowrap;animation:riseIn .24s ease both">{{ toast }}</div>
+    </sc-if>
+
+  </x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;dark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;iOS&quot;,&quot;Android&quot;],&quot;default&quot;:&quot;iOS&quot;,&quot;tsType&quot;:&quot;'iOS'|'Android'&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+const LINES = [
+  { w: '96%' }, { w: '88%' }, { w: '72%' }, { w: '0%' },
+  { w: '94%' }, { w: '90%' }, { w: '60%' }, { w: '0%' },
+  { w: '92%' }, { w: '86%' }, { w: '94%' }, { w: '68%' },
+];
+const OCR_TEXT = 'LEASE AGREEMENT\n\nThis agreement is made on 12 August 2026 between the Landlord and the Tenant for the premises at 14 Fielding Road, Unit 3.\n\nThe term begins 1 September 2026 and continues for twelve (12) months. Rent of 1,450 is payable monthly in advance on the first day of each month.\n\nThe deposit of 1,450 is held in a protected scheme and returned within ten working days of the end of the term, less any agreed deductions.';
+
+class Component extends DCLogic {
+  state = {
+    dark: false, plat: 'iOS', screen: 'home',
+    docs: [], captures: 0, flying: false,
+    tool: null, sheet: null, ocrStage: null, highlights: [],
+    signMode: null, strokes: [], pen: false, sigCommitted: false,
+    sigColor: 'var(--ink)', sigThick: 5, sigBox: '0 0 834 250',
+    sigX: 60, sigY: 300, sigW: 170,
+    openDoc: null, comments: [], draft: '', toast: null,
+    pendingSave: false, shareFmt: 'PDF',
+  };
+}
+</script>
+</body>
+</html>
