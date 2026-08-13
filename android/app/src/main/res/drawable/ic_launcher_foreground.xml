@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon foreground, per DESIGN_SPEC.md §3.4:
+  a paper-colored (#F6F4F1) page glyph with a folded top-right corner
+  (#D9D4CD), two short accent-colored (#A4552E) text lines, framed by four
+  paper-colored viewfinder/scan-corner brackets.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Scan-corner brackets (viewfinder frame) -->
+    <path
+        android:pathData="M22,22 L36,22 L36,25 L25,25 L25,36 L22,36 Z"
+        android:fillColor="#F6F4F1" />
+    <path
+        android:pathData="M86,22 L72,22 L72,25 L83,25 L83,36 L86,36 Z"
+        android:fillColor="#F6F4F1" />
+    <path
+        android:pathData="M22,86 L22,72 L25,72 L25,83 L36,83 L36,86 Z"
+        android:fillColor="#F6F4F1" />
+    <path
+        android:pathData="M86,86 L86,72 L83,72 L83,83 L72,83 L72,86 Z"
+        android:fillColor="#F6F4F1" />
+
+    <!-- Document page, with folded top-right corner -->
+    <path
+        android:pathData="M36,28 L62,28 L72,38 L72,80 L36,80 Z"
+        android:fillColor="#F6F4F1" />
+    <path
+        android:pathData="M62,28 L72,38 L62,38 Z"
+        android:fillColor="#D9D4CD" />
+
+    <!-- Two accent text lines -->
+    <path
+        android:pathData="M44,50 L64,50 L64,54 L44,54 Z"
+        android:fillColor="#A4552E" />
+    <path
+        android:pathData="M44,60 L60,60 L60,64 L44,64 Z"
+        android:fillColor="#A4552E" />
+</vector>
