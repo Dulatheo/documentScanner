@@ -219,9 +219,18 @@ fun EditScreen(
                 modifier = Modifier.weight(1f),
             ) { pageIndex ->
                 val page = pages[pageIndex]
+                // While the Crop tool is active, display the same image commitCropSuspend()
+                // will crop from (the pristine pre-crop original when one exists) rather than
+                // the page's current — possibly already-cropped — imagePath. Otherwise, on a
+                // second or later crop of the same page, the on-screen drag coordinates (and
+                // the displaySize used to scale them) would be measured against the previous
+                // crop's image while commitCropSuspend() decodes and scales against the
+                // original's different pixel dimensions, producing a wrong crop region.
+                val cropSourcePath = page.originalImagePath ?: page.imagePath
+                val isCurrentPageCropping = pageIndex == scanSession.currentIndex && activeTool == EditTool.CROP
                 Box(modifier = Modifier.fillMaxSize().padding(vertical = 22.dp)) {
                     PageCard(
-                        imagePath = page.imagePath,
+                        imagePath = if (isCurrentPageCropping) cropSourcePath else page.imagePath,
                         ocrLines = if (pageIndex == scanSession.currentIndex) page.ocrLines else emptyList(),
                         onLineTap = if (pageIndex == scanSession.currentIndex && activeTool == EditTool.HIGHLIGHT) {
                             { idx ->
@@ -233,8 +242,8 @@ fun EditScreen(
                             }
                         } else null,
                         signature = if (pageIndex == scanSession.currentIndex && signMode != SignMode.PLACING) page.signature else null,
-                        cropCorners = if (pageIndex == scanSession.currentIndex && activeTool == EditTool.CROP) cropCorners else null,
-                        onCropCornersChange = if (pageIndex == scanSession.currentIndex && activeTool == EditTool.CROP) {
+                        cropCorners = if (isCurrentPageCropping) cropCorners else null,
+                        onCropCornersChange = if (isCurrentPageCropping) {
                             { cropCorners = it }
                         } else null,
                         placementRect = if (pageIndex == scanSession.currentIndex && signMode == SignMode.PLACING) placementRect else null,

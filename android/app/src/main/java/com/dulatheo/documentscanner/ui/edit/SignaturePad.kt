@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +61,14 @@ fun SignaturePad(
     var currentPoints by remember { mutableStateOf(listOf<SigPoint>()) }
     var colorHex by remember { mutableStateOf(SignatureColorOptions[0].second) }
     var thickness by remember { mutableFloatStateOf(5f) }
+    // detectDragGestures runs for the lifetime of one continuous gesture inside a
+    // coroutine that is only relaunched when the pointerInput key changes. Keying
+    // this directly on colorHex/thickness (which can change from the color swatches
+    // / thickness slider while a stroke is mid-drag) would restart — and truncate —
+    // an in-progress stroke. Key on Unit and read the latest values via
+    // rememberUpdatedState instead, matching CropOverlay/SignaturePlacement.
+    val currentColorHex = rememberUpdatedState(colorHex)
+    val currentThickness = rememberUpdatedState(thickness)
 
     Box(
         modifier = Modifier
@@ -102,14 +111,18 @@ fun SignaturePad(
                     .clip(RoundedCornerShape(10.dp))
                     .background(tokens.paper)
                     .border(1.dp, tokens.line, RoundedCornerShape(10.dp))
-                    .pointerInput(colorHex, thickness) {
+                    .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { offset ->
                                 currentPoints = listOf(SigPoint(offset.x, offset.y))
                             },
                             onDragEnd = {
                                 if (currentPoints.size > 1) {
-                                    strokes = strokes + SignatureStroke(currentPoints, colorHex, thickness)
+                                    strokes = strokes + SignatureStroke(
+                                        currentPoints,
+                                        currentColorHex.value,
+                                        currentThickness.value,
+                                    )
                                 }
                                 currentPoints = emptyList()
                             },
