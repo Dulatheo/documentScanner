@@ -1,5 +1,28 @@
 import SwiftUI
 
+/// Wraps `OCRSheetView` with its own subscription to the current page's
+/// `PageEditState`. `EditFlowView` only observes `EditSession` (not the
+/// nested `PageEditState`), so a background OCR run flipping
+/// `isRecognizingText`/`ocrText` wouldn't otherwise trigger the `.sheet`
+/// content closure to re-evaluate — this view's `@ObservedObject` gives it
+/// an independent, live subscription to those changes.
+struct OCRSheetContainer: View {
+    @ObservedObject var page: PageEditState
+    var onCopy: () -> Void
+    var onKeepSearchable: () -> Void
+    var onDone: () -> Void
+
+    var body: some View {
+        OCRSheetView(
+            isBusy: page.isRecognizingText,
+            text: page.ocrText,
+            onCopy: onCopy,
+            onKeepSearchable: onKeepSearchable,
+            onDone: onDone
+        )
+    }
+}
+
 /// Bottom sheet for the Text (OCR) tool (DESIGN_SPEC §4.3): "Reading
 /// page…" while busy, then the recognized text with Copy and "Keep as
 /// searchable" actions.
