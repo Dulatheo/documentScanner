@@ -107,21 +107,44 @@ committing it to the library.
 - Bottom control bar (dark scrim): **Cancel** (left, text button, discards
   captures and returns Home), **shutter** (center, large white circle),
   **gallery/photo picker** (right, imports an existing photo as a page).
-- Each shutter tap captures a page: a thumbnail "flies" into a capture-stack
-  indicator (bottom-right corner) with a brief shutter-flash flash and the
-  stack's page-count badge increments.
+- Each shutter tap captures a page and shows a **per-shot review step**
+  (full-screen captured photo, bottom bar with **Retake** — secondary/
+  outlined, bottom-left — and **Done** — primary/filled `accent`, bottom-
+  right/prominent). Tapping **Done** commits the page to the capture stack
+  (a thumbnail "flies" into the stack indicator with a brief shutter-flash
+  and the count badge increments) and returns to the live camera for the
+  next page; tapping **Retake** discards the shot and returns to the live
+  camera to reshoot the same page.
 - Once `captures > 0`, a **"Done · N pages"** pill appears (and the stack
-  thumbnail itself is tappable) to proceed to the page editor for the first
-  captured page.
-- Real capture should use the platform's built-in document-scanning capture
-  UI so edge detection / auto-crop / multi-page flow is production quality
-  rather than hand-rolled:
-  - iOS: `VNDocumentCameraViewController` (VisionKit).
-  - Android: ML Kit **Document Scanner API** (`GmsDocumentScanning`), which
-    provides the same capture → auto-crop → multi-page → review flow.
-  These replace the mock's custom shutter/gallery/stack chrome with the
-  platform's native equivalent; behaviorally they satisfy the same user
-  story (frame a page, capture multiple pages, review, continue).
+  thumbnail itself is tappable) to finish the whole capture session and
+  proceed to the page editor for the first captured page.
+- Platform capture implementation (**this diverges by platform** — see
+  below):
+  - **Android**: uses the platform's built-in document-scanning capture UI
+    so edge detection / auto-crop / multi-page flow is production quality
+    rather than hand-rolled — ML Kit **Document Scanner API**
+    (`GmsDocumentScanning`), which provides its own capture → auto-crop →
+    multi-page → review flow. This replaces the mock's custom shutter/
+    gallery/stack chrome with the platform's native equivalent; behaviorally
+    it satisfies the same user story (frame a page, capture multiple pages,
+    review, continue). Android's per-shot review step is whatever
+    `GmsDocumentScanning` itself presents (not independently customizable,
+    same rationale as iOS's original VisionKit approach below).
+  - **iOS**: originally used `VNDocumentCameraViewController` (VisionKit)
+    for the same reason as Android. That was replaced with a **fully custom
+    AVFoundation camera** (live `AVCaptureSession` preview, `AVCapturePhotoOutput`
+    for the shutter, a hand-built per-shot review screen) after user testing
+    on-device showed VisionKit's own per-shot review screen — a sealed,
+    non-customizable system UI — put **Retake** in the prominent position
+    and the "keep this page" action in a small, easy-to-miss back-chevron,
+    which is confusing and is exactly the "Retake secondary / Done primary"
+    layout above. Apple's public API for `VNDocumentCameraViewController`
+    doesn't expose any way to relabel, reposition, or intercept that screen,
+    so matching the desired UX required dropping VisionKit and hand-rolling
+    capture. The trade-off: iOS loses VisionKit's built-in real-time edge
+    detection / auto-crop; iOS relies on the existing manual **Crop** tool in
+    the Edit flow (§4.3) for perspective correction instead of an
+    auto-detected quad at capture time.
 
 ### 4.3 Edit (per-page editor)
 
@@ -271,9 +294,14 @@ UI-templating runtime (`support.js`), not a real app — it exists to pin down
 layout, copy, and interaction sequencing. Two places where the native apps
 should do *more* than the mock, not less:
 
-1. **Capture**: the mock's camera screen is a static art-directed frame; the
-   real apps use the OS's real document-scanning capture (VisionKit / ML
-   Kit) for genuine edge detection and multi-page capture.
+1. **Capture**: the mock's camera screen is a static art-directed frame.
+   Android uses the OS's real document-scanning capture (ML Kit) for genuine
+   edge detection and multi-page capture. iOS originally did the same with
+   VisionKit, but now uses a custom AVFoundation camera instead — see §4.2
+   for why — so it implements the mock's live-preview/shutter/stack chrome
+   directly rather than delegating to a system scanner, and doesn't get
+   auto edge-detection at capture time (the manual Crop tool in §4.3 covers
+   that instead).
 2. **Share**: the mock's share sheet is a hand-drawn list of four apps; the
    real apps hand off to the OS's native share surface, which is strictly
    more capable and is what users expect on both platforms.
