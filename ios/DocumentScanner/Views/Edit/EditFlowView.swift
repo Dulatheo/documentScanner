@@ -37,9 +37,8 @@ struct EditFlowView: View {
             }
         }
         .sheet(isPresented: $showOCRSheet) {
-            OCRSheetView(
-                isBusy: session.current.isRecognizingText,
-                text: session.current.ocrText,
+            OCRSheetContainer(
+                page: session.current,
                 onCopy: {
                     UIPasteboard.general.string = session.current.ocrText
                     toastCenter.show("Copied")
