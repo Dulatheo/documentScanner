@@ -9,6 +9,14 @@ import UIKit
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
 
+    /// Hands the caller the underlying `AVCaptureVideoPreviewLayer` once
+    /// it's created, so the live document-detection overlay can convert
+    /// Vision's normalized frame coordinates into on-screen points via
+    /// `layerRectConverted(fromMetadataOutputRect:)` — the correct way to
+    /// account for `.resizeAspectFill`'s crop, rather than hand-rolling
+    /// aspect-fill math.
+    var onLayerReady: ((AVCaptureVideoPreviewLayer) -> Void)?
+
     func makeUIView(context: Context) -> PreviewContainerView {
         let view = PreviewContainerView()
         view.previewLayer.session = session
@@ -16,6 +24,7 @@ struct CameraPreviewView: UIViewRepresentable {
         if let connection = view.previewLayer.connection, connection.isVideoOrientationSupported {
             connection.videoOrientation = .portrait
         }
+        onLayerReady?(view.previewLayer)
         return view
     }
 

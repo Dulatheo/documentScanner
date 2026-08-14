@@ -1,5 +1,6 @@
 import AVFoundation
 import UIKit
+import Vision
 
 /// Owns the `AVCaptureSession` powering the custom camera screen
 /// (DESIGN_SPEC §4.2). Replaces `VNDocumentCameraViewController` so the
@@ -9,6 +10,13 @@ import UIKit
 /// `AVCaptureSession` mutation happens on a dedicated background queue per
 /// Apple's guidance, with `@Published` state updated back on the main
 /// queue for SwiftUI.
+///
+/// Also runs live document-boundary detection against the video feed
+/// (`VNDetectDocumentSegmentationRequest`, the same Vision building block
+/// VisionKit's own scanner is built on) so the viewfinder can show a
+/// live-tracked quad the way VisionKit did — without pulling in VisionKit's
+/// sealed capture UI. This is purely a visual aid: the detected quad is
+/// never used to crop the captured photo.
 final class CameraSession: NSObject, ObservableObject {
     enum AuthorizationState {
         case notDetermined
@@ -16,7 +24,23 @@ final class CameraSession: NSObject, ObservableObject {
         case denied
     }
 
+    /// A document quad detected in the live feed, in normalized
+    /// **top-left-origin** coordinates (0...1 in each axis) — SwiftUI's
+    /// convention. Vision itself reports normalized coordinates with the
+    /// origin at the bottom-left; that flip is applied once here so the
+    /// view layer never has to think about Vision's coordinate space.
+    struct DetectedQuad: Equatable {
+        var topLeft: CGPoint
+        var topRight: CGPoint
+        var bottomRight: CGPoint
+        var bottomLeft: CGPoint
+    }
+
     @Published private(set) var authorizationState: AuthorizationState = .notDetermined
+
+    /// The most recently detected document quad in the live feed, or `nil`
+    /// when nothing is currently detected. Updated on the main queue.
+    @Published private(set) var detectedQuad: DetectedQuad?
 
     /// The live capture session. `CameraPreviewView` attaches this directly
     /// to its `AVCaptureVideoPreviewLayer`.
@@ -24,8 +48,21 @@ final class CameraSession: NSObject, ObservableObject {
 
     private let sessionQueue = DispatchQueue(label: "com.dulatheo.documentscanner.camera-session")
     private let photoOutput = AVCapturePhotoOutput()
+    private let videoDataOutput = AVCaptureVideoDataOutput()
     private var isConfigured = false
     private var captureCompletion: ((UIImage?) -> Void)?
+
+    // MARK: - Live document detection
+
+    private let videoAnalysisQueue = DispatchQueue(label: "com.dulatheo.documentscanner.camera-video-analysis")
+    /// Throttles Vision analysis to ~5 frames/sec — running the segmentation
+    /// request on every delivered frame is wasteful and can stall the
+    /// analysis queue, since `VNImageRequestHandler.perform` is synchronous.
+    private let minAnalysisInterval: TimeInterval = 1.0 / 5.0
+    private var lastAnalysisTime = Date.distantPast
+    /// Below this confidence, treat the frame as "nothing detected" rather
+    /// than showing a shaky/unreliable quad.
+    private let minDetectionConfidence: VNConfidence = 0.5
 
     // MARK: - Permission
 
@@ -96,11 +133,28 @@ final class CameraSession: NSObject, ObservableObject {
             session.addOutput(photoOutput)
         }
 
+        // Discard late frames rather than queuing them — this is a live
+        // analysis feed, not a recording, so the freshest frame is always
+        // preferable to catching up on a backlog.
+        videoDataOutput.alwaysDiscardsLateVideoFrames = true
+        if session.canAddOutput(videoDataOutput) {
+            session.addOutput(videoDataOutput)
+        }
+
         session.commitConfiguration()
 
         if let connection = photoOutput.connection(with: .video), connection.isVideoOrientationSupported {
             connection.videoOrientation = .portrait
         }
+
+        // Rotate delivered buffers to portrait up-front (matching the photo
+        // output above) so Vision can be told the frame is already `.up`,
+        // rather than reasoning about the sensor's native landscape
+        // orientation on every frame.
+        if let connection = videoDataOutput.connection(with: .video), connection.isVideoOrientationSupported {
+            connection.videoOrientation = .portrait
+        }
+        videoDataOutput.setSampleBufferDelegate(self, queue: videoAnalysisQueue)
 
         isConfigured = true
     }
@@ -143,6 +197,56 @@ extension CameraSession: AVCapturePhotoCaptureDelegate {
         DispatchQueue.main.async {
             completion?(normalized)
         }
+    }
+}
+
+extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        let now = Date()
+        guard now.timeIntervalSince(lastAnalysisTime) >= minAnalysisInterval else { return }
+        lastAnalysisTime = now
+
+        // `perform` is synchronous; running it here (on `videoAnalysisQueue`,
+        // never the main queue or the session queue) keeps it off the UI
+        // thread while the queue's own seriality naturally paces analysis —
+        // no frame is picked up mid-analysis.
+        let request = VNDetectDocumentSegmentationRequest()
+        let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .up, options: [:])
+        do {
+            try handler.perform([request])
+            publish(quad: Self.quad(from: request.results?.first, minConfidence: minDetectionConfidence))
+        } catch {
+            publish(quad: nil)
+        }
+    }
+
+    private func publish(quad: DetectedQuad?) {
+        DispatchQueue.main.async { [weak self] in
+            self?.detectedQuad = quad
+        }
+    }
+
+    /// Converts a `VNRectangleObservation`'s corners (normalized,
+    /// bottom-left origin) into `DetectedQuad` (normalized, top-left
+    /// origin), or `nil` when there's no confident observation.
+    private static func quad(
+        from observation: VNRectangleObservation?,
+        minConfidence: VNConfidence
+    ) -> DetectedQuad? {
+        guard let observation, observation.confidence >= minConfidence else { return nil }
+        func flipped(_ point: CGPoint) -> CGPoint {
+            CGPoint(x: point.x, y: 1 - point.y)
+        }
+        return DetectedQuad(
+            topLeft: flipped(observation.topLeft),
+            topRight: flipped(observation.topRight),
+            bottomRight: flipped(observation.bottomRight),
+            bottomLeft: flipped(observation.bottomLeft)
+        )
     }
 }
 
