@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Draggable-corner quad refinement for the Crop tool (DESIGN_SPEC §4.3).
-/// VisionKit already auto-crops on capture; this lets the user nudge the
-/// four corners before perspective correction is re-applied.
+/// Capture has no auto edge-detection, so this quad starts as the full image;
+/// the user drags the four corners to fit the page before perspective
+/// correction is applied.
 struct CropOverlayView: View {
     @Binding var quad: Quad
     let size: CGSize

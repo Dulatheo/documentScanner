@@ -10,7 +10,7 @@ final class PageEditState: ObservableObject, Identifiable {
 
     /// Current perspective-corrected image shown on the paper card.
     @Published var image: UIImage
-    /// Pre-crop capture (VisionKit's own auto-cropped output), retained so
+    /// Pre-crop capture (the raw camera/gallery photo), retained so
     /// Crop can be re-applied from scratch.
     @Published var originalImage: UIImage
 
