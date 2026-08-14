@@ -10,16 +10,28 @@ struct PageEditorView: View {
     @Environment(\.theme) private var theme
     @Environment(\.colorScheme) private var colorScheme
 
+    /// `pendingQuad`/`committedQuad` are normalized to `originalImage` (see
+    /// `PageEditState`), and `commitCropIfNeeded()` always perspective-corrects
+    /// from `originalImage`. So while the Crop tool is active, the base image
+    /// shown here must be `originalImage` too — otherwise, on a second-or-later
+    /// crop of the same page, the on-screen drag coordinates (and the `size`
+    /// used to scale/normalize them) would be measured against the previous
+    /// crop's (differently-sized) result while the actual crop math runs
+    /// against the pristine original, producing a wrong crop region.
+    private var displayImage: UIImage {
+        activeTool == .crop ? pageState.originalImage : pageState.image
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
             ZStack(alignment: .topLeading) {
-                Image(uiImage: pageState.image)
+                Image(uiImage: displayImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: size.width, height: size.height)
 
-                if activeTool != .highlight, !pageState.highlightRegions.isEmpty {
+                if activeTool != .highlight, activeTool != .crop, !pageState.highlightRegions.isEmpty {
                     committedHighlights(imageSize: pageState.image.size, size: size)
                 }
 
@@ -44,21 +56,23 @@ struct PageEditorView: View {
                     )
                 }
 
-                if let placing = placingSignature {
-                    SignaturePlacementView(
-                        signature: Binding(get: { placing }, set: { placingSignature = $0 }),
-                        pageSize: size
-                    )
-                } else if let committed = pageState.signature {
-                    let width = CGFloat(committed.width) * size.width
-                    let height = width * CGFloat(committed.aspectRatio)
-                    SignatureStrokesView(signature: committed, colorScheme: colorScheme)
-                        .frame(width: width, height: height)
-                        .position(x: CGFloat(committed.x) * size.width + width / 2, y: CGFloat(committed.y) * size.height + height / 2)
+                if activeTool != .crop {
+                    if let placing = placingSignature {
+                        SignaturePlacementView(
+                            signature: Binding(get: { placing }, set: { placingSignature = $0 }),
+                            pageSize: size
+                        )
+                    } else if let committed = pageState.signature {
+                        let width = CGFloat(committed.width) * size.width
+                        let height = width * CGFloat(committed.aspectRatio)
+                        SignatureStrokesView(signature: committed, colorScheme: colorScheme)
+                            .frame(width: width, height: height)
+                            .position(x: CGFloat(committed.x) * size.width + width / 2, y: CGFloat(committed.y) * size.height + height / 2)
+                    }
                 }
             }
         }
-        .aspectRatio(pageState.image.size, contentMode: .fit)
+        .aspectRatio(displayImage.size, contentMode: .fit)
     }
 
     private func committedHighlights(imageSize: CGSize, size: CGSize) -> some View {

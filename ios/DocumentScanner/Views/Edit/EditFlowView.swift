@@ -286,8 +286,10 @@ struct EditFlowView: View {
                 pageModel.originalImagePath = originalFilename
             } else {
                 pageModel = PageModel(order: pageState.order, imagePath: imageFilename, originalImagePath: originalFilename)
+                // Setting the inverse side is enough — SwiftData automatically
+                // keeps `document.pages` in sync for a `@Relationship(inverse:)`
+                // pair. Also appending here would insert `pageModel` twice.
                 pageModel.document = document
-                document.pages.append(pageModel)
             }
             pageModel.order = pageState.order
             pageModel.ocrText = pageState.ocrText
