@@ -44,8 +44,10 @@ struct DocumentViewerView: View {
         .sheet(isPresented: $showCommentSheet) {
             CommentSheetView { text in
                 let comment = CommentModel(text: text, pageIndex: 0)
+                // Setting the inverse side is enough — SwiftData automatically
+                // keeps `document.comments` in sync for a `@Relationship(inverse:)`
+                // pair. Also appending here would insert `comment` twice.
                 comment.document = document
-                document.comments.append(comment)
                 try? modelContext.save()
                 showCommentSheet = false
             } onCancel: {
