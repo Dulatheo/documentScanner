@@ -208,11 +208,15 @@ this iOS version and future ones.
 ### 4.3 Edit (per-page editor)
 
 Reached after capture finishes, or when re-editing a page from an existing
-document. Paginated — "Page X of Y" in the top bar.
+document. Paginated — "Page X of Y" in the top bar, and (for multi-page
+documents) **horizontally swipeable** between pages, not just tap-arrows —
+the chevrons still work too, both driving the same underlying page index
+so an in-progress crop on the page being left is always committed before
+switching, whichever way the user navigates.
 
-- Top bar: **Cancel** (discard back to camera/prior state), page label,
-  **Save** (commits the document and opens the Export sheet with
-  `pendingSave = true`).
+- Top bar: **Cancel** (discard back to camera/prior state), page label +
+  prev/next chevrons (`session.pageCount > 1`), **Save** (commits the
+  document and opens the Export sheet with `pendingSave = true`).
 - Center: the page rendered on a `paper` card (drop shadow, hairline
   border).
 - **Tool bar** (4 equal-width buttons, bottom): **Crop**, **Highlight**,
@@ -260,10 +264,13 @@ document. Paginated — "Page X of Y" in the top bar.
 
 ### 4.5 Export sheet
 
-Bottom sheet, title "Export document", subtitle varies ("Saved to
-Documents · choose a format to share" right after saving a new scan, or
-"Choose a format to share" when exporting an existing document). Two
-options:
+Bottom sheet, **fixed height, not resizable/draggable to a different
+size** — a single `presentationDetents` value, not `.medium`/`.large` or
+the platform default free-form sheet, since its content is a short, fixed
+set of rows with nothing that benefits from more room. Title "Export
+document", subtitle varies ("Saved to Documents · choose a format to
+share" right after saving a new scan, or "Choose a format to share" when
+exporting an existing document). Two options:
 
 - **PDF document** — "Searchable text, all pages" (multi-page PDF; embeds
   any OCR'd text as an invisible text layer when available).

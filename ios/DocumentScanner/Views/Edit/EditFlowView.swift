@@ -27,11 +27,22 @@ struct EditFlowView: View {
                 topBar
                 Divider().overlay(theme.line)
 
-                ScrollView {
-                    pageCard
-                        .padding(.horizontal, 26)
-                        .padding(.vertical, 22)
+                // Swipeable, one page per screen (DESIGN_SPEC §4.3) — the
+                // chevrons in `topBar` still work too (both drive
+                // `session.currentIndex` through `EditSession.goTo(_:)`,
+                // which commits any in-progress crop on the page being left
+                // before switching, exactly like the chevrons always did).
+                TabView(selection: Binding(get: { session.currentIndex }, set: { session.goTo($0) })) {
+                    ForEach(Array(session.pages.enumerated()), id: \.element.id) { index, pageState in
+                        ScrollView {
+                            pageCard(for: pageState)
+                                .padding(.horizontal, 26)
+                                .padding(.vertical, 22)
+                        }
+                        .tag(index)
+                    }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
 
                 bottomBar
             }
@@ -121,8 +132,8 @@ struct EditFlowView: View {
 
     // MARK: - Page card
 
-    private var pageCard: some View {
-        PageEditorView(pageState: session.current, activeTool: activeTool, placingSignature: $placingSignature)
+    private func pageCard(for pageState: PageEditState) -> some View {
+        PageEditorView(pageState: pageState, activeTool: activeTool, placingSignature: $placingSignature)
             .padding(24)
             .background(RoundedRectangle(cornerRadius: 4).fill(theme.paper))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.line, lineWidth: 1))

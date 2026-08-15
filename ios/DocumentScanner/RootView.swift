@@ -134,6 +134,15 @@ struct RootView: View {
             ExportSheetView(document: target.document, pendingSave: target.pendingSave) {
                 exportTarget = nil
             }
+            // Single, fixed-height detent (not `.medium`/`.large`, and not
+            // left as the default free-form sheet) — this sheet's content
+            // is a short, fixed set of rows, so it should present at
+            // exactly that height and never be draggable to a different
+            // size. 380 comfortably fits the title/subtitle, both export
+            // rows, and the dismiss button, including the home-indicator
+            // safe area sheets add automatically.
+            .presentationDetents([.height(380)])
+            .presentationDragIndicator(.visible)
         }
     }
 

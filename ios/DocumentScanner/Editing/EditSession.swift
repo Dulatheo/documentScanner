@@ -24,15 +24,19 @@ final class EditSession: ObservableObject, Identifiable {
 
     var pageLabel: String { "Page \(currentIndex + 1) of \(pageCount)" }
 
-    func goToNext() {
-        guard currentIndex < pages.count - 1 else { return }
-        current.commitCropIfNeeded()
-        currentIndex += 1
-    }
+    func goToNext() { goTo(currentIndex + 1) }
+    func goToPrevious() { goTo(currentIndex - 1) }
 
-    func goToPrevious() {
-        guard currentIndex > 0 else { return }
+    /// Switches to `index`, first committing any in-progress crop
+    /// adjustment on the page being left — the same thing `goToNext`/
+    /// `goToPrevious` always did, factored out so the swipeable page
+    /// TabView's selection binding (which can land on any index directly,
+    /// not just an adjacent one via repeated taps) goes through the same
+    /// safe path instead of assigning `currentIndex` directly and skipping
+    /// the commit.
+    func goTo(_ index: Int) {
+        guard index >= 0, index < pages.count, index != currentIndex else { return }
         current.commitCropIfNeeded()
-        currentIndex -= 1
+        currentIndex = index
     }
 }
