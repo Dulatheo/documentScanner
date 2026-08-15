@@ -32,10 +32,17 @@ final class PageEditState: ObservableObject, Identifiable {
     /// (nil for a page captured in this session that hasn't been saved yet).
     var existingPageID: UUID?
 
-    init(order: Int, image: UIImage, originalImage: UIImage? = nil, existingPageID: UUID? = nil) {
+    init(
+        order: Int,
+        image: UIImage,
+        originalImage: UIImage? = nil,
+        committedQuad: Quad = .fullImage,
+        existingPageID: UUID? = nil
+    ) {
         self.order = order
         self.image = image
         self.originalImage = originalImage ?? image
+        self.committedQuad = committedQuad
         self.existingPageID = existingPageID
     }
 

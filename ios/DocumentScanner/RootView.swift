@@ -57,9 +57,9 @@ struct RootView: View {
         .toastOverlay(toastCenter)
         .fullScreenCover(isPresented: $showCamera) {
             DocumentCameraView(
-                onFinish: { images in
+                onFinish: { captures in
                     showCamera = false
-                    beginEditSession(with: images)
+                    beginEditSession(with: captures)
                 },
                 onCancel: { showCamera = false }
             )
@@ -97,10 +97,31 @@ struct RootView: View {
         }
     }
 
+    /// Used by the top-level gallery-import path (`AppActions.startPhotoImport`),
+    /// which has no live-detected quad to seed — pages start full/uncropped,
+    /// same as always.
     private func beginEditSession(with images: [UIImage]) {
         guard !images.isEmpty else { return }
         let pages = images.enumerated().map { index, image in
             PageEditState(order: index, image: image, originalImage: image)
+        }
+        let name = "Scan \(documents.count + 1)"
+        editSession = EditSession(pages: pages, existingDocument: nil, documentName: name)
+    }
+
+    /// Used by `DocumentCameraView`'s `onFinish` — each page already carries
+    /// the quad the live detector saw at capture time, so `PageEditState`
+    /// starts pre-cropped to it (with `committedQuad` seeded to match, so
+    /// re-opening the Crop tool doesn't reset to the full image).
+    private func beginEditSession(with captures: [CameraCapture]) {
+        guard !captures.isEmpty else { return }
+        let pages = captures.enumerated().map { index, capture in
+            PageEditState(
+                order: index,
+                image: capture.cropped,
+                originalImage: capture.original,
+                committedQuad: capture.quad
+            )
         }
         let name = "Scan \(documents.count + 1)"
         editSession = EditSession(pages: pages, existingDocument: nil, documentName: name)

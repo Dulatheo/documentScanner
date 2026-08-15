@@ -15,8 +15,11 @@ import Vision
 /// (`VNDetectDocumentSegmentationRequest`, the same Vision building block
 /// VisionKit's own scanner is built on) so the viewfinder can show a
 /// live-tracked quad the way VisionKit did — without pulling in VisionKit's
-/// sealed capture UI. This is purely a visual aid: the detected quad is
-/// never used to crop the captured photo.
+/// sealed capture UI. That live feed's detections are a visual aid only
+/// (`detectedQuad`, used purely for the on-screen guide); the quad actually
+/// used to crop a captured photo comes from a separate one-shot detection
+/// (`detectDocumentQuad(in:minConfidence:)`) run directly against the final
+/// still image at capture time — see that method's doc comment for why.
 final class CameraSession: NSObject, ObservableObject {
     enum AuthorizationState {
         case notDetermined
@@ -34,6 +37,22 @@ final class CameraSession: NSObject, ObservableObject {
         var topRight: CGPoint
         var bottomRight: CGPoint
         var bottomLeft: CGPoint
+
+        /// Whether every corner of `self` sits within `tolerance`
+        /// (normalized units) of the matching corner in `other`. Used by
+        /// `DocumentCameraView`'s auto-capture logic to tell "the document
+        /// has stopped moving" apart from ordinary frame-to-frame jitter —
+        /// exact `Equatable` equality would essentially never hold between
+        /// two live frames.
+        func isClose(to other: DetectedQuad, tolerance: CGFloat) -> Bool {
+            func near(_ a: CGPoint, _ b: CGPoint) -> Bool {
+                abs(a.x - b.x) <= tolerance && abs(a.y - b.y) <= tolerance
+            }
+            return near(topLeft, other.topLeft)
+                && near(topRight, other.topRight)
+                && near(bottomRight, other.bottomRight)
+                && near(bottomLeft, other.bottomLeft)
+        }
     }
 
     @Published private(set) var authorizationState: AuthorizationState = .notDetermined
@@ -50,15 +69,18 @@ final class CameraSession: NSObject, ObservableObject {
     private let photoOutput = AVCapturePhotoOutput()
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private var isConfigured = false
-    private var captureCompletion: ((UIImage?) -> Void)?
+    private var captureCompletion: ((UIImage?, Quad?) -> Void)?
 
     // MARK: - Live document detection
 
     private let videoAnalysisQueue = DispatchQueue(label: "com.dulatheo.documentscanner.camera-video-analysis")
-    /// Throttles Vision analysis to ~5 frames/sec — running the segmentation
+    /// Throttles Vision analysis to ~8 frames/sec — running the segmentation
     /// request on every delivered frame is wasteful and can stall the
     /// analysis queue, since `VNImageRequestHandler.perform` is synchronous.
-    private let minAnalysisInterval: TimeInterval = 1.0 / 5.0
+    /// (Raised from an initial 5fps once live detection was confirmed
+    /// working on-device: more frequent samples feed smoother interpolation
+    /// in the view layer's `LiveDocumentQuadShape.animatableData`.)
+    private let minAnalysisInterval: TimeInterval = 1.0 / 8.0
     private var lastAnalysisTime = Date.distantPast
     /// Below this confidence, treat the frame as "nothing detected" rather
     /// than showing a shaky/unreliable quad.
@@ -66,14 +88,14 @@ final class CameraSession: NSObject, ObservableObject {
     /// Deliberately lower than a naive first guess (0.5): unlike VisionKit's
     /// own scanner, which effectively runs segmentation against a
     /// deliberately-composed still, this request runs against live,
-    /// hand-held, frequently motion-blurred preview frames throttled to
-    /// ~5fps — a strictly harder input than a careful single shot. Since
-    /// this is purely a visual aid that never affects the captured photo
-    /// (the actual crop still happens manually in the Edit flow), erring
-    /// toward showing a slightly-less-certain quad is the safer failure
-    /// mode than erring toward "nothing ever shows." Tune using the
-    /// `#if DEBUG` logging below, which prints every observation's actual
-    /// confidence on a real device.
+    /// hand-held, frequently motion-blurred preview frames — a strictly
+    /// harder input than a careful single shot. This threshold only governs
+    /// the live *guide* (`detectedQuad`); the separate one-shot detection
+    /// used to actually crop a captured photo (`detectDocumentQuad`) uses
+    /// its own, independently-passed confidence check, so loosening this
+    /// one only risks a shakier on-screen guide, never a bad crop. Tune
+    /// using the `#if DEBUG` logging below, which prints every
+    /// observation's actual confidence on a real device.
     private let minDetectionConfidence: VNConfidence = 0.3
 
     // MARK: - Permission
@@ -205,18 +227,53 @@ final class CameraSession: NSObject, ObservableObject {
 
     // MARK: - Capture
 
-    /// Captures a single still photo. `completion` is always called on the
-    /// main queue with `nil` on failure.
-    func capturePhoto(completion: @escaping (UIImage?) -> Void) {
+    /// Captures a single still photo, along with the document quad detected
+    /// in *that* photo (or `nil` if nothing confident was found) so the
+    /// caller can crop it to exactly what the live viewfinder showed.
+    /// `completion` is always called on the main queue.
+    func capturePhoto(completion: @escaping (UIImage?, Quad?) -> Void) {
         sessionQueue.async { [weak self] in
             guard let self else {
-                DispatchQueue.main.async { completion(nil) }
+                DispatchQueue.main.async { completion(nil, nil) }
                 return
             }
             let settings = AVCapturePhotoSettings()
             settings.flashMode = .off
             self.captureCompletion = completion
             self.photoOutput.capturePhoto(with: settings, delegate: self)
+        }
+    }
+
+    /// Runs a one-shot `VNDetectDocumentSegmentationRequest` against an
+    /// already-`.up`-oriented still image — as opposed to the throttled
+    /// live-feed path above, which runs against the video-data-output's
+    /// *native sensor* orientation and has to convert results into the
+    /// preview layer's coordinate space via `layerRectConverted`. Running
+    /// this directly against the final captured photo's own pixel space
+    /// needs none of that cross-buffer mapping: the returned `Quad` is
+    /// already normalized to `image`'s own size and orientation, exactly
+    /// the convention `PerspectiveCorrectionService` and the manual Crop
+    /// tool's `PageEditState.committedQuad` both expect.
+    private static func detectDocumentQuad(in image: UIImage, minConfidence: VNConfidence) -> Quad? {
+        guard let cgImage = image.cgImage else { return nil }
+        let request = VNDetectDocumentSegmentationRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
+        do {
+            try handler.perform([request])
+            guard let observation = request.results?.first, observation.confidence >= minConfidence else {
+                return nil
+            }
+            func flipped(_ point: CGPoint) -> CodablePoint {
+                CodablePoint(x: Double(point.x), y: Double(1 - point.y))
+            }
+            return Quad(
+                topLeft: flipped(observation.topLeft),
+                topRight: flipped(observation.topRight),
+                bottomRight: flipped(observation.bottomRight),
+                bottomLeft: flipped(observation.bottomLeft)
+            )
+        } catch {
+            return nil
         }
     }
 }
@@ -233,13 +290,18 @@ extension CameraSession: AVCapturePhotoCaptureDelegate {
         guard error == nil,
               let data = photo.fileDataRepresentation(),
               let image = UIImage(data: data) else {
-            DispatchQueue.main.async { completion?(nil) }
+            DispatchQueue.main.async { completion?(nil, nil) }
             return
         }
 
         let normalized = image.normalizedToUpOrientation()
+        // `AVCapturePhotoCaptureDelegate` callbacks land on an internal
+        // AVFoundation queue, not necessarily main — safe to do this
+        // synchronous, single-image Vision request here directly rather
+        // than hopping queues first.
+        let quad = Self.detectDocumentQuad(in: normalized, minConfidence: minDetectionConfidence)
         DispatchQueue.main.async {
-            completion?(normalized)
+            completion?(normalized, quad)
         }
     }
 }

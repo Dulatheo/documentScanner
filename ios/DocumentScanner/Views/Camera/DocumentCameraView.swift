@@ -2,29 +2,51 @@ import AVFoundation
 import SwiftUI
 import UIKit
 
+/// One captured page, handed from `DocumentCameraView` to `RootView` via
+/// `onFinish`.
+struct CameraCapture: Identifiable {
+    let id = UUID()
+    /// The raw, uncropped capture — kept so the Edit flow's Crop tool can
+    /// re-crop from scratch (`PageEditState.originalImage`).
+    let original: UIImage
+    /// The image shown everywhere in this app — the capture stack
+    /// thumbnail, the on-demand review screen, and what `PageEditState`
+    /// starts from — perspective-corrected to the quad the live detector
+    /// saw at the moment of capture, so what the user sees afterward
+    /// matches what was inside the live frame. Falls back to `original`
+    /// when no confident quad was detected for this particular shot.
+    let cropped: UIImage
+    /// The quad `cropped` was corrected from (normalized to `original`'s
+    /// size), or `.fullImage` when nothing was detected. Seeded into
+    /// `PageEditState.committedQuad` so re-opening the Crop tool starts
+    /// from this same quad instead of resetting to the full image.
+    let quad: Quad
+}
+
 /// Full-screen custom camera capture screen (DESIGN_SPEC §4.2). Replaces
 /// the former `VNDocumentCameraViewController` wrapper: VisionKit's own
 /// per-shot review UI is a sealed system screen that put **Retake** in the
 /// prominent spot and the "keep this page" action in a small, easy-to-miss
 /// back-chevron, with no public API to relabel/reposition/intercept it.
 /// Hand-rolling capture with AVFoundation gives full control over that
-/// screen (see `CameraReviewView`) at the cost of VisionKit's built-in
-/// real-time edge detection — pages get manual perspective correction via
-/// the Edit flow's Crop tool instead.
+/// screen (see `CameraReviewView`), and — now that live document detection
+/// is proven working on-device — auto-crops each capture to the live-quad
+/// the user actually saw, with the Edit flow's Crop tool still available to
+/// refine it (or re-crop from `CameraCapture.original` entirely) afterward.
 ///
-/// Public interface is unchanged from the VisionKit version, so
-/// `RootView`'s `.fullScreenCover` call site needs no changes: `onFinish`
-/// hands back every captured page as soon as the user taps "Done · N
-/// pages"; `onCancel` fires when the user backs out via Cancel (discarding
-/// anything captured so far, same as VisionKit's cancel behavior).
+/// `onFinish` hands back every captured page — each with the raw photo
+/// *and* the version cropped to whatever quad the live detector saw at
+/// capture time — as soon as the user taps "Done · N pages"; `onCancel`
+/// fires when the user backs out via Cancel (discarding anything captured
+/// so far, same as VisionKit's cancel behavior).
 struct DocumentCameraView: View {
-    var onFinish: ([UIImage]) -> Void
+    var onFinish: ([CameraCapture]) -> Void
     var onCancel: () -> Void
 
     @StateObject private var cameraSession = CameraSession()
     @Environment(\.theme) private var theme
 
-    @State private var captures: [UIImage] = []
+    @State private var captures: [CameraCapture] = []
     @State private var isCapturing = false
     @State private var showPhotoImport = false
     /// On-demand review of `captures.last`, opened by tapping the capture
@@ -49,6 +71,29 @@ struct DocumentCameraView: View {
         var progress: CGFloat = 0
     }
 
+    // MARK: - Auto-capture
+
+    /// Consecutive live-detection frames the quad has stayed within
+    /// `autoCaptureStabilityTolerance` of its predecessor. Reset to 0
+    /// whenever nothing's detected or the quad jumps too far between
+    /// frames. Reaching `autoCaptureStableFrameThreshold` (while not in
+    /// cooldown) triggers an automatic shutter — matching VisionKit's own
+    /// "captures once the page holds steady" behavior.
+    @State private var stableFrameCount = 0
+    @State private var lastStableQuad: CameraSession.DetectedQuad?
+    /// Auto-capture is suppressed until this time, so a page that stays
+    /// steadily framed after an auto-capture isn't immediately captured
+    /// again before the user moves on to the next page.
+    @State private var autoCaptureCooldownUntil = Date.distantPast
+
+    /// ~8 consecutive on-target frames at the session's ~8fps analysis
+    /// rate is roughly 1 second of steady framing before auto-capturing.
+    private let autoCaptureStableFrameThreshold = 8
+    /// How far (normalized 0...1 units, per corner) the quad may drift
+    /// between frames and still count as "steady" rather than "moving."
+    private let autoCaptureStabilityTolerance: CGFloat = 0.015
+    private let autoCaptureCooldownInterval: TimeInterval = 2.0
+
     /// Fixed dark camera chrome (`#0B0B0C`) per the mock — independent of
     /// the app's light/dark theme, matching how camera UIs conventionally
     /// stay dark regardless of system appearance.
@@ -69,7 +114,7 @@ struct DocumentCameraView: View {
 
             if isReviewingLastCapture, let lastCapture = captures.last {
                 CameraReviewView(
-                    image: lastCapture,
+                    image: lastCapture.cropped,
                     onRetake: {
                         if !captures.isEmpty {
                             captures.removeLast()
@@ -104,11 +149,19 @@ struct DocumentCameraView: View {
         .onDisappear {
             cameraSession.stop()
         }
+        .onChange(of: cameraSession.detectedQuad) { _, newQuad in
+            evaluateAutoCapture(newQuad)
+        }
         .sheet(isPresented: $showPhotoImport) {
             PhotoImportPicker(
                 onFinish: { images in
                     showPhotoImport = false
-                    captures.append(contentsOf: images)
+                    // No live detection applies to gallery imports — kept
+                    // as full, uncropped pages (`quad: .fullImage`), same
+                    // as manual Crop always could produce anyway.
+                    captures.append(contentsOf: images.map {
+                        CameraCapture(original: $0, cropped: $0, quad: .fullImage)
+                    })
                 },
                 onCancel: { showPhotoImport = false }
             )
@@ -206,23 +259,15 @@ struct DocumentCameraView: View {
     }
 
     private var viewfinderGuide: some View {
-        GeometryReader { proxy in
-            let width = min(proxy.size.width - 72, 330)
-            let height = width * 1.333
-
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.white.opacity(0.05))
-                    .frame(width: width, height: height)
-                ViewfinderCorners()
-                    .frame(width: width, height: height)
-            }
-            .position(x: proxy.size.width / 2, y: proxy.size.height * 0.42)
-
-            // Live-tracked quad (DESIGN_SPEC §4.2): overlaid on top of the
-            // static corner brackets above, appearing/tracking/disappearing
-            // as `CameraSession` detects a document in frame. Only a visual
-            // guide — never used to crop the captured photo.
+        GeometryReader { _ in
+            // Live-tracked quad (DESIGN_SPEC §4.2) is now the *only* framing
+            // guide — the earlier static corner-bracket frame was dropped
+            // once live detection was confirmed working on-device, so
+            // there's no redundant static chrome competing with it.
+            // `LiveDocumentQuadShape.animatableData` lets SwiftUI interpolate
+            // smoothly between successive detected positions instead of
+            // jumping frame-to-frame; `.transition(.opacity)` covers the
+            // appear/disappear case when detection starts/stops entirely.
             if previewLayer != nil, let quad = cameraSession.detectedQuad {
                 LiveDocumentQuadShape(
                     topLeft: screenPoint(for: quad.topLeft),
@@ -233,7 +278,7 @@ struct DocumentCameraView: View {
                 .stroke(theme.accent, lineWidth: 2.5)
                 .shadow(color: theme.accent.opacity(0.6), radius: 4)
                 .transition(.opacity)
-                .animation(.easeOut(duration: 0.15), value: cameraSession.detectedQuad)
+                .animation(.linear(duration: 0.1), value: cameraSession.detectedQuad)
             }
         }
         .ignoresSafeArea()
@@ -256,7 +301,7 @@ struct DocumentCameraView: View {
         Button(action: { isReviewingLastCapture = true }) {
             ZStack(alignment: .topTrailing) {
                 if let last = captures.last {
-                    Image(uiImage: last)
+                    Image(uiImage: last.cropped)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 56, height: 74)
@@ -370,10 +415,10 @@ struct DocumentCameraView: View {
     private func capturePhoto() {
         guard !isCapturing else { return }
         isCapturing = true
-        cameraSession.capturePhoto { image in
+        cameraSession.capturePhoto { image, quad in
             isCapturing = false
             guard let image else { return }
-            handleCaptureSuccess(image)
+            handleCaptureSuccess(image, quad: quad)
         }
     }
 
@@ -381,8 +426,17 @@ struct DocumentCameraView: View {
     /// interruption") and plays the shutter-flash + fly-to-stack feedback.
     /// No full-screen review here — that's now purely on-demand via tapping
     /// `captureStackIndicator`.
-    private func handleCaptureSuccess(_ image: UIImage) {
-        captures.append(image)
+    ///
+    /// `quad` is whatever `CameraSession` detected in *this specific photo*
+    /// (a fresh one-shot detection against the final image itself, not a
+    /// reprojection of the live-preview quad — see
+    /// `CameraSession.detectDocumentQuad`) — cropping to it here is what
+    /// makes the saved/reviewed page match what the user actually saw
+    /// inside the live frame, rather than the full uncropped photo.
+    private func handleCaptureSuccess(_ image: UIImage, quad: Quad?) {
+        let cropped = quad.flatMap { PerspectiveCorrectionService.correct(image: image, quad: $0) } ?? image
+        let capture = CameraCapture(original: image, cropped: cropped, quad: quad ?? .fullImage)
+        captures.append(capture)
 
         // Shutter flash: rise then fall across two separate dispatch turns
         // (~350ms total, matching the mock's `shutterFlash` timing) so the
@@ -404,7 +458,7 @@ struct DocumentCameraView: View {
         // insert and the animated mutation in the same synchronous scope
         // would give SwiftUI no "from" frame to interpolate away from, so
         // the two are deliberately split across dispatch turns.
-        let flying = FlyingCapture(image: image)
+        let flying = FlyingCapture(image: cropped)
         flyingCapture = flying
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
             guard flyingCapture?.id == flying.id else { return }
@@ -424,82 +478,82 @@ struct DocumentCameraView: View {
         onFinish(captures)
     }
 
+    /// Feeds one new live-detection result into the stability tracker and
+    /// fires the shutter automatically once a document has held steady for
+    /// `autoCaptureStableFrameThreshold` consecutive frames (DESIGN_SPEC
+    /// §4.2), the same "just hold it still" behavior VisionKit's own
+    /// scanner has. The manual shutter button keeps working the whole time
+    /// — this only ever *adds* a capture, never blocks one.
+    private func evaluateAutoCapture(_ quad: CameraSession.DetectedQuad?) {
+        guard let quad else {
+            stableFrameCount = 0
+            lastStableQuad = nil
+            return
+        }
+        if let last = lastStableQuad, quad.isClose(to: last, tolerance: autoCaptureStabilityTolerance) {
+            stableFrameCount += 1
+        } else {
+            stableFrameCount = 1
+        }
+        lastStableQuad = quad
+
+        guard stableFrameCount >= autoCaptureStableFrameThreshold else { return }
+        stableFrameCount = 0
+
+        guard !isCapturing, Date() >= autoCaptureCooldownUntil else { return }
+        autoCaptureCooldownUntil = Date().addingTimeInterval(autoCaptureCooldownInterval)
+        capturePhoto()
+    }
+
     private func openSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
     }
 }
 
-/// Draws the 4 independent corner brackets of the viewfinder guide
-/// (DESIGN_SPEC §4.2 / mock `isCamera` block) — a purely static visual
-/// frame, no live edge detection.
-private struct ViewfinderCorners: View {
-    var body: some View {
-        GeometryReader { proxy in
-            let bracketSize: CGFloat = 26
-            let lineWidth: CGFloat = 2
-            let inset: CGFloat = 12
-            let halfBracket = bracketSize / 2
-
-            ZStack {
-                // Top-left: border-left + border-top.
-                CornerBracket()
-                    .stroke(Color.white, lineWidth: lineWidth)
-                    .frame(width: bracketSize, height: bracketSize)
-                    .position(x: inset + halfBracket, y: inset + halfBracket)
-
-                // Top-right: border-right + border-top.
-                CornerBracket()
-                    .stroke(Color.white, lineWidth: lineWidth)
-                    .frame(width: bracketSize, height: bracketSize)
-                    .rotationEffect(.degrees(90))
-                    .position(x: proxy.size.width - inset - halfBracket, y: inset + halfBracket)
-
-                // Bottom-right: border-right + border-bottom.
-                CornerBracket()
-                    .stroke(Color.white, lineWidth: lineWidth)
-                    .frame(width: bracketSize, height: bracketSize)
-                    .rotationEffect(.degrees(180))
-                    .position(
-                        x: proxy.size.width - inset - halfBracket,
-                        y: proxy.size.height - inset - halfBracket
-                    )
-
-                // Bottom-left: border-left + border-bottom.
-                CornerBracket()
-                    .stroke(Color.white, lineWidth: lineWidth)
-                    .frame(width: bracketSize, height: bracketSize)
-                    .rotationEffect(.degrees(270))
-                    .position(x: inset + halfBracket, y: proxy.size.height - inset - halfBracket)
-            }
-        }
-    }
-}
-
-/// One L-shaped bracket occupying the left + top edges of its frame; the 4
-/// corners of `ViewfinderCorners` are this same shape rotated 0/90/180/270°.
-private struct CornerBracket: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: 0, y: rect.height))
-        path.addLine(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: rect.width, y: 0))
-        return path
-    }
-}
-
 /// Traces the live-detected document quad from 4 already-screen-space
-/// points (DESIGN_SPEC §4.2). The points are computed by `DocumentCameraView`
-/// via `AVCaptureVideoPreviewLayer.layerRectConverted(fromMetadataOutputRect:)`
+/// points (DESIGN_SPEC §4.2) — the only viewfinder guide now (the earlier
+/// static corner-bracket frame was removed once live detection was
+/// confirmed working on-device, so there's no redundant static chrome
+/// alongside it). The points are computed by `DocumentCameraView` via
+/// `AVCaptureVideoPreviewLayer.layerRectConverted(fromMetadataOutputRect:)`
 /// before being handed to this shape, so this type itself has no
 /// coordinate-space math to do — it just connects 4 points into a closed
 /// path, ignoring `rect` (unlike most `Shape`s, these points are already
 /// absolute, not proportional to the shape's own frame).
+///
+/// Conforms `animatableData` (4 points × 2 `CGFloat`s each, nested in
+/// `AnimatablePair`s per SwiftUI's standard pattern for multi-value
+/// `Shape`s) so SwiftUI can smoothly interpolate the quad's position
+/// between successive detections instead of the corners jumping instantly
+/// every ~125ms (the ~8fps analysis interval) — that per-frame jump was
+/// the actual cause of "not smooth," since a plain `.animation(value:)`
+/// modifier alone only animates a `Shape`'s *appearance/disappearance*,
+/// not changes to a custom shape's own geometry, unless it implements
+/// `animatableData` itself.
 private struct LiveDocumentQuadShape: Shape {
     var topLeft: CGPoint
     var topRight: CGPoint
     var bottomRight: CGPoint
     var bottomLeft: CGPoint
+
+    var animatableData: AnimatablePair<
+        AnimatablePair<CGPoint.AnimatableData, CGPoint.AnimatableData>,
+        AnimatablePair<CGPoint.AnimatableData, CGPoint.AnimatableData>
+    > {
+        get {
+            AnimatablePair(
+                AnimatablePair(topLeft.animatableData, topRight.animatableData),
+                AnimatablePair(bottomRight.animatableData, bottomLeft.animatableData)
+            )
+        }
+        set {
+            topLeft.animatableData = newValue.first.first
+            topRight.animatableData = newValue.first.second
+            bottomRight.animatableData = newValue.second.first
+            bottomLeft.animatableData = newValue.second.second
+        }
+    }
 
     func path(in rect: CGRect) -> Path {
         var path = Path()
