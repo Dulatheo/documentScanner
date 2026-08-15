@@ -62,7 +62,19 @@ final class CameraSession: NSObject, ObservableObject {
     private var lastAnalysisTime = Date.distantPast
     /// Below this confidence, treat the frame as "nothing detected" rather
     /// than showing a shaky/unreliable quad.
-    private let minDetectionConfidence: VNConfidence = 0.5
+    ///
+    /// Deliberately lower than a naive first guess (0.5): unlike VisionKit's
+    /// own scanner, which effectively runs segmentation against a
+    /// deliberately-composed still, this request runs against live,
+    /// hand-held, frequently motion-blurred preview frames throttled to
+    /// ~5fps — a strictly harder input than a careful single shot. Since
+    /// this is purely a visual aid that never affects the captured photo
+    /// (the actual crop still happens manually in the Edit flow), erring
+    /// toward showing a slightly-less-certain quad is the safer failure
+    /// mode than erring toward "nothing ever shows." Tune using the
+    /// `#if DEBUG` logging below, which prints every observation's actual
+    /// confidence on a real device.
+    private let minDetectionConfidence: VNConfidence = 0.3
 
     // MARK: - Permission
 
@@ -218,11 +230,38 @@ extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
         let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .up, options: [:])
         do {
             try handler.perform([request])
-            publish(quad: Self.quad(from: request.results?.first, minConfidence: minDetectionConfidence))
+            let observation = request.results?.first
+            #if DEBUG
+            Self.logAnalysis(observation: observation, minConfidence: minDetectionConfidence)
+            #endif
+            publish(quad: Self.quad(from: observation, minConfidence: minDetectionConfidence))
         } catch {
+            #if DEBUG
+            print("[CameraSession] VNImageRequestHandler.perform failed: \(error)")
+            #endif
             publish(quad: nil)
         }
     }
+
+    #if DEBUG
+    /// Debug-only diagnostic so a future on-device test can tell apart
+    /// "frames never arrive" (no log lines at all), "frames arrive but
+    /// nothing is ever detected" (consistent "no observation"), and
+    /// "detects fine but below threshold" (an observation with confidence
+    /// under `minConfidence`) from "detects fine, still doesn't render"
+    /// (log shows confident detections; the bug is then in the view layer,
+    /// not this pipeline). Throttled to the same ~5fps as analysis itself,
+    /// so this cannot spam a release build (it's compiled out entirely) or
+    /// meaningfully affect a debug build's frame rate.
+    private static func logAnalysis(observation: VNRectangleObservation?, minConfidence: VNConfidence) {
+        guard let observation else {
+            print("[CameraSession] frame analyzed — no document observation")
+            return
+        }
+        let passed = observation.confidence >= minConfidence ? "PUBLISHED" : "below threshold"
+        print("[CameraSession] frame analyzed — confidence \(observation.confidence) (\(passed), min \(minConfidence))")
+    }
+    #endif
 
     private func publish(quad: DetectedQuad?) {
         DispatchQueue.main.async { [weak self] in
