@@ -159,13 +159,45 @@ final class CameraSession: NSObject, ObservableObject {
             connection.videoOrientation = .portrait
         }
 
-        // Rotate delivered buffers to portrait up-front (matching the photo
-        // output above) so Vision can be told the frame is already `.up`,
-        // rather than reasoning about the sensor's native landscape
-        // orientation on every frame.
-        if let connection = videoDataOutput.connection(with: .video), connection.isVideoOrientationSupported {
-            connection.videoOrientation = .portrait
-        }
+        // Deliberately *not* setting `videoOrientation` on this connection
+        // (unlike the photo connection above) — this buffer feeds Vision,
+        // and the resulting `VNRectangleObservation` corners are converted
+        // to screen points via `AVCaptureVideoPreviewLayer
+        // .layerRectConverted(fromMetadataOutputRect:)`. Apple's docs for
+        // that API (and for the closely related `AVCaptureMetadataOutput
+        // .rectOfInterest`) are explicit that the input rect's (0,0)-(1,1)
+        // normalized space is defined "on an unrotated image" / "relative
+        // to the coordinate space of the device providing the metadata" —
+        // i.e. the sensor's native orientation, *regardless* of whatever
+        // videoOrientation some connection happens to be rotating its own
+        // delivered buffer to. If this connection rotated the buffer to
+        // portrait, Vision's observation coordinates would land in that
+        // rotated (portrait) space — a 90°, aspect-ratio-swapped mismatch
+        // against what `layerRectConverted` expects — which would scramble
+        // the live quad's on-screen position (very plausibly *the* cause
+        // of "no visible live detection", not just a placement error,
+        // since scrambled coordinates can easily fall off-screen or
+        // collapse to a degenerate rect). Leaving this connection at its
+        // native orientation, and telling `VNImageRequestHandler` the
+        // buffer is `.up` (i.e. "analyze exactly as delivered, don't
+        // reinterpret it"), keeps Vision's reported coordinates in that
+        // same native space, matching `layerRectConverted`'s contract
+        // exactly. It also sidesteps the real performance cost Apple's
+        // Technical Q&A QA1744 documents for physically rotating
+        // `AVCaptureVideoDataOutput` buffers ("only request rotation if
+        // it's necessary") — we no longer need to.
+        //
+        // Trade-off: the document segmentation model itself now analyzes
+        // a sensor-native (landscape-laid-out) buffer rather than a
+        // virtually-upright one, which *could* reduce detection
+        // confidence versus telling Vision the true `.right` orientation.
+        // Rectangle/quad detection is a largely geometric task and should
+        // be reasonably rotation-tolerant, but this is exactly what the
+        // `#if DEBUG` logging below is for: if on-device confidence values
+        // look suspiciously low, that's the next thing to revisit — by
+        // passing the correct orientation to Vision *and* rotating its
+        // results back into native space before this point, rather than
+        // by touching this connection again.
         videoDataOutput.setSampleBufferDelegate(self, queue: videoAnalysisQueue)
 
         isConfigured = true
@@ -226,6 +258,17 @@ extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
         // never the main queue or the session queue) keeps it off the UI
         // thread while the queue's own seriality naturally paces analysis —
         // no frame is picked up mid-analysis.
+        //
+        // `orientation: .up` here means "analyze this buffer exactly as
+        // delivered, don't reinterpret/rotate it" — which is correct
+        // *because* `configureSession()` deliberately leaves this
+        // connection at the sensor's native orientation (see the comment
+        // there). That keeps `request.results`' normalized coordinates in
+        // the same native coordinate space `screenPoint(for:)` needs for
+        // `layerRectConverted(fromMetadataOutputRect:)` to place the quad
+        // correctly. This is *not* the sensor's true visual up direction —
+        // don't change this to `.up` for some other reason without also
+        // reconciling `configureSession()` and `screenPoint(for:)`.
         let request = VNDetectDocumentSegmentationRequest()
         let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .up, options: [:])
         do {
