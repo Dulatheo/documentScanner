@@ -4,6 +4,16 @@ import SwiftUI
 /// state, and floating scan button.
 struct HomeView: View {
     let documents: [DocumentModel]
+    /// Shared with `RootView`, which owns the Camera/Document-Viewer overlay
+    /// state, so `matchedGeometryEffect` can animate the scan button and
+    /// tapped document card into their respective destinations — see the
+    /// iOS zoom-transition implementation note in DESIGN_SPEC §4.2.
+    let zoomNamespace: Namespace.ID
+    /// Zoom-transitions into the Document Viewer from the tapped card's own
+    /// frame (DESIGN_SPEC §4.1) — replaces `NavigationLink`, which would
+    /// push into a separate view hierarchy `matchedGeometryEffect` can't
+    /// animate across.
+    let onSelectDocument: (DocumentModel) -> Void
 
     @Environment(\.theme) private var theme
     @Environment(\.appActions) private var actions
@@ -26,10 +36,13 @@ struct HomeView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 20) {
                             ForEach(documents) { document in
-                                NavigationLink(value: document) {
+                                Button {
+                                    onSelectDocument(document)
+                                } label: {
                                     DocumentCardView(document: document)
                                 }
                                 .buttonStyle(.plain)
+                                .matchedGeometryEffect(id: documentZoomID(for: document), in: zoomNamespace)
                             }
                         }
                     }
@@ -42,8 +55,6 @@ struct HomeView: View {
             bottomFade
             scanButton
         }
-        .navigationBarHidden(true)
-        .navigationBarBackButtonHidden(true)
     }
 
     private var header: some View {
@@ -90,6 +101,11 @@ struct HomeView: View {
                     .shadow(color: .black.opacity(0.22), radius: 20, x: 0, y: 6)
             }
             .accessibilityLabel("Scan a document")
+            // Zoom-transition source (DESIGN_SPEC §4.1/§4.2): Camera is
+            // presented from `RootView` as a same-hierarchy overlay tagged
+            // with this same id, so it animates open from this button's own
+            // frame instead of a plain `.fullScreenCover` slide-up.
+            .matchedGeometryEffect(id: "cameraZoom", in: zoomNamespace)
         }
         .padding(.bottom, 30)
     }

@@ -141,3 +141,12 @@ extension View {
             .shadow(color: theme.shadowColor, radius: 14, x: 0, y: 10)
     }
 }
+
+extension Animation {
+    /// Shared curve/duration for the app's `matchedGeometryEffect` zoom
+    /// transitions (DESIGN_SPEC "iOS zoom-transition implementation note"):
+    /// scan button → Camera, document card → Document Viewer, capture-stack
+    /// thumbnail → per-shot review. Used symmetrically for open and close so
+    /// the reverse (dismiss) animation mirrors the forward one.
+    static let zoomTransition = Animation.easeInOut(duration: 0.4)
+}

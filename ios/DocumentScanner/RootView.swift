@@ -28,6 +28,14 @@ struct ExportTarget: Identifiable {
     let pendingSave: Bool
 }
 
+/// `matchedGeometryEffect` id for the document-card ↔ Document Viewer zoom
+/// transition (DESIGN_SPEC §4.1/§4.4), shared between `HomeView` (the
+/// source card) and `DocumentViewerView` (the destination) so both tag the
+/// same id for a given document.
+func documentZoomID(for document: DocumentModel) -> String {
+    "documentZoom-\(document.id)"
+}
+
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \DocumentModel.createdAt, order: .reverse) private var documents: [DocumentModel]
@@ -38,33 +46,65 @@ struct RootView: View {
     @State private var showPhotoImport = false
     @State private var editSession: EditSession?
     @State private var exportTarget: ExportTarget?
-    @State private var navPath = NavigationPath()
+    @State private var viewingDocument: DocumentModel?
+
+    /// Shared between Home and the two destinations it can zoom into (Camera,
+    /// Document Viewer) so `matchedGeometryEffect` can animate across them —
+    /// see the iOS zoom-transition implementation note in DESIGN_SPEC §4.2.
+    /// Both destinations are presented as plain conditional overlays in the
+    /// `ZStack` below, not `.fullScreenCover`/`NavigationLink`, since those
+    /// create a separate view hierarchy `matchedGeometryEffect` can't reach
+    /// across.
+    @Namespace private var zoomNamespace
 
     var body: some View {
-        NavigationStack(path: $navPath) {
-            HomeView(documents: documents)
-                .navigationDestination(for: DocumentModel.self) { document in
-                    DocumentViewerView(document: document)
+        ZStack {
+            HomeView(
+                documents: documents,
+                zoomNamespace: zoomNamespace,
+                onSelectDocument: { document in
+                    withAnimation(.zoomTransition) {
+                        viewingDocument = document
+                    }
                 }
+            )
+
+            if let viewingDocument {
+                DocumentViewerView(
+                    document: viewingDocument,
+                    zoomNamespace: zoomNamespace,
+                    onBack: {
+                        withAnimation(.zoomTransition) {
+                            self.viewingDocument = nil
+                        }
+                    }
+                )
+                .zIndex(1)
+            }
+
+            if showCamera {
+                DocumentCameraView(
+                    onFinish: { captures in
+                        withAnimation(.zoomTransition) { showCamera = false }
+                        beginEditSession(with: captures)
+                    },
+                    onCancel: {
+                        withAnimation(.zoomTransition) { showCamera = false }
+                    },
+                    zoomNamespace: zoomNamespace
+                )
+                .ignoresSafeArea()
+                .zIndex(2)
+            }
         }
         .environment(\.appActions, AppActions(
-            startCamera: { showCamera = true },
+            startCamera: { withAnimation(.zoomTransition) { showCamera = true } },
             startPhotoImport: { showPhotoImport = true },
             openExport: { document, pendingSave in
                 exportTarget = ExportTarget(document: document, pendingSave: pendingSave)
             }
         ))
         .toastOverlay(toastCenter)
-        .fullScreenCover(isPresented: $showCamera) {
-            DocumentCameraView(
-                onFinish: { captures in
-                    showCamera = false
-                    beginEditSession(with: captures)
-                },
-                onCancel: { showCamera = false }
-            )
-            .ignoresSafeArea()
-        }
         .sheet(isPresented: $showPhotoImport) {
             PhotoImportPicker(
                 onFinish: { images in

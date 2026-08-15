@@ -7,9 +7,18 @@ import UIKit
 /// and a Comment/Export bottom bar.
 struct DocumentViewerView: View {
     @Bindable var document: DocumentModel
+    /// Shared with `RootView`/`HomeView` so `matchedGeometryEffect` can
+    /// animate this screen's root from the tapped document card's frame —
+    /// see the iOS zoom-transition implementation note in DESIGN_SPEC §4.2.
+    let zoomNamespace: Namespace.ID
+    /// Zooms back out to the document card's frame and dismisses this
+    /// overlay. Replaces `\.dismiss`: this view is now a same-hierarchy
+    /// overlay presented by `RootView` (`if let viewingDocument { ... }`),
+    /// not a pushed `NavigationLink` destination, so there's no
+    /// `NavigationStack` to pop.
+    let onBack: () -> Void
 
     @Environment(\.theme) private var theme
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.appActions) private var actions
     @Environment(\.modelContext) private var modelContext
 
@@ -40,7 +49,7 @@ struct DocumentViewerView: View {
                 bottomBar
             }
         }
-        .navigationBarHidden(true)
+        .matchedGeometryEffect(id: documentZoomID(for: document), in: zoomNamespace)
         .sheet(isPresented: $showCommentSheet) {
             CommentSheetView { text in
                 let comment = CommentModel(text: text, pageIndex: 0)
@@ -61,7 +70,7 @@ struct DocumentViewerView: View {
     private var topBar: some View {
         HStack {
             Button {
-                dismiss()
+                onBack()
             } label: {
                 HStack(spacing: 2) {
                     Image(systemName: "chevron.left")
