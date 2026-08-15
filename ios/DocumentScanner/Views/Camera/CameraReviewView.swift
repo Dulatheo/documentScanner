@@ -12,6 +12,10 @@ import UIKit
 /// adjust/filter tools (those live in the Edit flow's own Crop tool later).
 struct CameraReviewView: View {
     let image: UIImage
+    /// Owned by `DocumentCameraView`, which also owns the capture-stack
+    /// thumbnail this screen zoom-transitions from — see the iOS
+    /// zoom-transition implementation note in DESIGN_SPEC §4.2.
+    var zoomNamespace: Namespace.ID
     var onRetake: () -> Void
     var onDone: () -> Void
 
@@ -31,6 +35,7 @@ struct CameraReviewView: View {
                 controlBar
             }
         }
+        .matchedGeometryEffect(id: "captureReviewZoom", in: zoomNamespace)
         .statusBarHidden()
         .transition(.opacity)
     }

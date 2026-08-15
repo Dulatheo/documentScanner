@@ -42,9 +42,21 @@ struct CameraCapture: Identifiable {
 struct DocumentCameraView: View {
     var onFinish: ([CameraCapture]) -> Void
     var onCancel: () -> Void
+    /// Injected by `RootView` so this screen's own root can
+    /// `matchedGeometryEffect`-animate open/closed from Home's scan
+    /// button — see the iOS zoom-transition implementation note in
+    /// DESIGN_SPEC §4.2. Not to be confused with `reviewZoomNamespace`
+    /// below, which is this view's *own* namespace for its internal
+    /// capture-stack-thumbnail → review transition.
+    var zoomNamespace: Namespace.ID
 
     @StateObject private var cameraSession = CameraSession()
     @Environment(\.theme) private var theme
+
+    /// Owns both the capture-stack thumbnail (the source) and the per-shot
+    /// review overlay (the destination) below, so — unlike the other two
+    /// zoom transitions — this one needs no state lifted to a parent view.
+    @Namespace private var reviewZoomNamespace
 
     @State private var captures: [CameraCapture] = []
     @State private var isCapturing = false
@@ -115,11 +127,12 @@ struct DocumentCameraView: View {
             if isReviewingLastCapture, let lastCapture = captures.last {
                 CameraReviewView(
                     image: lastCapture.cropped,
+                    zoomNamespace: reviewZoomNamespace,
                     onRetake: {
                         if !captures.isEmpty {
                             captures.removeLast()
                         }
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(.zoomTransition) {
                             isReviewingLastCapture = false
                         }
                     },
@@ -127,7 +140,7 @@ struct DocumentCameraView: View {
                         // The page was already added to `captures` at
                         // capture time, so Done makes no data change — it
                         // just closes the on-demand review.
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(.zoomTransition) {
                             isReviewingLastCapture = false
                         }
                     }
@@ -135,6 +148,7 @@ struct DocumentCameraView: View {
                 .zIndex(2)
             }
         }
+        .matchedGeometryEffect(id: "cameraZoom", in: zoomNamespace)
         .onAppear {
             cameraSession.checkAuthorization()
             switch cameraSession.authorizationState {
@@ -298,7 +312,11 @@ struct DocumentCameraView: View {
     }
 
     private var captureStackIndicator: some View {
-        Button(action: { isReviewingLastCapture = true }) {
+        Button(action: {
+            withAnimation(.zoomTransition) {
+                isReviewingLastCapture = true
+            }
+        }) {
             ZStack(alignment: .topTrailing) {
                 if let last = captures.last {
                     Image(uiImage: last.cropped)
@@ -318,6 +336,11 @@ struct DocumentCameraView: View {
             }
         }
         .buttonStyle(.plain)
+        // Zoom-transition source (DESIGN_SPEC §4.2): the per-shot review
+        // overlay above is tagged with this same id in `reviewZoomNamespace`,
+        // so it animates open from this thumbnail's own frame instead of a
+        // plain fade-in.
+        .matchedGeometryEffect(id: "captureReviewZoom", in: reviewZoomNamespace)
     }
 
     private var doneButton: some View {
