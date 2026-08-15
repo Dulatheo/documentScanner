@@ -79,14 +79,30 @@ enum PageRenderer {
                     size: CGSize(width: sigWidth, height: sigHeight),
                     scheme: scheme
                 )
-                sigImage.draw(
-                    in: CGRect(
-                        x: CGFloat(signature.x) * size.width,
-                        y: CGFloat(signature.y) * size.height,
-                        width: sigWidth,
-                        height: sigHeight
-                    )
-                )
+                let originX = CGFloat(signature.x) * size.width
+                let originY = CGFloat(signature.y) * size.height
+                let sigRect = CGRect(x: originX, y: originY, width: sigWidth, height: sigHeight)
+
+                if signature.rotation == 0 {
+                    sigImage.draw(in: sigRect)
+                } else {
+                    // Rotate around the signature's own center to match
+                    // SwiftUI's `.rotationEffect(anchor: .center)` used
+                    // everywhere else this signature is drawn (placement,
+                    // the Edit/DocumentViewer composite views). This
+                    // context is already in UIKit's flipped (origin
+                    // top-left, y-down) space like every other
+                    // `UIGraphicsImageRenderer` context, so a positive
+                    // angle here is clockwise on screen, same as
+                    // `.rotationEffect`'s convention.
+                    cg.saveGState()
+                    let center = CGPoint(x: sigRect.midX, y: sigRect.midY)
+                    cg.translateBy(x: center.x, y: center.y)
+                    cg.rotate(by: CGFloat(signature.rotation) * .pi / 180)
+                    cg.translateBy(x: -center.x, y: -center.y)
+                    sigImage.draw(in: sigRect)
+                    cg.restoreGState()
+                }
             }
         }
     }

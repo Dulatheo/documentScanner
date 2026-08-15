@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Placement mode after signing (DESIGN_SPEC §4.3): the signature can be
-/// dragged and resized (corner handle) over the page before Done commits
-/// it. `signature.x/y/width` are normalized to `pageSize`.
+/// dragged, resized (corner handle), and rotated (two-finger twist) over
+/// the page before Done commits it. `signature.x/y/width` are normalized
+/// to `pageSize`; `signature.rotation` is degrees around its own center.
 struct SignaturePlacementView: View {
     @Binding var signature: Signature
     let pageSize: CGSize
@@ -11,6 +12,7 @@ struct SignaturePlacementView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var dragStartOrigin: CGPoint?
     @State private var resizeStartWidth: CGFloat?
+    @State private var rotationStartDegrees: Double?
 
     private static let spaceName = "signaturePlacement"
 
@@ -25,8 +27,19 @@ struct SignaturePlacementView: View {
             .padding(10)
             .background(theme.accentSoft)
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.accent, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+            .rotationEffect(.degrees(signature.rotation))
             .position(x: originX + width / 2 + 10, y: originY + height / 2 + 10)
-            .gesture(dragGesture(width: width, height: height))
+            // `.highPriorityGesture` rather than `.gesture`: this view lives
+            // inside EditFlowView's vertical ScrollView, whose own pan
+            // recognizer can otherwise win arbitration for part of a plain
+            // `.gesture`'s touch sequence — the reported symptom (drag only
+            // ever moving the signature vertically, horizontal movement
+            // never registering) is exactly that class of gesture-priority
+            // conflict, not a bug in the x/y math below (which was already
+            // computing both axes correctly). Forcing this gesture to win
+            // over the ancestor ScrollView fixes it regardless of the exact
+            // arbitration mechanism.
+            .highPriorityGesture(SimultaneousGesture(dragGesture(width: width, height: height), rotationGesture()))
             .overlay(alignment: .topLeading) {
                 resizeHandle(width: width, height: height, originX: originX, originY: originY)
             }
@@ -50,6 +63,21 @@ struct SignaturePlacementView: View {
             .onEnded { _ in dragStartOrigin = nil }
     }
 
+    /// Two-finger twist, simultaneous with the one-finger move drag above —
+    /// the standard iOS pattern for combining move + rotate on one object
+    /// (Markup, Photos, etc.), rather than overloading the single-finger
+    /// resize-handle drag with a second, less discoverable meaning.
+    private func rotationGesture() -> some Gesture {
+        RotationGesture()
+            .onChanged { angle in
+                if rotationStartDegrees == nil {
+                    rotationStartDegrees = signature.rotation
+                }
+                signature.rotation = (rotationStartDegrees ?? 0) + angle.degrees
+            }
+            .onEnded { _ in rotationStartDegrees = nil }
+    }
+
     private func resizeHandle(width: CGFloat, height: CGFloat, originX: CGFloat, originY: CGFloat) -> some View {
         Circle()
             .fill(theme.accent)
@@ -61,7 +89,7 @@ struct SignaturePlacementView: View {
             )
             .overlay(Circle().stroke(theme.paper, lineWidth: 2))
             .position(x: originX + width + 20, y: originY + height + 20)
-            .gesture(
+            .highPriorityGesture(
                 DragGesture(coordinateSpace: .named(Self.spaceName))
                     .onChanged { value in
                         if resizeStartWidth == nil {

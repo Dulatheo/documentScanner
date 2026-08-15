@@ -99,6 +99,50 @@ struct Signature: Codable, Hashable {
     /// Aspect ratio (height / width) of the canvas the strokes were drawn in,
     /// so placement scaling keeps strokes proportional.
     var aspectRatio: Double
+    /// Rotation around the signature's own center, in degrees (SwiftUI's
+    /// `.rotationEffect` convention: positive = clockwise).
+    var rotation: Double = 0
+
+    init(
+        strokes: [SignatureStroke],
+        color: Theme.SignatureColor,
+        thickness: Double,
+        x: Double,
+        y: Double,
+        width: Double,
+        aspectRatio: Double,
+        rotation: Double = 0
+    ) {
+        self.strokes = strokes
+        self.color = color
+        self.thickness = thickness
+        self.x = x
+        self.y = y
+        self.width = width
+        self.aspectRatio = aspectRatio
+        self.rotation = rotation
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case strokes, color, thickness, x, y, width, aspectRatio, rotation
+    }
+
+    /// Custom decoding so documents saved before `rotation` existed (real
+    /// on-device test data from earlier in this app's development) still
+    /// decode instead of crashing on a missing key — the synthesized
+    /// `Decodable` conformance a plain stored-property default doesn't get
+    /// you would require every key to be present.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        strokes = try container.decode([SignatureStroke].self, forKey: .strokes)
+        color = try container.decode(Theme.SignatureColor.self, forKey: .color)
+        thickness = try container.decode(Double.self, forKey: .thickness)
+        x = try container.decode(Double.self, forKey: .x)
+        y = try container.decode(Double.self, forKey: .y)
+        width = try container.decode(Double.self, forKey: .width)
+        aspectRatio = try container.decode(Double.self, forKey: .aspectRatio)
+        rotation = try container.decodeIfPresent(Double.self, forKey: .rotation) ?? 0
+    }
 }
 
 enum EditTool: String, CaseIterable, Identifiable, Hashable {

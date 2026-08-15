@@ -1,21 +1,12 @@
 import SwiftUI
 
 /// Documents home (DESIGN_SPEC §4.1): grid of scanned documents, empty
-/// state, floating scan button, and a lightweight local search-as-you-type
-/// filter over document names once at least one document exists.
+/// state, and floating scan button.
 struct HomeView: View {
     let documents: [DocumentModel]
 
     @Environment(\.theme) private var theme
     @Environment(\.appActions) private var actions
-
-    @State private var isSearching = false
-    @State private var query = ""
-
-    private var filteredDocuments: [DocumentModel] {
-        guard isSearching, !query.isEmpty else { return documents }
-        return documents.filter { $0.name.localizedCaseInsensitiveContains(query) }
-    }
 
     private var subtitle: String {
         documents.isEmpty ? "Nothing saved yet" : (documents.count == 1 ? "1 document" : "\(documents.count) documents")
@@ -29,21 +20,12 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
 
-                    if isSearching {
-                        searchField
-                    }
-
                     if documents.isEmpty {
                         EmptyStateView(onScan: actions.startCamera)
                             .padding(.top, 60)
-                    } else if filteredDocuments.isEmpty {
-                        Text("No documents match \u{201c}\(query)\u{201d}")
-                            .font(.system(size: 14))
-                            .foregroundColor(theme.ink2)
-                            .padding(.top, 40)
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 20) {
-                            ForEach(filteredDocuments) { document in
+                            ForEach(documents) { document in
                                 NavigationLink(value: document) {
                                     DocumentCardView(document: document)
                                 }
@@ -65,45 +47,15 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .lastTextBaseline) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Documents")
-                    .font(.system(size: 30, weight: .semibold))
-                    .tracking(-0.5)
-                    .foregroundColor(theme.ink)
-                Text(subtitle)
-                    .font(.system(size: 13))
-                    .foregroundColor(theme.ink3)
-            }
-            Spacer()
-            if !documents.isEmpty {
-                Button {
-                    withAnimation(.easeOut(duration: 0.18)) { isSearching.toggle() }
-                    if !isSearching { query = "" }
-                } label: {
-                    Image(systemName: isSearching ? "xmark" : "magnifyingglass")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(theme.ink2)
-                        .frame(width: 34, height: 34)
-                        .background(Circle().fill(theme.surface))
-                        .overlay(Circle().stroke(theme.line, lineWidth: 1))
-                }
-            }
-        }
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(theme.ink3)
-            TextField("Search documents", text: $query)
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Documents")
+                .font(.system(size: 30, weight: .semibold))
+                .tracking(-0.5)
                 .foregroundColor(theme.ink)
+            Text(subtitle)
+                .font(.system(size: 13))
+                .foregroundColor(theme.ink3)
         }
-        .font(.system(size: 15))
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(RoundedRectangle(cornerRadius: 12).fill(theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.line, lineWidth: 1))
     }
 
     private var bottomFade: some View {

@@ -38,6 +38,7 @@ struct PageCompositeView: View {
                     let sigHeight = sigWidth * CGFloat(signature.aspectRatio)
                     SignatureStrokesView(signature: signature, colorScheme: colorScheme)
                         .frame(width: sigWidth, height: sigHeight)
+                        .rotationEffect(.degrees(signature.rotation))
                         .position(x: CGFloat(signature.x) * size.width + sigWidth / 2, y: CGFloat(signature.y) * size.height + sigHeight / 2)
                 }
             }

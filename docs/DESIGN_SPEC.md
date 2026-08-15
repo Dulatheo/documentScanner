@@ -78,22 +78,28 @@ a parallel `home → doc viewer (existing document) → (comment | export sheet
 ### 4.1 Home ("Documents")
 
 - Large title "Documents" + subtitle: document count (e.g. "3 documents")
-  or "Nothing saved yet" when empty.
-- Search affordance (circular icon button, top-right) — only shown once at
-  least one document exists. MVP: local filter-as-you-type over document
-  names.
-- **Grid of document cards**, 2 columns. Each card: a stylized paper preview
-  (rounded rect, `paper` background, a few simulated text-line bars) showing
-  a real thumbnail of the document's first page once available, a page-count
-  badge (`accentSoft` pill, bottom-right, e.g. "3 pgs"), the document name
-  below the card, and the date below that. Tapping opens the Document
-  Viewer.
+  or "Nothing saved yet" when empty. No search affordance — removed after
+  user feedback that it wasn't earning its place on a screen this simple.
+- **Grid of document cards**, 2 columns, **fixed 3:4 aspect ratio
+  regardless of the page's own proportions** — the thumbnail image inside
+  is `scaledToFit` (never cropped/zoomed to fill), so every card reads as
+  the same size no matter what aspect ratio a given capture came out at
+  (captures can now be auto-cropped to arbitrary quads, so this genuinely
+  varies). Each card: `paper` background, a page-count badge (`accentSoft`
+  pill, bottom-right, e.g. "3 pgs"), the document name below the card, and
+  the date below that. Tapping **zoom-transitions** into the Document
+  Viewer (§4.4) from the tapped card's own position/size — see the iOS
+  implementation note in §4.2 for how (same technique as the scan button →
+  Camera transition).
 - **Empty state**: centered icon tile (viewfinder/scan-corners glyph),
   "No documents yet", helper copy ("Scanned documents are saved here. Point
   your camera at a page to begin."), and a primary "Scan a document" button.
 - **Floating scan button**: 64pt/dp circle, `accent` background, camera/
   scan-corners icon, pinned bottom-center over a bottom fade gradient.
-  Always visible on Home (in addition to the empty-state CTA). Opens Camera.
+  Always visible on Home (in addition to the empty-state CTA). Tapping
+  **zoom-transitions** into Camera (§4.2) from the button's own position,
+  rather than the plain modal slide-up a plain `.fullScreenCover` gives by
+  default.
 
 ### 4.2 Camera (capture)
 
@@ -128,16 +134,18 @@ committing it to the library.
   stays active, ready for the next shot. The original, uncropped photo is
   kept alongside the cropped one so the Edit flow's Crop tool can still
   re-crop from scratch if the auto-crop wasn't quite right.
-- The capture-stack thumbnail is tappable at any time to open a **per-shot
-  review screen** for the most recently captured page (showing the
-  *cropped* version — what the user actually saw inside the live frame,
-  not the full photo), bottom bar with **Retake** — secondary/outlined,
-  bottom-left — and **Done** — primary/filled `accent`, bottom-right/
-  prominent. This is an on-demand "check my last shot" step, not a required
-  stop after every capture. **Done** just dismisses the review (the page
-  was already added to the stack at capture time, so nothing changes) and
-  returns to the live camera; **Retake** removes that page from the stack
-  and returns to the live camera so the user can reshoot it.
+- The capture-stack thumbnail is tappable at any time to **zoom-transition**
+  (from the thumbnail's own position, same technique as the two transitions
+  in §4.1) into a **per-shot review screen** for the most recently captured
+  page (showing the *cropped* version — what the user actually saw inside
+  the live frame, not the full photo), bottom bar with **Retake** —
+  secondary/outlined, bottom-left — and **Done** — primary/filled `accent`,
+  bottom-right/prominent. This is an on-demand "check my last shot" step,
+  not a required stop after every capture. **Done** just dismisses the
+  review (the page was already added to the stack at capture time, so
+  nothing changes) and returns to the live camera; **Retake** removes that
+  page from the stack and returns to the live camera so the user can
+  reshoot it.
 - Once `captures > 0`, a **"Done · N pages"** pill appears to finish the
   whole capture session and proceed to the page editor for the first
   captured page, which opens already cropped to each page's detected quad
@@ -179,6 +187,24 @@ committing it to the library.
     since the one-shot detection's result is already normalized to the
     exact image it's about to crop.
 
+**iOS zoom-transition implementation note** (applies to all three zoom
+transitions above — scan button → Camera, document card → Document Viewer,
+capture-stack thumbnail → per-shot review): implemented via
+`matchedGeometryEffect` with a shared `@Namespace`, not a plain
+`.fullScreenCover`/`NavigationLink` push. A `.fullScreenCover`/pushed
+`NavigationLink` destination is a *separate* view hierarchy from the
+presenting screen, and `matchedGeometryEffect` only animates smoothly
+between two views that are simultaneously part of the *same* hierarchy
+during the transition — so each of these three destinations is presented
+as a plain conditional overlay (`if isShowing { Destination() }`) inside
+the same `ZStack` as its source screen, with the toggle wrapped in
+`withAnimation`, rather than through SwiftUI's modal presentation APIs.
+This is the standard, broadly-compatible (iOS 17+, no `#available`
+branching) way to get a source-rect zoom transition; iOS 18 also ships a
+dedicated `NavigationTransition.zoom` API, but building on the
+namespace/overlay approach instead keeps one implementation path for both
+this iOS version and future ones.
+
 ### 4.3 Edit (per-page editor)
 
 Reached after capture finishes, or when re-editing a page from an existing
@@ -209,9 +235,12 @@ document. Paginated — "Page X of Y" in the top bar.
   - **Sign**: opens a full-screen, landscape signature pad — "Sign with your
     finger", a canvas with a baseline guide, a color picker (Ink/Blue/Clay/
     Green), a thickness slider, **Clear**, **Cancel**, **Done**. On Done,
-    drops into a placement mode over the page: the signature can be dragged
-    and resized (corner handle) before **Done** commits it at that
-    position/size. **Redraw** returns to the drawing canvas.
+    drops into a placement mode over the page: the signature can be
+    **dragged** (one finger, both axes), **resized** (corner handle drag),
+    and **rotated** (two-finger twist, standard iOS convention for
+    combining move/rotate on one object — same as Markup/Photos) before
+    **Done** commits it at that position/size/rotation. **Redraw** returns
+    to the drawing canvas.
 - Saving moves the (new or edited) document into the library, shows a toast
   ("Saved to Documents"), and opens the Export sheet.
 
@@ -288,6 +317,7 @@ Signature
   color: Color
   thickness: Double
   x, y, width: Double           // placement on the page, normalized to page size
+  rotation: Double              // degrees around the signature's own center
 
 Comment
   id: UUID

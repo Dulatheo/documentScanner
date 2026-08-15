@@ -28,9 +28,17 @@ struct DocumentCardView: View {
                     .paperShadow(theme)
                     .overlay {
                         if let thumbnail {
+                            // `.fit`, not `.fill`: captured pages can now
+                            // come out of the camera auto-cropped to all
+                            // sorts of aspect ratios, and `.fill` was
+                            // cropping/zooming each one differently to
+                            // stuff it into the fixed 3:4 card — showing
+                            // the whole page letterboxed keeps every card
+                            // visually consistent regardless of the page's
+                            // own proportions.
                             Image(uiImage: thumbnail)
                                 .resizable()
-                                .aspectRatio(contentMode: .fill)
+                                .aspectRatio(contentMode: .fit)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         } else {
                             simulatedLines

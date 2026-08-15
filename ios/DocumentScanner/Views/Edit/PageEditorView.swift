@@ -67,6 +67,7 @@ struct PageEditorView: View {
                         let height = width * CGFloat(committed.aspectRatio)
                         SignatureStrokesView(signature: committed, colorScheme: colorScheme)
                             .frame(width: width, height: height)
+                            .rotationEffect(.degrees(committed.rotation))
                             .position(x: CGFloat(committed.x) * size.width + width / 2, y: CGFloat(committed.y) * size.height + height / 2)
                     }
                 }
