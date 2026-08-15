@@ -236,6 +236,7 @@ struct DocumentCameraView: View {
                 .animation(.easeOut(duration: 0.15), value: cameraSession.detectedQuad)
             }
         }
+        .ignoresSafeArea()
         .allowsHitTesting(false)
     }
 
