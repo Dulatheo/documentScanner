@@ -24,7 +24,22 @@ struct CameraPreviewView: UIViewRepresentable {
         if let connection = view.previewLayer.connection, connection.isVideoOrientationSupported {
             connection.videoOrientation = .portrait
         }
-        onLayerReady?(view.previewLayer)
+        // Deferred to the next run-loop turn: `makeUIView` runs synchronously
+        // as part of the parent's (`DocumentCameraView`) own body evaluation,
+        // so calling `onLayerReady` here directly mutates that parent's
+        // `@State private var previewLayer` *during* the same view-update
+        // cycle that produced it — SwiftUI's well-known "modifying state
+        // during view update" hazard. In practice this silently drops the
+        // assignment: `makeUIView` only ever runs once, so if the mutation
+        // doesn't stick that first time, `previewLayer` stays `nil` forever
+        // and nothing ever gates on it again, which is exactly why the live
+        // document-detection overlay never appeared even though detection
+        // itself (confirmed via on-device logging) was working correctly.
+        // Dispatching to the main queue moves the mutation to its own,
+        // later update cycle, where it's safe.
+        DispatchQueue.main.async {
+            onLayerReady?(view.previewLayer)
+        }
         return view
     }
 
