@@ -163,8 +163,16 @@ struct EditFlowView: View {
                     }
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, 30)
+                .padding(.bottom, activeTool == .filter ? 14 : 30)
                 .padding(.top, activeTool == nil ? 12 : 0)
+
+                if activeTool == .filter {
+                    FilterOptionsRow(pageState: session.current) { newFilter in
+                        session.current.applyFilter(newFilter)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 30)
+                }
             }
             .background(theme.surface)
             .overlay(Divider().overlay(theme.line), alignment: .top)
@@ -254,6 +262,8 @@ struct EditFlowView: View {
             runOCRIfNeeded()
         case .sign:
             isDrawingSignature = true
+        case .filter:
+            break
         }
     }
 
@@ -307,9 +317,43 @@ struct EditFlowView: View {
             pageModel.ocrLines = pageState.ocrLines
             pageModel.highlightRegions = pageState.highlightRegions
             pageModel.signature = pageState.signature
+            pageModel.filter = pageState.filter
         }
 
         try? modelContext.save()
         onSaved(document)
+    }
+}
+
+/// Filter tool's inline option row (DESIGN_SPEC §4.3): a pill per
+/// `DocumentFilter`, the selected one distinguished with an `accent`
+/// ring/fill, matching the visual language of the Sign tool's color
+/// picker. Owns its own `@ObservedObject` reference to the active page so
+/// tapping a pill updates its selected state immediately — `EditFlowView`
+/// itself only observes `session`, not `session.current`'s own published
+/// properties.
+private struct FilterOptionsRow: View {
+    @ObservedObject var pageState: PageEditState
+    var onSelect: (DocumentFilter) -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(DocumentFilter.allCases) { option in
+                let isSelected = pageState.filter == option
+                Button {
+                    onSelect(option)
+                } label: {
+                    Text(option.label)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(isSelected ? theme.accent : theme.ink2)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(isSelected ? theme.accentSoft : Color.clear))
+                        .overlay(Capsule().stroke(isSelected ? theme.accent : theme.line, lineWidth: isSelected ? 1.5 : 1))
+                }
+            }
+        }
     }
 }

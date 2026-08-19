@@ -182,7 +182,7 @@ struct DocumentCameraView: View {
                     // Same "show it now, enhance in place shortly after"
                     // pattern as the shutter path — see DocumentEnhancer.
                     for capture in imported {
-                        DocumentEnhancer.enhanceAsync(capture.original) { enhanced in
+                        DocumentEnhancer.applyAsync(.auto, to: capture.original) { enhanced in
                             guard let idx = captures.firstIndex(where: { $0.id == capture.id }) else { return }
                             captures[idx].cropped = enhanced
                         }
@@ -551,7 +551,7 @@ struct DocumentCameraView: View {
         // pipeline is too slow to run in the critical path above without
         // making the shutter feel laggy, so it runs off-thread and swaps
         // into place (stack thumbnail, on-demand review) once ready.
-        DocumentEnhancer.enhanceAsync(cropped) { enhanced in
+        DocumentEnhancer.applyAsync(.auto, to: cropped) { enhanced in
             guard let idx = captures.firstIndex(where: { $0.id == capture.id }) else { return }
             captures[idx].cropped = enhanced
         }

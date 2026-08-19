@@ -20,6 +20,7 @@ final class PageModel {
     private var ocrLinesData: Data?
     private var highlightRegionsData: Data?
     private var signatureData: Data?
+    private var filterRawValue: String = DocumentFilter.auto.rawValue
 
     var document: DocumentModel?
 
@@ -50,6 +51,11 @@ final class PageModel {
     var signature: Signature? {
         get { Self.decode(Signature.self, from: signatureData) }
         set { signatureData = newValue.flatMap { Self.encode($0) } }
+    }
+
+    var filter: DocumentFilter {
+        get { DocumentFilter(rawValue: filterRawValue) ?? .auto }
+        set { filterRawValue = newValue.rawValue }
     }
 
     private static func encode<T: Encodable>(_ value: T) -> Data? {

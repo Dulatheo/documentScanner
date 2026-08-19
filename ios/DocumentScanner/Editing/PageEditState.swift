@@ -28,6 +28,12 @@ final class PageEditState: ObservableObject, Identifiable {
 
     @Published var signature: Signature?
 
+    /// The currently selected scan filter (DESIGN_SPEC §4.2/§4.3), applied
+    /// to the committed crop. Independent of crop: changing it re-processes
+    /// the already-cropped image rather than re-running perspective
+    /// correction, and re-cropping preserves whichever filter is selected.
+    @Published var filter: DocumentFilter
+
     /// Existing page id, when this state is editing an already-saved page
     /// (nil for a page captured in this session that hasn't been saved yet).
     var existingPageID: UUID?
@@ -37,12 +43,14 @@ final class PageEditState: ObservableObject, Identifiable {
         image: UIImage,
         originalImage: UIImage? = nil,
         committedQuad: Quad = .fullImage,
+        filter: DocumentFilter = .auto,
         existingPageID: UUID? = nil
     ) {
         self.order = order
         self.image = image
         self.originalImage = originalImage ?? image
         self.committedQuad = committedQuad
+        self.filter = filter
         self.existingPageID = existingPageID
     }
 
@@ -62,6 +70,8 @@ final class PageEditState: ObservableObject, Identifiable {
 
     /// Applies perspective correction using `pendingQuad` (if the user moved
     /// it) and clears crop-mode state. Safe to call even if nothing changed.
+    /// Re-cropping preserves whichever filter is currently selected — it's
+    /// not reset to `.auto`.
     func commitCropIfNeeded() {
         guard let quad = pendingQuad, quad != committedQuad else {
             pendingQuad = nil
@@ -72,16 +82,30 @@ final class PageEditState: ObservableObject, Identifiable {
 
         guard let corrected = PerspectiveCorrectionService.correct(image: originalImage, quad: quad) else { return }
         image = corrected
+        applyFilterAsync(to: corrected, quad: quad, filter: filter)
+    }
 
-        // Re-cropping should still look like an enhanced scan, not a raw
-        // crop — same async "show the fast geometric result now, swap in
-        // the enhanced one shortly after" pattern used at capture time
-        // (DocumentEnhancer). Guarded against `committedQuad` having
-        // already moved on to a *different* crop by the time this
-        // finishes, so a stale enhancement can't clobber a newer one.
-        DocumentEnhancer.enhanceAsync(corrected) { [weak self] enhanced in
-            guard let self, self.committedQuad == quad else { return }
-            self.image = enhanced
+    /// Selects a new filter and re-derives `image` from `originalImage` +
+    /// `committedQuad` with it applied. Crop is unaffected — this only
+    /// re-processes the already-cropped image, it never re-runs perspective
+    /// correction.
+    func applyFilter(_ newFilter: DocumentFilter) {
+        filter = newFilter
+        let base = committedQuad == .fullImage
+            ? originalImage
+            : (PerspectiveCorrectionService.correct(image: originalImage, quad: committedQuad) ?? originalImage)
+        applyFilterAsync(to: base, quad: committedQuad, filter: newFilter)
+    }
+
+    /// Shared "show the fast geometric result now, swap in the filtered
+    /// one shortly after" pattern used by both `commitCropIfNeeded()` and
+    /// `applyFilter(_:)`. Guarded against `committedQuad`/`filter` having
+    /// already moved on by the time this finishes, so a stale result can't
+    /// clobber a newer crop or filter selection.
+    private func applyFilterAsync(to base: UIImage, quad: Quad, filter: DocumentFilter) {
+        DocumentEnhancer.applyAsync(filter, to: base) { [weak self] filtered in
+            guard let self, self.committedQuad == quad, self.filter == filter else { return }
+            self.image = filtered
         }
     }
 }
