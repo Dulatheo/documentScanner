@@ -333,11 +333,33 @@ struct DocumentCameraView: View {
     /// stay consistent with each other (and with `CameraSession`'s own
     /// bottom-left-origin flip for the same reason).
     private func regionOfInterest(for layer: AVCaptureVideoPreviewLayer) -> CGRect {
-        guard layer.bounds.width > 0, layer.bounds.height > 0 else {
-            return CGRect(x: 0, y: 0, width: 1, height: 1)
-        }
+        let fullFrame = CGRect(x: 0, y: 0, width: 1, height: 1)
+        guard layer.bounds.width > 0, layer.bounds.height > 0 else { return fullFrame }
+
         let visible = layer.metadataOutputRectConverted(fromLayerRect: layer.bounds)
-        return CGRect(x: visible.minX, y: 1 - visible.maxY, width: visible.width, height: visible.height)
+        // Clamp defensively: `layoutSubviews` (which calls this, via
+        // `onLayerReady`) can fire before the capture session's connection
+        // is actually configured — session setup runs asynchronously on a
+        // background queue from `cameraSession.start()`, and layout can
+        // happen essentially immediately on view insertion, well before
+        // that finishes. Calling `metadataOutputRectConverted` at that
+        // premature moment isn't guaranteed to return a sane rect,  and
+        // pushing a degenerate one straight to `regionOfInterest`
+        // unvalidated would permanently restrict Vision to analyzing
+        // nothing (or fail `perform()` outright) — every later, valid
+        // frame included, since nothing here previously re-validated it.
+        // Falling back to the full frame for anything that isn't a
+        // reasonably-sized, in-bounds rect keeps detection working (at
+        // worst, un-cropped) instead of silently breaking it entirely.
+        let minX = min(max(visible.minX, 0), 1)
+        let maxX = min(max(visible.maxX, 0), 1)
+        let minY = min(max(visible.minY, 0), 1)
+        let maxY = min(max(visible.maxY, 0), 1)
+        let width = maxX - minX
+        let height = maxY - minY
+        guard width > 0.1, height > 0.1 else { return fullFrame }
+
+        return CGRect(x: minX, y: 1 - maxY, width: width, height: height)
     }
 
     private var captureStackIndicator: some View {
