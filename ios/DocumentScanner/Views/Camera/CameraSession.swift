@@ -85,18 +85,43 @@ final class CameraSession: NSObject, ObservableObject {
     /// Below this confidence, treat the frame as "nothing detected" rather
     /// than showing a shaky/unreliable quad.
     ///
-    /// Deliberately lower than a naive first guess (0.5): unlike VisionKit's
-    /// own scanner, which effectively runs segmentation against a
-    /// deliberately-composed still, this request runs against live,
-    /// hand-held, frequently motion-blurred preview frames — a strictly
-    /// harder input than a careful single shot. This threshold only governs
-    /// the live *guide* (`detectedQuad`); the separate one-shot detection
-    /// used to actually crop a captured photo (`detectDocumentQuad`) uses
-    /// its own, independently-passed confidence check, so loosening this
-    /// one only risks a shakier on-screen guide, never a bad crop. Tune
-    /// using the `#if DEBUG` logging below, which prints every
-    /// observation's actual confidence on a real device.
-    private let minDetectionConfidence: VNConfidence = 0.3
+    /// Slightly above a naive first guess: on-device logging showed real,
+    /// intentionally-framed documents easily reaching 0.7-0.99, so 0.5
+    /// still comfortably accepts those while giving a bit more protection
+    /// against borderline/incidental background matches than the original
+    /// 0.3 (this was lowered from 0.5, then raised back partway once real
+    /// confidence numbers were available — see git history). This
+    /// threshold only governs the live *guide* (`detectedQuad`) and
+    /// auto-capture; the separate one-shot detection used to actually crop
+    /// a captured photo (`detectDocumentQuad`) uses its own,
+    /// independently-passed confidence check. Tune using the `#if DEBUG`
+    /// logging below, which prints every observation's actual confidence
+    /// on a real device.
+    private let minDetectionConfidence: VNConfidence = 0.5
+
+    /// The portion of the sensor's frame actually visible on screen,
+    /// normalized to Vision's `regionOfInterest` convention (origin
+    /// bottom-left) — set by `DocumentCameraView` once it knows the real,
+    /// laid-out preview bounds (see `CameraPreviewView.onLayerReady`).
+    /// Defaults to the full frame until then. `.resizeAspectFill` crops
+    /// part of the sensor's field of view to fill the screen, and without
+    /// this, `VNDetectDocumentSegmentationRequest` analyzes the *entire*
+    /// uncropped buffer — meaning it can confidently detect a document
+    /// sitting in the cropped-off part of the frame that the user can't
+    /// even see, which both explains "nothing visible is detected" (the
+    /// live quad, if it existed, would be off-screen) and can drive
+    /// auto-capture off content the user never framed. Read and written
+    /// only on `videoAnalysisQueue`.
+    private var regionOfInterest = CGRect(x: 0, y: 0, width: 1, height: 1)
+
+    /// Thread-safe setter for `regionOfInterest` — hops to
+    /// `videoAnalysisQueue`, the only queue that reads it (inside
+    /// `captureOutput`), so there's no unsynchronized cross-thread access.
+    func updateRegionOfInterest(_ rect: CGRect) {
+        videoAnalysisQueue.async { [weak self] in
+            self?.regionOfInterest = rect
+        }
+    }
 
     // MARK: - Permission
 
@@ -332,6 +357,13 @@ extension CameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
         // don't change this to `.up` for some other reason without also
         // reconciling `configureSession()` and `screenPoint(for:)`.
         let request = VNDetectDocumentSegmentationRequest()
+        // Constrains analysis to what's actually visible through
+        // `.resizeAspectFill`'s crop — see `regionOfInterest`'s doc
+        // comment for why this matters. Already in the same native-buffer,
+        // bottom-left-origin coordinate convention this request's results
+        // are read in below (both derive from the same `orientation: .up`
+        // "analyze as delivered" choice), so no further conversion needed.
+        request.regionOfInterest = regionOfInterest
         let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .up, options: [:])
         do {
             try handler.perform([request])

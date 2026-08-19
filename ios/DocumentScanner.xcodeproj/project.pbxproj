@@ -21,6 +21,7 @@
 		63641DCA1FC6B22CADB53467 /* PDFExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C9EEB00E75F5514599EC2C6 /* PDFExportService.swift */; };
 		880D2D04363E886D298A3D03 /* PageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64A25CBA6C73705B48E3DBF8 /* PageRenderer.swift */; };
 		516EAB599A0BBD5A946B45CD /* PerspectiveCorrectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBC58FA73D86A2A9149F1C05 /* PerspectiveCorrectionService.swift */; };
+		97BED30B65DF816A2BC3127E /* DocumentEnhancer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E129B55D2EA612CCE13BF43D /* DocumentEnhancer.swift */; };
 		9B9351D34B45909E2E920CD2 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF712FBED015D525ADC5D33B /* ShareSheet.swift */; };
 		202665C5D18CD7F9A4B2D851 /* ToastCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772201243C78927BD861C87B /* ToastCenter.swift */; };
 		39232E9234B8898F3497A791 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C0007B619BD4BA6B0345B5 /* Theme.swift */; };
@@ -62,6 +63,7 @@
 		3C9EEB00E75F5514599EC2C6 /* PDFExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExportService.swift; sourceTree = "<group>"; };
 		64A25CBA6C73705B48E3DBF8 /* PageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRenderer.swift; sourceTree = "<group>"; };
 		DBC58FA73D86A2A9149F1C05 /* PerspectiveCorrectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerspectiveCorrectionService.swift; sourceTree = "<group>"; };
+		E129B55D2EA612CCE13BF43D /* DocumentEnhancer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEnhancer.swift; sourceTree = "<group>"; };
 		DF712FBED015D525ADC5D33B /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		772201243C78927BD861C87B /* ToastCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastCenter.swift; sourceTree = "<group>"; };
 		12C0007B619BD4BA6B0345B5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 				3C9EEB00E75F5514599EC2C6 /* PDFExportService.swift */,
 				64A25CBA6C73705B48E3DBF8 /* PageRenderer.swift */,
 				DBC58FA73D86A2A9149F1C05 /* PerspectiveCorrectionService.swift */,
+				E129B55D2EA612CCE13BF43D /* DocumentEnhancer.swift */,
 				DF712FBED015D525ADC5D33B /* ShareSheet.swift */,
 				772201243C78927BD861C87B /* ToastCenter.swift */,
 			);
@@ -272,6 +275,7 @@
 				63641DCA1FC6B22CADB53467 /* PDFExportService.swift in Sources */,
 				880D2D04363E886D298A3D03 /* PageRenderer.swift in Sources */,
 				516EAB599A0BBD5A946B45CD /* PerspectiveCorrectionService.swift in Sources */,
+				97BED30B65DF816A2BC3127E /* DocumentEnhancer.swift in Sources */,
 				9B9351D34B45909E2E920CD2 /* ShareSheet.swift in Sources */,
 				202665C5D18CD7F9A4B2D851 /* ToastCenter.swift in Sources */,
 				39232E9234B8898F3497A791 /* Theme.swift in Sources */,

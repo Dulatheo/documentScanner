@@ -9,12 +9,18 @@ import UIKit
 struct CameraPreviewView: UIViewRepresentable {
     let session: AVCaptureSession
 
-    /// Hands the caller the underlying `AVCaptureVideoPreviewLayer` once
-    /// it's created, so the live document-detection overlay can convert
-    /// Vision's normalized frame coordinates into on-screen points via
-    /// `layerRectConverted(fromMetadataOutputRect:)` — the correct way to
-    /// account for `.resizeAspectFill`'s crop, rather than hand-rolling
-    /// aspect-fill math.
+    /// Hands the caller the underlying `AVCaptureVideoPreviewLayer` — once
+    /// it exists, and again on every subsequent layout pass, not just the
+    /// first — so the live document-detection overlay can convert Vision's
+    /// normalized frame coordinates into on-screen points via
+    /// `layerRectConverted(fromMetadataOutputRect:)` (and the inverse, to
+    /// compute Vision's `regionOfInterest`), both of which need
+    /// `previewLayer.bounds` to already reflect the view's real, laid-out
+    /// size. Firing only from `makeUIView` (as this used to) fires *before*
+    /// layout has actually sized the view, so a bounds-dependent
+    /// computation done only there would silently use a stale/zero size;
+    /// `layoutSubviews()` is the point UIKit guarantees the bounds are
+    /// correct, and re-fires this callback whenever they change.
     var onLayerReady: ((AVCaptureVideoPreviewLayer) -> Void)?
 
     func makeUIView(context: Context) -> PreviewContainerView {
@@ -24,34 +30,39 @@ struct CameraPreviewView: UIViewRepresentable {
         if let connection = view.previewLayer.connection, connection.isVideoOrientationSupported {
             connection.videoOrientation = .portrait
         }
-        // Deferred to the next run-loop turn: `makeUIView` runs synchronously
-        // as part of the parent's (`DocumentCameraView`) own body evaluation,
-        // so calling `onLayerReady` here directly mutates that parent's
-        // `@State private var previewLayer` *during* the same view-update
-        // cycle that produced it — SwiftUI's well-known "modifying state
-        // during view update" hazard. In practice this silently drops the
-        // assignment: `makeUIView` only ever runs once, so if the mutation
-        // doesn't stick that first time, `previewLayer` stays `nil` forever
-        // and nothing ever gates on it again, which is exactly why the live
-        // document-detection overlay never appeared even though detection
-        // itself (confirmed via on-device logging) was working correctly.
-        // Dispatching to the main queue moves the mutation to its own,
-        // later update cycle, where it's safe.
-        DispatchQueue.main.async {
-            onLayerReady?(view.previewLayer)
-        }
+        view.onLayout = onLayerReady
         return view
     }
 
-    func updateUIView(_ uiView: PreviewContainerView, context: Context) {}
+    func updateUIView(_ uiView: PreviewContainerView, context: Context) {
+        uiView.onLayout = onLayerReady
+    }
 
     final class PreviewContainerView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var onLayout: ((AVCaptureVideoPreviewLayer) -> Void)?
 
         var previewLayer: AVCaptureVideoPreviewLayer {
             // Force-cast is safe: `layerClass` guarantees `layer` is always
             // an `AVCaptureVideoPreviewLayer` for this view subclass.
             layer as! AVCaptureVideoPreviewLayer // swiftlint:disable:this force_cast
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            // Deferred to the next run-loop turn, same reasoning as the fix
+            // this replaced: `layoutSubviews` can run synchronously inside
+            // a SwiftUI update pass, and mutating a SwiftUI `@State` from
+            // inside that same pass is the "modifying state during view
+            // update" hazard that previously made this callback silently
+            // no-op. Capturing `previewLayer`/`onLayout` now and hopping to
+            // the next main-queue turn avoids that regardless of when
+            // `layoutSubviews` happens to fire.
+            let layer = previewLayer
+            let callback = onLayout
+            DispatchQueue.main.async {
+                callback?(layer)
+            }
         }
     }
 }

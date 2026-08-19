@@ -185,7 +185,25 @@ committing it to the library.
     sidesteps entirely the live-feed's video-buffer-to-photo coordinate-
     space/orientation mapping (a real, previously-hit source of bugs),
     since the one-shot detection's result is already normalized to the
-    exact image it's about to crop.
+    exact image it's about to crop. The live feed's `VNDetectDocumentSegmentationRequest`
+    is constrained to `regionOfInterest` matching exactly what
+    `.resizeAspectFill` actually shows on screen (computed from the
+    preview layer via `metadataOutputRectConverted`/`layerRectConverted`,
+    the same conversion pair `screenPoint(for:)` already used) — without
+    this, Vision analyzes the sensor's *entire* uncropped field of view,
+    so it could confidently "detect a document" sitting in the part of the
+    frame `.resizeAspectFill` crops off-screen, both looking like nothing
+    was detected (no visible quad) and driving auto-capture off content
+    the user never actually framed.
+  - **Both platforms — automatic enhancement**: after crop (auto or
+    manual), every page is run through an automatic enhance pass — exposure/
+    color normalization plus a contrast/sharpness pass tuned for text-on-
+    paper — so a saved page reads as a processed *scan*, not a cropped
+    photo. Runs off the main thread and swaps into the stack thumbnail /
+    review / Edit view a moment after the fast, synchronous crop shows, so
+    it doesn't cost the capture flow any responsiveness. No user-facing
+    filter picker (Auto/Color/B&W) yet — a single automatic recipe is the
+    MVP; a picker is a reasonable follow-up, not a redesign.
 
 **iOS zoom-transition implementation note** (applies to all three zoom
 transitions above — scan button → Camera, document card → Document Viewer,

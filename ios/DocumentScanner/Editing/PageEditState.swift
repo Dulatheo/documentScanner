@@ -67,10 +67,21 @@ final class PageEditState: ObservableObject, Identifiable {
             pendingQuad = nil
             return
         }
-        if let corrected = PerspectiveCorrectionService.correct(image: originalImage, quad: quad) {
-            image = corrected
-        }
         committedQuad = quad
         pendingQuad = nil
+
+        guard let corrected = PerspectiveCorrectionService.correct(image: originalImage, quad: quad) else { return }
+        image = corrected
+
+        // Re-cropping should still look like an enhanced scan, not a raw
+        // crop — same async "show the fast geometric result now, swap in
+        // the enhanced one shortly after" pattern used at capture time
+        // (DocumentEnhancer). Guarded against `committedQuad` having
+        // already moved on to a *different* crop by the time this
+        // finishes, so a stale enhancement can't clobber a newer one.
+        DocumentEnhancer.enhanceAsync(corrected) { [weak self] enhanced in
+            guard let self, self.committedQuad == quad else { return }
+            self.image = enhanced
+        }
     }
 }

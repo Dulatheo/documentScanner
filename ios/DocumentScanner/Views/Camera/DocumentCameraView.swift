@@ -15,7 +15,11 @@ struct CameraCapture: Identifiable {
     /// saw at the moment of capture, so what the user sees afterward
     /// matches what was inside the live frame. Falls back to `original`
     /// when no confident quad was detected for this particular shot.
-    let cropped: UIImage
+    /// `var`, not `let`: `handleCaptureSuccess` shows this immediately
+    /// (perspective-corrected only, so shutter feedback stays instant),
+    /// then swaps in `DocumentEnhancer`'s result once that finishes
+    /// asynchronously a moment later.
+    var cropped: UIImage
     /// The quad `cropped` was corrected from (normalized to `original`'s
     /// size), or `.fullImage` when nothing was detected. Seeded into
     /// `PageEditState.committedQuad` so re-opening the Crop tool starts
@@ -173,9 +177,16 @@ struct DocumentCameraView: View {
                     // No live detection applies to gallery imports — kept
                     // as full, uncropped pages (`quad: .fullImage`), same
                     // as manual Crop always could produce anyway.
-                    captures.append(contentsOf: images.map {
-                        CameraCapture(original: $0, cropped: $0, quad: .fullImage)
-                    })
+                    let imported = images.map { CameraCapture(original: $0, cropped: $0, quad: .fullImage) }
+                    captures.append(contentsOf: imported)
+                    // Same "show it now, enhance in place shortly after"
+                    // pattern as the shutter path — see DocumentEnhancer.
+                    for capture in imported {
+                        DocumentEnhancer.enhanceAsync(capture.original) { enhanced in
+                            guard let idx = captures.firstIndex(where: { $0.id == capture.id }) else { return }
+                            captures[idx].cropped = enhanced
+                        }
+                    }
                 },
                 onCancel: { showPhotoImport = false }
             )
@@ -190,6 +201,7 @@ struct DocumentCameraView: View {
         ZStack {
             CameraPreviewView(session: cameraSession.session, onLayerReady: { layer in
                 previewLayer = layer
+                cameraSession.updateRegionOfInterest(regionOfInterest(for: layer))
             })
             .ignoresSafeArea()
 
@@ -309,6 +321,23 @@ struct DocumentCameraView: View {
         guard let previewLayer else { return .zero }
         let metadataRect = CGRect(origin: normalizedPoint, size: .zero)
         return previewLayer.layerRectConverted(fromMetadataOutputRect: metadataRect).origin
+    }
+
+    /// The portion of the sensor's frame actually visible through
+    /// `.resizeAspectFill`'s crop, converted into `CameraSession`'s
+    /// `regionOfInterest` (Vision's normalized, bottom-left-origin
+    /// convention) so live detection only ever considers what the user can
+    /// actually see — `metadataOutputRectConverted(fromLayerRect:)` is the
+    /// exact inverse of `layerRectConverted(fromMetadataOutputRect:)` used
+    /// in `screenPoint(for:)` above, so both directions of this conversion
+    /// stay consistent with each other (and with `CameraSession`'s own
+    /// bottom-left-origin flip for the same reason).
+    private func regionOfInterest(for layer: AVCaptureVideoPreviewLayer) -> CGRect {
+        guard layer.bounds.width > 0, layer.bounds.height > 0 else {
+            return CGRect(x: 0, y: 0, width: 1, height: 1)
+        }
+        let visible = layer.metadataOutputRectConverted(fromLayerRect: layer.bounds)
+        return CGRect(x: visible.minX, y: 1 - visible.maxY, width: visible.width, height: visible.height)
     }
 
     private var captureStackIndicator: some View {
@@ -493,6 +522,16 @@ struct DocumentCameraView: View {
             if flyingCapture?.id == flying.id {
                 flyingCapture = nil
             }
+        }
+
+        // The stack/review/Edit flow should show an enhanced "scanned
+        // document" look, not a raw cropped photo — but the CoreImage
+        // pipeline is too slow to run in the critical path above without
+        // making the shutter feel laggy, so it runs off-thread and swaps
+        // into place (stack thumbnail, on-demand review) once ready.
+        DocumentEnhancer.enhanceAsync(cropped) { enhanced in
+            guard let idx = captures.firstIndex(where: { $0.id == capture.id }) else { return }
+            captures[idx].cropped = enhanced
         }
     }
 
