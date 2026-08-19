@@ -195,15 +195,29 @@ committing it to the library.
     frame `.resizeAspectFill` crops off-screen, both looking like nothing
     was detected (no visible quad) and driving auto-capture off content
     the user never actually framed.
-  - **Both platforms — automatic enhancement**: after crop (auto or
-    manual), every page is run through an automatic enhance pass — exposure/
-    color normalization plus a contrast/sharpness pass tuned for text-on-
-    paper — so a saved page reads as a processed *scan*, not a cropped
-    photo. Runs off the main thread and swaps into the stack thumbnail /
-    review / Edit view a moment after the fast, synchronous crop shows, so
-    it doesn't cost the capture flow any responsiveness. No user-facing
-    filter picker (Auto/Color/B&W) yet — a single automatic recipe is the
-    MVP; a picker is a reasonable follow-up, not a redesign.
+  - **Both platforms — scan filters**: after crop (auto or manual), every
+    page gets a filter applied so it reads as a processed *scan*, not a
+    cropped photo — and the user can change which one, the way other
+    scanner apps (Adobe Scan, Notes) do. Four filters, applied per page
+    (each page in a multi-page document can have its own):
+    - **Auto** (default) — exposure/color normalization plus a contrast/
+      sharpness pass tuned for text-on-paper.
+    - **Original** — no filter, the crop as captured.
+    - **Grayscale** — desaturated, mild contrast boost.
+    - **B&W** — desaturated with a strong contrast/brightness push, for
+      the classic high-contrast "black text, white paper" scanner look.
+    - Filter selection is a 5th tool alongside Crop/Highlight/Text/Sign in
+      the Edit flow's tool bar (§4.3), showing a row of the 4 options —
+      tapping one applies it live to the page preview already on screen.
+      The choice is **persisted per page** (re-opening a saved document
+      remembers it), and is independent of crop: changing the filter
+      re-applies to the already-cropped image rather than re-running
+      perspective correction, and re-cropping preserves whatever filter
+      is currently selected rather than resetting it.
+    - Applying a filter still runs off the main thread with the same
+      "show the fast geometric crop immediately, swap the filtered result
+      in a moment later" pattern as before, so neither capture nor
+      re-cropping loses responsiveness.
 
 **iOS zoom-transition implementation note** (applies to all three zoom
 transitions above — scan button → Camera, document card → Document Viewer,
@@ -237,12 +251,12 @@ switching, whichever way the user navigates.
   document and opens the Export sheet with `pendingSave = true`).
 - Center: the page rendered on a `paper` card (drop shadow, hairline
   border).
-- **Tool bar** (4 equal-width buttons, bottom): **Crop**, **Highlight**,
-  **Text** (OCR), **Sign**. Active tool is visually selected
+- **Tool bar** (5 equal-width buttons, bottom): **Crop**, **Highlight**,
+  **Text** (OCR), **Sign**, **Filter**. Active tool is visually selected
   (`accentSoft` background + `accent` icon/label). A one-line contextual
   hint above the tool bar changes per active tool ("Drag the corners to fit
   the page" / "Tap a line of text to highlight it" / "Text recognition" /
-  "Draw your signature").
+  "Draw your signature" / "Choose how this page looks").
   - **Crop**: adjustable quad/rect overlay with draggable corner handles;
     commits a perspective-corrected crop of the page image. (If using
     VisionKit/ML Kit capture, an initial auto-crop is already applied — this
@@ -263,6 +277,9 @@ switching, whichever way the user navigates.
     combining move/rotate on one object — same as Markup/Photos) before
     **Done** commits it at that position/size/rotation. **Redraw** returns
     to the drawing canvas.
+  - **Filter**: a row of 4 options (**Auto** / **Original** / **Grayscale**
+    / **B&W** — see §4.2's "scan filters" note for what each does),
+    applied live to the page preview on tap. Persisted per page.
 - Saving moves the (new or edited) document into the library, shows a toast
   ("Saved to Documents"), and opens the Export sheet.
 
@@ -331,8 +348,9 @@ Document
 Page
   id: UUID
   order: Int
-  imagePath: String            // cropped page image on disk
+  imagePath: String            // cropped + filtered page image on disk
   originalImagePath: String?   // pre-crop capture, kept for re-crop
+  filter: auto | original | grayscale | blackAndWhite   // default auto
   ocrText: String?             // null until OCR has been run
   highlightedLineIndices/Regions: [...]   // OCR line regions marked highlighted
   signature: Signature?
