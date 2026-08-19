@@ -146,7 +146,7 @@ struct Signature: Codable, Hashable {
 }
 
 enum EditTool: String, CaseIterable, Identifiable, Hashable {
-    case crop, highlight, ocr, sign
+    case crop, highlight, ocr, sign, filter
     var id: String { rawValue }
 
     var label: String {
@@ -155,6 +155,7 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         case .highlight: return "Highlight"
         case .ocr: return "Text"
         case .sign: return "Sign"
+        case .filter: return "Filter"
         }
     }
 
@@ -164,6 +165,7 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         case .highlight: return "highlighter"
         case .ocr: return "text.viewfinder"
         case .sign: return "signature"
+        case .filter: return "wand.and.stars"
         }
     }
 
@@ -173,6 +175,24 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         case .highlight: return "Tap a line of text to highlight it"
         case .ocr: return "Text recognition"
         case .sign: return "Draw your signature"
+        case .filter: return "Choose how this page looks"
+        }
+    }
+}
+
+/// The scan-processing look applied to a page's cropped image
+/// (DESIGN_SPEC §4.2 "scan filters" / §4.3 Filter tool). Selectable per
+/// page, persisted alongside the rest of the page's edits.
+enum DocumentFilter: String, CaseIterable, Identifiable, Codable, Hashable {
+    case auto, original, grayscale, blackAndWhite
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .auto: return "Auto"
+        case .original: return "Original"
+        case .grayscale: return "Grayscale"
+        case .blackAndWhite: return "B&W"
         }
     }
 }
