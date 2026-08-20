@@ -104,99 +104,39 @@ a parallel `home → doc viewer (existing document) → (comment | export sheet
 ### 4.2 Camera (capture)
 
 Full-screen camera capture used to build up a multi-page document before
-committing it to the library.
+committing it to the library. On both platforms this is the OS's own
+built-in document-scanning capture UI, not a custom-built camera screen —
+see the platform notes below for why, including a reversal on iOS.
 
-- Top instruction pill: "Position the document in the frame" over the live
-  preview.
-- Viewfinder guide: **only** a **live-tracked quad** highlighting the
-  document currently detected in frame (updates continuously and smoothly
-  as the camera moves, same idea as VisionKit's own live detection — see
-  the iOS implementation note below for how this is achieved without
-  VisionKit itself). No static corner-bracket frame — the live quad is the
-  entire guide; nothing is drawn when no document is detected.
-- Bottom control bar (dark scrim): **Cancel** (left, text button, discards
-  captures and returns Home), **shutter** (center, large white circle),
-  **gallery/photo picker** (right, imports an existing photo as a page).
-- **Auto-capture**: once a document has been detected steadily (holding
-  roughly still, ~1 second) in frame, the shutter fires automatically —
-  matching VisionKit's own "just hold it still" behavior. The manual
-  shutter button keeps working the whole time; auto-capture only ever adds
-  a capture, never blocks a manual one. A short cooldown after each
-  auto-capture avoids immediately re-capturing the same steadily-held page.
-- Each shutter tap (auto or manual) captures a page, **crops it to the
-  document quad detected in that exact photo** (not the live-preview quad —
-  a fresh one-shot detection against the final still, so there's no
-  live-preview-to-photo coordinate translation to get wrong; falls back to
-  the full, uncropped photo if nothing confident was detected for that
-  shot), and **immediately** animates the cropped thumbnail flying into the
-  capture-stack indicator (bottom-left, with a brief shutter-flash) — no
-  interruption. The stack's count badge increments and the live camera
-  stays active, ready for the next shot. The original, uncropped photo is
-  kept alongside the cropped one so the Edit flow's Crop tool can still
-  re-crop from scratch if the auto-crop wasn't quite right.
-- The capture-stack thumbnail is tappable at any time to **zoom-transition**
-  (from the thumbnail's own position, same technique as the two transitions
-  in §4.1) into a **per-shot review screen** for the most recently captured
-  page (showing the *cropped* version — what the user actually saw inside
-  the live frame, not the full photo), bottom bar with **Retake** —
-  secondary/outlined, bottom-left — and **Done** — primary/filled `accent`,
-  bottom-right/prominent. This is an on-demand "check my last shot" step,
-  not a required stop after every capture. **Done** just dismisses the
-  review (the page was already added to the stack at capture time, so
-  nothing changes) and returns to the live camera; **Retake** removes that
-  page from the stack and returns to the live camera so the user can
-  reshoot it.
-- Once `captures > 0`, a **"Done · N pages"** pill appears to finish the
-  whole capture session and proceed to the page editor for the first
-  captured page, which opens already cropped to each page's detected quad
-  (§4.3's Crop tool starts from that quad, not a full-image reset).
-- Platform capture implementation (**this diverges by platform** — see
-  below):
-  - **Android**: uses the platform's built-in document-scanning capture UI
-    so edge detection / auto-crop / multi-page flow is production quality
-    rather than hand-rolled — ML Kit **Document Scanner API**
-    (`GmsDocumentScanning`), which provides its own capture → auto-crop →
-    multi-page → review flow, including its own live detection and
-    auto-capture. This replaces the mock's custom shutter/gallery/stack
-    chrome with the platform's native equivalent; behaviorally it satisfies
-    the same user story. Android's per-shot review step is whatever
-    `GmsDocumentScanning` itself presents (not independently customizable,
-    same rationale as iOS's original VisionKit approach below).
-  - **iOS**: originally used `VNDocumentCameraViewController` (VisionKit)
-    for the same reason as Android. That was replaced with a **fully custom
-    AVFoundation camera** (live `AVCaptureSession` preview, `AVCapturePhotoOutput`
-    for the shutter) after user testing on-device showed VisionKit's own
-    per-shot review screen — a sealed, non-customizable system UI — put
-    **Retake** in the prominent position and the "keep this page" action in
-    a small, easy-to-miss back-chevron. Apple's public API for
-    `VNDocumentCameraViewController` doesn't expose any way to relabel,
-    reposition, or intercept that screen, so matching the desired UX
-    required dropping VisionKit and hand-rolling capture. To keep VisionKit's
-    *live document detection*, iOS runs Vision's `VNDetectDocumentSegmentationRequest`
-    (available since iOS 15, the same building block VisionKit itself is
-    built on) against the live video feed via `AVCaptureVideoDataOutput`,
-    throttled to ~8 frames/sec, and renders the detected quad as the
-    live-tracked overlay described above — its corners animate smoothly
-    between detections (`Shape.animatableData`) rather than jumping frame
-    to frame. That live feed's detections drive only the on-screen guide
-    and the auto-capture stability check; the quad actually used to **crop**
-    a captured photo comes from a *separate* one-shot `VNDetectDocumentSegmentationRequest`
-    run directly against the final still image right after capture — this
-    sidesteps entirely the live-feed's video-buffer-to-photo coordinate-
-    space/orientation mapping (a real, previously-hit source of bugs),
-    since the one-shot detection's result is already normalized to the
-    exact image it's about to crop. The live feed's `VNDetectDocumentSegmentationRequest`
-    is constrained to `regionOfInterest` matching exactly what
-    `.resizeAspectFill` actually shows on screen (computed from the
-    preview layer via `metadataOutputRectConverted`/`layerRectConverted`,
-    the same conversion pair `screenPoint(for:)` already used) — without
-    this, Vision analyzes the sensor's *entire* uncropped field of view,
-    so it could confidently "detect a document" sitting in the part of the
-    frame `.resizeAspectFill` crops off-screen, both looking like nothing
-    was detected (no visible quad) and driving auto-capture off content
-    the user never actually framed.
-  - **Both platforms — scan filters**: after crop (auto or manual), every
-    page gets a filter applied so it reads as a processed *scan*, not a
+- Platform capture implementation (**this diverges by platform**):
+  - **Android**: ML Kit **Document Scanner API** (`GmsDocumentScanning`),
+    which provides its own capture → live edge detection → auto-crop →
+    multi-page → per-shot review flow. This replaces the mock's custom
+    shutter/gallery/stack chrome with the platform's native equivalent;
+    behaviorally it satisfies the same user story. Android's per-shot
+    review step is whatever `GmsDocumentScanning` itself presents — not
+    independently customizable.
+  - **iOS**: `VNDocumentCameraViewController` (VisionKit) — Apple's own
+    document scanner, with the same live edge detection → auto-crop →
+    multi-page → per-shot review flow as Android's ML Kit scanner. This app
+    briefly replaced it with a fully custom `AVCaptureSession`-based
+    camera (live `VNDetectDocumentSegmentationRequest` against the video
+    feed, auto-capture, a hand-built review screen) to get control over
+    the per-shot review screen's button layout — VisionKit's own review UI
+    is a sealed system screen that puts **Retake** in the prominent spot
+    and "keep this page" in a small back-chevron, with no public API to
+    relabel or reposition it. That custom camera went through repeated
+    rounds of on-device bugs (live detection not rendering, coordinate-
+    space mismatches between the video buffer and the preview layer, false
+    auto-captures from analyzing off-screen content, a `@State` mutation
+    silently dropped mid-view-update) — each one individually fixable, but
+    the cumulative iteration cost outweighed the button-layout win, and the
+    app reverted to VisionKit: Apple's own maintained, known-reliable
+    implementation, accepting its review screen's button layout as-is
+    rather than continuing to chase custom-camera bugs.
+  - **Both platforms — scan filters**: after the platform scanner's own
+    crop, every page gets a filter applied so it reads as a processed
+    *scan*, not a
     cropped photo — and the user can change which one, the way other
     scanner apps (Adobe Scan, Notes) do. Four filters, applied per page
     (each page in a multi-page document can have its own):
@@ -219,23 +159,26 @@ committing it to the library.
       in a moment later" pattern as before, so neither capture nor
       re-cropping loses responsiveness.
 
-**iOS zoom-transition implementation note** (applies to all three zoom
-transitions above — scan button → Camera, document card → Document Viewer,
-capture-stack thumbnail → per-shot review): implemented via
-`matchedGeometryEffect` with a shared `@Namespace`, not a plain
-`.fullScreenCover`/`NavigationLink` push. A `.fullScreenCover`/pushed
-`NavigationLink` destination is a *separate* view hierarchy from the
-presenting screen, and `matchedGeometryEffect` only animates smoothly
-between two views that are simultaneously part of the *same* hierarchy
-during the transition — so each of these three destinations is presented
-as a plain conditional overlay (`if isShowing { Destination() }`) inside
-the same `ZStack` as its source screen, with the toggle wrapped in
+**iOS zoom-transition implementation note** (applies to both zoom
+transitions above — scan button → Camera, document card → Document
+Viewer): implemented via `matchedGeometryEffect` with a shared
+`@Namespace`, not a plain `.fullScreenCover`/`NavigationLink` push. A
+`.fullScreenCover`/pushed `NavigationLink` destination is a *separate* view
+hierarchy from the presenting screen, and `matchedGeometryEffect` only
+animates smoothly between two views that are simultaneously part of the
+*same* hierarchy during the transition — so each of these two destinations
+is presented as a plain conditional overlay (`if isShowing { Destination() }`)
+inside the same `ZStack` as its source screen, with the toggle wrapped in
 `withAnimation`, rather than through SwiftUI's modal presentation APIs.
-This is the standard, broadly-compatible (iOS 17+, no `#available`
-branching) way to get a source-rect zoom transition; iOS 18 also ships a
-dedicated `NavigationTransition.zoom` API, but building on the
-namespace/overlay approach instead keeps one implementation path for both
-this iOS version and future ones.
+Camera's destination is `DocumentCameraView`, a `UIViewControllerRepresentable`
+wrapping VisionKit with no `body` of its own to attach the modifier to
+internally, so `RootView` chains `.matchedGeometryEffect` onto that call
+site directly rather than inside the view like Document Viewer's does. This
+is the standard, broadly-compatible (iOS 17+, no `#available` branching)
+way to get a source-rect zoom transition; iOS 18 also ships a dedicated
+`NavigationTransition.zoom` API, but building on the namespace/overlay
+approach instead keeps one implementation path for both this iOS version
+and future ones.
 
 ### 4.3 Edit (per-page editor)
 
@@ -403,12 +346,11 @@ should do *more* than the mock, not less:
 1. **Capture**: the mock's camera screen is a static art-directed frame with
    a decorative sweep animation, no real detection. Both platforms improve
    on that with genuine live edge detection, auto-crop, and auto-capture on
-   a steady frame. Android gets this from the OS's built-in scanner (ML
-   Kit). iOS originally did the same with VisionKit, but now uses a custom
-   AVFoundation camera instead — see §4.2 for why — implementing the mock's
-   live-preview/shutter/stack chrome directly (plus real Vision-based live
-   detection, auto-capture, and auto-crop) rather than delegating to a
-   system scanner.
+   a steady frame, by delegating to the OS's own built-in document scanner —
+   ML Kit's Document Scanner API on Android, VisionKit's
+   `VNDocumentCameraViewController` on iOS (see §4.2 for the iOS detour
+   through, and reversal back from, a custom-built camera) — rather than
+   hand-rolling the mock's live-preview/shutter/stack chrome.
 2. **Share**: the mock's share sheet is a hand-drawn list of four apps; the
    real apps hand off to the OS's native share surface, which is strictly
    more capable and is what users expect on both platforms.

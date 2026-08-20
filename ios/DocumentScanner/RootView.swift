@@ -90,9 +90,9 @@ struct RootView: View {
                     },
                     onCancel: {
                         withAnimation(.zoomTransition) { showCamera = false }
-                    },
-                    zoomNamespace: zoomNamespace
+                    }
                 )
+                .matchedGeometryEffect(id: "cameraZoom", in: zoomNamespace)
                 .ignoresSafeArea()
                 .zIndex(2)
             }
