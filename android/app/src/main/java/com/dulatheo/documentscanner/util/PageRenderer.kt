@@ -55,6 +55,16 @@ object PageRenderer {
         val scaleX = if (signature.canvasWidth > 0) placedWidthPx / signature.canvasWidth else 1f
         val scaleY = if (signature.canvasHeight > 0) placedHeightPx / signature.canvasHeight else 1f
 
+        // Rotate the canvas around the signature's own center to match what
+        // was shown on screen (SignaturePlacement's `Modifier.rotate`) —
+        // restored right after this signature's strokes are drawn so it
+        // doesn't affect anything drawn afterward (highlights are drawn
+        // before signatures in `flatten`, but this stays defensive in case
+        // that order ever changes).
+        val saveCount = canvas.save()
+        if (signature.rotation != 0f) {
+            canvas.rotate(signature.rotation, originX + placedWidthPx / 2f, originY + placedHeightPx / 2f)
+        }
         for (stroke in signature.strokes) {
             if (stroke.points.size < 2) continue
             val paint = Paint().apply {
@@ -73,5 +83,6 @@ object PageRenderer {
             }
             canvas.drawPath(path, paint)
         }
+        canvas.restoreToCount(saveCount)
     }
 }

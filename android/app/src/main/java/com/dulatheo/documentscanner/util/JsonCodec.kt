@@ -75,6 +75,7 @@ object JsonCodec {
             put("y", sig.y)
             put("width", sig.width)
             put("height", sig.height)
+            put("rotation", sig.rotation)
         }.toString()
     }
 
@@ -106,6 +107,7 @@ object JsonCodec {
                 y = o.optDouble("y").toFloat(),
                 width = o.optDouble("width", 0.3).toFloat(),
                 height = o.optDouble("height", 0.1).toFloat(),
+                rotation = o.optDouble("rotation", 0.0).toFloat(),
             )
         }.getOrNull()
     }

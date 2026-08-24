@@ -51,6 +51,8 @@ fun PageCard(
     placementRect: Rect? = null,
     onPlacementRectChange: ((Rect) -> Unit)? = null,
     placementStrokes: List<com.dulatheo.documentscanner.data.model.SignatureStroke> = emptyList(),
+    placementRotation: Float = 0f,
+    onPlacementRotationChange: ((Float) -> Unit)? = null,
 ) {
     val tokens = LocalAppColors.current
     var displaySize by remember { mutableStateOf(IntSize.Zero) }
@@ -109,6 +111,7 @@ fun PageCard(
                     rect = rect,
                     onRectChange = null,
                     accentColor = tokens.accent,
+                    rotation = signature.rotation,
                 )
             }
 
@@ -128,6 +131,8 @@ fun PageCard(
                     rect = placementRect,
                     onRectChange = onPlacementRectChange,
                     accentColor = tokens.accent,
+                    rotation = placementRotation,
+                    onRotationChange = onPlacementRotationChange,
                 )
             }
         }

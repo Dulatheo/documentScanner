@@ -215,11 +215,20 @@ switching, whichever way the user navigates.
     finger", a canvas with a baseline guide, a color picker (Ink/Blue/Clay/
     Green), a thickness slider, **Clear**, **Cancel**, **Done**. On Done,
     drops into a placement mode over the page: the signature can be
-    **dragged** (one finger, both axes), **resized** (corner handle drag),
-    and **rotated** (two-finger twist, standard iOS convention for
-    combining move/rotate on one object — same as Markup/Photos) before
-    **Done** commits it at that position/size/rotation. **Redraw** returns
-    to the drawing canvas.
+    **dragged** (one finger, both axes) and **resized** (corner handle
+    drag) on both platforms before **Done** commits it at that
+    position/size/rotation. **Redraw** returns to the drawing canvas.
+    Rotation's *gesture* diverges by platform: **iOS** uses a **two-finger
+    twist** (`RotationGesture`, simultaneous with the one-finger move drag
+    — the standard iOS convention for combining move/rotate on one object,
+    same as Markup/Photos); **Android** uses a dedicated **rotate handle**
+    (top-right corner, alongside the resize handle at bottom-right) that
+    tracks the angle from the signature's center to the touch as it's
+    dragged — Compose has no built-in two-finger rotation gesture
+    equivalent to `RotationGesture` cheap enough to justify building one
+    from scratch for a single MVP tool. Both read/write the same normalized
+    `rotation` (degrees, clockwise) field, so a signature's rotation
+    round-trips correctly regardless of which platform placed it.
   - **Filter**: a row of 4 options (**Auto** / **Original** / **Grayscale**
     / **B&W** — see §4.2's "scan filters" note for what each does),
     applied live to the page preview on tap. Persisted per page.

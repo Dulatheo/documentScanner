@@ -90,6 +90,7 @@ fun EditScreen(
     var pendingColor by remember { mutableStateOf(SignatureColorOptions[0].second) }
     var pendingThickness by remember { mutableStateOf(5f) }
     var placementRect by remember { mutableStateOf<Rect?>(null) }
+    var placementRotation by remember { mutableStateOf(0f) }
 
     val currentPage = pages[scanSession.currentIndex]
 
@@ -252,6 +253,10 @@ fun EditScreen(
                             { placementRect = it }
                         } else null,
                         placementStrokes = if (signMode == SignMode.PLACING) pendingStrokes else emptyList(),
+                        placementRotation = placementRotation,
+                        onPlacementRotationChange = if (signMode == SignMode.PLACING) {
+                            { placementRotation = it }
+                        } else null,
                         modifier = Modifier
                             .align(Alignment.Center)
                             .let { m ->
@@ -346,6 +351,7 @@ fun EditScreen(
                             displaySize.width * 0.15f + w,
                             displaySize.height * 0.55f + h,
                         )
+                        placementRotation = 0f
                         signMode = SignMode.PLACING
                     },
                 )
@@ -412,6 +418,7 @@ fun EditScreen(
                                         y = rect.top / displaySize.height,
                                         width = rect.width / displaySize.width,
                                         height = rect.height / displaySize.height,
+                                        rotation = placementRotation,
                                     )
                                     scanSession.replaceCurrentPage { it.copy(signature = signature) }
                                     toast.show("Signature added")

@@ -30,6 +30,12 @@ data class Signature(
     val y: Float,
     val width: Float,
     val height: Float,
+    /** Rotation around the signature's own center, in degrees (Compose's
+     * `Modifier.rotate`/Android `Canvas.rotate` convention: positive =
+     * clockwise). Defaults to 0 so documents saved before this field
+     * existed still decode correctly (see [com.dulatheo.documentscanner
+     * .util.JsonCodec.decodeSignature]). */
+    val rotation: Float = 0f,
 )
 
 /** A single OCR'd line of text on a page, with its bounding box normalized
