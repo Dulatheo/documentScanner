@@ -3,11 +3,16 @@ package com.dulatheo.documentscanner.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -48,7 +53,7 @@ fun PageCard(
     placementStrokes: List<com.dulatheo.documentscanner.data.model.SignatureStroke> = emptyList(),
 ) {
     val tokens = LocalAppColors.current
-    var displaySize by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(IntSize.Zero) }
+    var displaySize by remember { mutableStateOf(IntSize.Zero) }
 
     Box(
         modifier = modifier
@@ -134,7 +139,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.detectTa
     getDisplaySize: () -> IntSize,
     onTap: (Int) -> Unit,
 ) {
-    androidx.compose.foundation.gestures.detectTapGestures { offset ->
+    detectTapGestures { offset ->
         val displaySize = getDisplaySize()
         if (displaySize.width == 0 || displaySize.height == 0) return@detectTapGestures
         val nx = offset.x / displaySize.width
