@@ -20,7 +20,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -87,7 +86,7 @@ fun OcrSheetContent(
                     onClick = onKeepSearchable,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = tokens.ink),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = tokens.ink),
                     border = BorderStroke(1.dp, tokens.line),
                 ) { Text("Keep as searchable", style = MaterialTheme.typography.labelLarge) }
             }

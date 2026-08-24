@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -449,4 +450,4 @@ private fun ToolButton(tool: EditTool, selected: Boolean, modifier: Modifier = M
  * and Sign-placement overlays (owned by EditScreen) in the same coordinate
  * space as the PageCard they sit on top of. */
 private fun Modifier.reportSize(onSize: (IntSize) -> Unit): Modifier =
-    this.then(androidx.compose.ui.layout.onGloballyPositioned { coords -> onSize(coords.size) })
+    this.then(Modifier.onGloballyPositioned { coords -> onSize(coords.size) })
