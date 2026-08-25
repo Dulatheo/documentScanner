@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -60,6 +61,7 @@ fun SignaturePlacement(
     val currentRect = rememberUpdatedState(rect)
     val currentRotation = rememberUpdatedState(rotation)
     val density = LocalDensity.current
+    val handleRadiusPx = with(density) { 13.dp.toPx() }
 
     Box(
         modifier = modifier
@@ -74,7 +76,22 @@ fun SignaturePlacement(
                     Modifier
                         .border(1.dp, accentColor, RoundedCornerShape(4.dp))
                         .background(accentColor.copy(alpha = 0.08f))
-                        .priorityDrag { delta ->
+                        // This box's own bounds fully contain the resize
+                        // handle and (partly) the rotate handle drawn below,
+                        // so without `isExcluded` this drag would grab their
+                        // touches too — Initial fires parent-before-child,
+                        // the opposite of the Main pass the handles' own
+                        // `detectDragGestures` runs on, so it would win that
+                        // race regardless of which one calls `consume()`
+                        // first. Excluding their circles lets those touches
+                        // fall through to the handles untouched.
+                        .priorityDrag(
+                            isExcluded = { pos ->
+                                val r = currentRect.value
+                                isNearHandle(pos, Offset(r.width - handleRadiusPx, r.height - handleRadiusPx), handleRadiusPx) ||
+                                    (onRotationChange != null && isNearHandle(pos, Offset(r.width - handleRadiusPx, -handleRadiusPx), handleRadiusPx))
+                            },
+                        ) { delta ->
                             onRectChange?.invoke(currentRect.value.translate(delta.x, delta.y))
                         }
                 } else Modifier
@@ -107,7 +124,10 @@ fun SignaturePlacement(
         }
 
         if (interactive) {
-            // Resize handle, bottom-right corner.
+            // Resize handle, bottom-right corner. Plain `detectDragGestures`
+            // (Main pass, child-before-parent) is enough here — it only
+            // needs to beat the move box above, which now explicitly steps
+            // aside for this handle's region via `isExcluded`.
             Box(
                 modifier = Modifier
                     .offset {
@@ -119,14 +139,17 @@ fun SignaturePlacement(
                     .size(26.dp)
                     .clip(CircleShape)
                     .background(accentColor)
-                    .priorityDrag { delta ->
-                        val base = currentRect.value
-                        val newWidth = (base.width + delta.x).coerceAtLeast(40f)
-                        val aspect = base.height / base.width
-                        val newHeight = (newWidth * aspect).coerceAtLeast(20f)
-                        onRectChange?.invoke(
-                            Rect(base.left, base.top, base.left + newWidth, base.top + newHeight)
-                        )
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val base = currentRect.value
+                            val newWidth = (base.width + dragAmount.x).coerceAtLeast(40f)
+                            val aspect = base.height / base.width
+                            val newHeight = (newWidth * aspect).coerceAtLeast(20f)
+                            onRectChange?.invoke(
+                                Rect(base.left, base.top, base.left + newWidth, base.top + newHeight)
+                            )
+                        }
                     },
             )
 
@@ -139,7 +162,8 @@ fun SignaturePlacement(
                 // math stays correct at any current rotation) and applies
                 // only the *change* in angle each frame, so grabbing the
                 // handle doesn't snap the signature to point at the finger.
-                val handleRadiusPx = with(density) { 13.dp.toPx() }
+                // Uses the default Main pass, same reasoning as the resize
+                // handle above.
                 Box(
                     modifier = Modifier
                         .offset {
@@ -162,11 +186,11 @@ fun SignaturePlacement(
                                 return atan2(pointInBox.y - center.y, pointInBox.x - center.x)
                             }
                             awaitEachGesture {
-                                val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                                val down = awaitFirstDown()
                                 val pointerId = down.id
                                 var lastAngle = angleAt(down.position)
                                 while (true) {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val event = awaitPointerEvent()
                                     val change = event.changes.firstOrNull { it.id == pointerId } ?: break
                                     if (change.changedToUpIgnoreConsumed()) break
                                     if (change.positionChange() != Offset.Zero) {
@@ -191,6 +215,12 @@ fun SignaturePlacement(
     }
 }
 
+private fun isNearHandle(pos: Offset, handleCenter: Offset, radiusPx: Float): Boolean {
+    val dx = pos.x - handleCenter.x
+    val dy = pos.y - handleCenter.y
+    return dx * dx + dy * dy <= radiusPx * radiusPx
+}
+
 /**
  * A single-pointer drag that consumes position changes during the `Initial`
  * pointer-event pass (root → leaf) rather than the default `Main` pass
@@ -202,10 +232,20 @@ fun SignaturePlacement(
  * on pass-ordering assumptions. The Compose analog of iOS's
  * `.highPriorityGesture` fix for the same "drag axis fights the containing
  * scroll/pager view" class of bug.
+ *
+ * [isExcluded] opts specific down positions (in this modifier's local
+ * coordinate space) out of being claimed at all — used so this drag doesn't
+ * also steal touches meant for a child handle drawn on top of it, which
+ * Initial's parent-before-child ordering would otherwise let it do
+ * regardless of the handle's own (Main-pass) consumption.
  */
-private fun Modifier.priorityDrag(onDrag: (Offset) -> Unit): Modifier = pointerInput(Unit) {
+private fun Modifier.priorityDrag(
+    isExcluded: (Offset) -> Boolean = { false },
+    onDrag: (Offset) -> Unit,
+): Modifier = pointerInput(Unit) {
     awaitEachGesture {
         val down = awaitFirstDown(pass = PointerEventPass.Initial)
+        if (isExcluded(down.position)) return@awaitEachGesture
         val pointerId = down.id
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Initial)
