@@ -32,17 +32,43 @@ struct EditFlowView: View {
                 // `session.currentIndex` through `EditSession.goTo(_:)`,
                 // which commits any in-progress crop on the page being left
                 // before switching, exactly like the chevrons always did).
-                TabView(selection: Binding(get: { session.currentIndex }, set: { session.goTo($0) })) {
-                    ForEach(Array(session.pages.enumerated()), id: \.element.id) { index, pageState in
+                ZStack {
+                    TabView(selection: Binding(get: { session.currentIndex }, set: { session.goTo($0) })) {
+                        ForEach(Array(session.pages.enumerated()), id: \.element.id) { index, pageState in
+                            ScrollView {
+                                pageCard(for: pageState)
+                                    .padding(.horizontal, 26)
+                                    .padding(.vertical, 22)
+                            }
+                            .tag(index)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+
+                    // While actively placing a signature, render the current
+                    // page a second time in a plain (non-paged) ScrollView
+                    // layered on top, rather than interacting with the copy
+                    // inside the TabView above. `TabView(.page)` is backed by
+                    // a native `UIPageViewController`/`UIScrollView` pan
+                    // recognizer that plain SwiftUI `.highPriorityGesture`
+                    // can't reliably out-arbitrate for a large, sweeping
+                    // horizontal drag — small, localized corner-handle drags
+                    // (crop, resize, rotate) don't trigger this competition,
+                    // only "drag the whole signature body to reposition it"
+                    // does, which is exactly the reported "moves in Y, never
+                    // X" symptom. Rather than continuing to fight that
+                    // recognizer at the SwiftUI Gesture level, this sidesteps
+                    // it: the touch never reaches the TabView's hierarchy at
+                    // all, since this overlay draws on top of it.
+                    if placingSignature != nil {
                         ScrollView {
-                            pageCard(for: pageState)
+                            pageCard(for: session.current)
                                 .padding(.horizontal, 26)
                                 .padding(.vertical, 22)
                         }
-                        .tag(index)
+                        .background(theme.bg)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
 
                 bottomBar
             }

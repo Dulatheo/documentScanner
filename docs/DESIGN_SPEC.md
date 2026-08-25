@@ -189,6 +189,17 @@ the chevrons still work too, both driving the same underlying page index
 so an in-progress crop on the page being left is always committed before
 switching, whichever way the user navigates.
 
+**iOS implementation note**: swiping is `TabView(.page style)`, backed by a
+native `UIPageViewController`/`UIScrollView` pan recognizer that plain
+SwiftUI `.highPriorityGesture` can't reliably out-arbitrate for a large,
+sweeping horizontal drag — this only bit the Sign tool's "drag the whole
+signature body to reposition it" gesture (small, localized corner-handle
+drags for Crop/resize/rotate never triggered the competition), so while a
+signature is actively being placed, the current page is rendered a *second
+time*, in a plain non-paged `ScrollView` layered on top of the `TabView`,
+rather than continuing to fight that recognizer at the SwiftUI level — the
+touch simply never reaches the TabView's hierarchy at all.
+
 - Top bar: **Cancel** (discard back to camera/prior state), page label +
   prev/next chevrons (`session.pageCount > 1`), **Save** (commits the
   document and opens the Export sheet with `pendingSave = true`).
