@@ -215,20 +215,24 @@ switching, whichever way the user navigates.
     finger", a canvas with a baseline guide, a color picker (Ink/Blue/Clay/
     Green), a thickness slider, **Clear**, **Cancel**, **Done**. On Done,
     drops into a placement mode over the page: the signature can be
-    **dragged** (one finger, both axes) and **resized** (corner handle
-    drag) on both platforms before **Done** commits it at that
-    position/size/rotation. **Redraw** returns to the drawing canvas.
-    Rotation's *gesture* diverges by platform: **iOS** uses a **two-finger
-    twist** (`RotationGesture`, simultaneous with the one-finger move drag
-    — the standard iOS convention for combining move/rotate on one object,
-    same as Markup/Photos); **Android** uses a dedicated **rotate handle**
-    (top-right corner, alongside the resize handle at bottom-right) that
-    tracks the angle from the signature's center to the touch as it's
-    dragged — Compose has no built-in two-finger rotation gesture
-    equivalent to `RotationGesture` cheap enough to justify building one
-    from scratch for a single MVP tool. Both read/write the same normalized
-    `rotation` (degrees, clockwise) field, so a signature's rotation
-    round-trips correctly regardless of which platform placed it.
+    **dragged** (one finger, both axes), **resized** (corner handle drag,
+    bottom-right), and **rotated** (a second, dedicated corner handle drag,
+    top-right — tracking the angle from the signature's own center to the
+    touch, applying only the *change* in angle each frame so grabbing the
+    handle doesn't snap the signature to point at the finger) on both
+    platforms before **Done** commits it at that position/size/rotation.
+    **Redraw** returns to the drawing canvas. iOS originally used a
+    two-finger `RotationGesture` twist for rotation (the "standard iOS
+    convention" for combining move/rotate, as in Markup/Photos) but that
+    proved unreliable to recognize once Sign placement lived inside the
+    per-page `TabView(.page style)` added for swipeable pages (a two-finger
+    gesture nested inside a swipe/scroll stack competes with that stack's
+    own native `UIScrollView` recognizer far more than a one-finger drag
+    does) and wasn't discoverable without a UI hint either, so it moved to
+    the same handle-based approach as Android. Both platforms read/write
+    the same normalized `rotation` (degrees, clockwise) field, so a
+    signature's rotation round-trips correctly regardless of which platform
+    placed it.
   - **Filter**: a row of 4 options (**Auto** / **Original** / **Grayscale**
     / **B&W** — see §4.2's "scan filters" note for what each does),
     applied live to the page preview on tap. Persisted per page.
