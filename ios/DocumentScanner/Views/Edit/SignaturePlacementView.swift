@@ -62,6 +62,14 @@ struct SignaturePlacementView: View {
                 let newY = start.y + value.translation.height
                 let maxX = max(pageSize.width - width, 0)
                 let maxY = max(pageSize.height - height, 0)
+                // TEMPORARY diagnostic logging — remove once the "won't move
+                // in X" bug is actually understood. Printed every drag frame
+                // so we can see, from real on-device numbers, whether
+                // `translation.width` itself is ever nonzero, and whether
+                // `maxX` has collapsed to ~0 (e.g. because the signature was
+                // previously resized close to the page's full width, leaving
+                // no horizontal room to move regardless of drag input).
+                print("[SignDrag] pageSize=\(pageSize) width=\(width) height=\(height) maxX=\(maxX) maxY=\(maxY) start=\(start) translation=\(value.translation) newX=\(newX) newY=\(newY)")
                 signature.x = Double(min(max(newX, 0), maxX)) / Double(pageSize.width)
                 signature.y = Double(min(max(newY, 0), maxY)) / Double(pageSize.height)
             }
