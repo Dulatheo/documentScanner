@@ -189,16 +189,21 @@ the chevrons still work too, both driving the same underlying page index
 so an in-progress crop on the page being left is always committed before
 switching, whichever way the user navigates.
 
-**iOS implementation note**: swiping is `TabView(.page style)`, backed by a
-native `UIPageViewController`/`UIScrollView` pan recognizer that plain
-SwiftUI `.highPriorityGesture` can't reliably out-arbitrate for a large,
-sweeping horizontal drag — this only bit the Sign tool's "drag the whole
-signature body to reposition it" gesture (small, localized corner-handle
-drags for Crop/resize/rotate never triggered the competition), so while a
-signature is actively being placed, the current page is rendered a *second
-time*, in a plain non-paged `ScrollView` layered on top of the `TabView`,
-rather than continuing to fight that recognizer at the SwiftUI level — the
-touch simply never reaches the TabView's hierarchy at all.
+**iOS implementation note**: swiping is `TabView(.page style)`, with each
+page's content in its own vertical `ScrollView`. Both are native
+scrollable containers whose own pan recognizers can win an entire drag
+gesture that starts on content nested inside them, not just contest one
+axis of it — this only bit the Sign tool's "drag the whole signature body
+to reposition it" gesture (small, localized corner-handle drags for
+Crop/resize/rotate never triggered the competition, and neither did the
+vertical scroll axis, since that's the ScrollView's own axis and dragging
+there does move *something*, just the whole page rather than the signature
+independently). Rather than continuing to fight this with SwiftUI-side
+`.highPriorityGesture` tuning, both the per-page `ScrollView` and the
+`TabView` itself are `.scrollDisabled(true)` for the duration of signature
+placement — the official, targeted tool for turning off a container's own
+scrolling without (unlike `.disabled()`) disabling hit-testing for its
+children, so the signature's own gestures stay fully functional.
 
 - Top bar: **Cancel** (discard back to camera/prior state), page label +
   prev/next chevrons (`session.pageCount > 1`), **Save** (commits the

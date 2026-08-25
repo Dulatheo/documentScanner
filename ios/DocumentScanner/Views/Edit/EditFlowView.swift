@@ -32,43 +32,40 @@ struct EditFlowView: View {
                 // `session.currentIndex` through `EditSession.goTo(_:)`,
                 // which commits any in-progress crop on the page being left
                 // before switching, exactly like the chevrons always did).
-                ZStack {
-                    TabView(selection: Binding(get: { session.currentIndex }, set: { session.goTo($0) })) {
-                        ForEach(Array(session.pages.enumerated()), id: \.element.id) { index, pageState in
-                            ScrollView {
-                                pageCard(for: pageState)
-                                    .padding(.horizontal, 26)
-                                    .padding(.vertical, 22)
-                            }
-                            .tag(index)
-                        }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-
-                    // While actively placing a signature, render the current
-                    // page a second time in a plain (non-paged) ScrollView
-                    // layered on top, rather than interacting with the copy
-                    // inside the TabView above. `TabView(.page)` is backed by
-                    // a native `UIPageViewController`/`UIScrollView` pan
-                    // recognizer that plain SwiftUI `.highPriorityGesture`
-                    // can't reliably out-arbitrate for a large, sweeping
-                    // horizontal drag — small, localized corner-handle drags
-                    // (crop, resize, rotate) don't trigger this competition,
-                    // only "drag the whole signature body to reposition it"
-                    // does, which is exactly the reported "moves in Y, never
-                    // X" symptom. Rather than continuing to fight that
-                    // recognizer at the SwiftUI Gesture level, this sidesteps
-                    // it: the touch never reaches the TabView's hierarchy at
-                    // all, since this overlay draws on top of it.
-                    if placingSignature != nil {
+                //
+                // `.scrollDisabled(placingSignature != nil)` on both the
+                // per-page ScrollView and the TabView itself: previous
+                // attempts tried to out-arbitrate these ancestors' native
+                // pan/scroll recognizers with SwiftUI-side `.highPriorityGesture`
+                // tuning, which never actually fixed "the signature won't
+                // move horizontally" — most tellingly, it *also* didn't move
+                // when the TabView wasn't even in the touch's ancestor chain
+                // at all in one attempt, which points at the vertical
+                // ScrollView (present regardless of page count) actually
+                // winning the *whole* drag, not just contesting the
+                // horizontal component: a vertical drag under that theory
+                // would scroll the page itself (with the signature just
+                // going along for the ride, unmoved relative to it), which
+                // looks like "it moves in Y" without the signature's own
+                // position ever actually changing, while a horizontal drag —
+                // nothing to scroll that way — does nothing at all.
+                // `.scrollDisabled` is the official, targeted tool for this:
+                // unlike `.disabled()`, it only turns off the container's
+                // own scrolling, not hit-testing for its children, so the
+                // signature's own gestures stay fully functional.
+                TabView(selection: Binding(get: { session.currentIndex }, set: { session.goTo($0) })) {
+                    ForEach(Array(session.pages.enumerated()), id: \.element.id) { index, pageState in
                         ScrollView {
-                            pageCard(for: session.current)
+                            pageCard(for: pageState)
                                 .padding(.horizontal, 26)
                                 .padding(.vertical, 22)
                         }
-                        .background(theme.bg)
+                        .scrollDisabled(placingSignature != nil)
+                        .tag(index)
                     }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .scrollDisabled(placingSignature != nil)
 
                 bottomBar
             }
