@@ -7,6 +7,7 @@ import SwiftUI
 struct EditFlowView: View {
     @ObservedObject var session: EditSession
     @ObservedObject var toastCenter: ToastCenter
+    @ObservedObject var premiumManager: PremiumManager
     var onCancel: () -> Void
     var onSaved: (DocumentModel) -> Void
 
@@ -18,6 +19,7 @@ struct EditFlowView: View {
     @State private var showOCRSheet = false
     @State private var isDrawingSignature = false
     @State private var placingSignature: Signature?
+    @State private var showPaywall = false
 
     var body: some View {
         ZStack {
@@ -103,6 +105,25 @@ struct EditFlowView: View {
                 }
             )
         }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(premiumManager: premiumManager) { outcome in
+                showPaywall = false
+                switch outcome {
+                case .trialStarted:
+                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
+                    isDrawingSignature = true
+                case .subscribed:
+                    toastCenter.show("Welcome to Premium!")
+                    isDrawingSignature = true
+                case .restored:
+                    toastCenter.show("Purchases restored")
+                case .notRestored:
+                    toastCenter.show("No previous purchase found")
+                case .dismissed:
+                    activeTool = nil
+                }
+            }
+        }
     }
 
     // MARK: - Top bar
@@ -186,16 +207,8 @@ struct EditFlowView: View {
                     }
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, activeTool == .filter ? 14 : 30)
+                .padding(.bottom, 30)
                 .padding(.top, activeTool == nil ? 12 : 0)
-
-                if activeTool == .filter {
-                    FilterOptionsRow(pageState: session.current) { newFilter in
-                        session.current.applyFilter(newFilter)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 30)
-                }
             }
             .background(theme.surface)
             .overlay(Divider().overlay(theme.line), alignment: .top)
@@ -204,6 +217,7 @@ struct EditFlowView: View {
 
     private func toolButton(_ tool: EditTool) -> some View {
         let isActive = activeTool == tool
+        let showsProBadge = tool == .sign && !premiumManager.isPremium
         return Button {
             selectTool(tool)
         } label: {
@@ -217,6 +231,17 @@ struct EditFlowView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(RoundedRectangle(cornerRadius: 12).fill(isActive ? theme.accentSoft : Color.clear))
+            .overlay(alignment: .topTrailing) {
+                if showsProBadge {
+                    Text("PRO")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(theme.accent))
+                        .offset(x: -4, y: 4)
+                }
+            }
         }
     }
 
@@ -274,6 +299,18 @@ struct EditFlowView: View {
             activeTool = nil
             return
         }
+        // Sign is premium-only (DESIGN_SPEC §4.3/§7) — gate before touching
+        // `activeTool`/opening the drawing pad, and re-check on every tap
+        // (rather than trusting a possibly-stale `isPremium`) since a trial
+        // started elsewhere in the app could have expired since this screen
+        // last refreshed it.
+        if tool == .sign {
+            premiumManager.refresh()
+            guard premiumManager.isPremium else {
+                showPaywall = true
+                return
+            }
+        }
         activeTool = tool
         switch tool {
         case .crop:
@@ -285,8 +322,6 @@ struct EditFlowView: View {
             runOCRIfNeeded()
         case .sign:
             isDrawingSignature = true
-        case .filter:
-            break
         }
     }
 
@@ -345,38 +380,5 @@ struct EditFlowView: View {
 
         try? modelContext.save()
         onSaved(document)
-    }
-}
-
-/// Filter tool's inline option row (DESIGN_SPEC §4.3): a pill per
-/// `DocumentFilter`, the selected one distinguished with an `accent`
-/// ring/fill, matching the visual language of the Sign tool's color
-/// picker. Owns its own `@ObservedObject` reference to the active page so
-/// tapping a pill updates its selected state immediately — `EditFlowView`
-/// itself only observes `session`, not `session.current`'s own published
-/// properties.
-private struct FilterOptionsRow: View {
-    @ObservedObject var pageState: PageEditState
-    var onSelect: (DocumentFilter) -> Void
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ForEach(DocumentFilter.allCases) { option in
-                let isSelected = pageState.filter == option
-                Button {
-                    onSelect(option)
-                } label: {
-                    Text(option.label)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(isSelected ? theme.accent : theme.ink2)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(Capsule().fill(isSelected ? theme.accentSoft : Color.clear))
-                        .overlay(Capsule().stroke(isSelected ? theme.accent : theme.line, lineWidth: isSelected ? 1.5 : 1))
-                }
-            }
-        }
     }
 }

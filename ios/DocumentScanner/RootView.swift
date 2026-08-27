@@ -41,6 +41,7 @@ struct RootView: View {
     @Query(sort: \DocumentModel.createdAt, order: .reverse) private var documents: [DocumentModel]
 
     @StateObject private var toastCenter = ToastCenter()
+    @StateObject private var premiumManager = PremiumManager()
 
     @State private var showCamera = false
     @State private var showPhotoImport = false
@@ -122,6 +123,7 @@ struct RootView: View {
             EditFlowView(
                 session: session,
                 toastCenter: toastCenter,
+                premiumManager: premiumManager,
                 onCancel: { editSession = nil },
                 onSaved: { document in
                     editSession = nil

@@ -146,7 +146,7 @@ struct Signature: Codable, Hashable {
 }
 
 enum EditTool: String, CaseIterable, Identifiable, Hashable {
-    case crop, highlight, ocr, sign, filter
+    case crop, highlight, ocr, sign
     var id: String { rawValue }
 
     var label: String {
@@ -155,7 +155,6 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         case .highlight: return "Highlight"
         case .ocr: return "Text"
         case .sign: return "Sign"
-        case .filter: return "Filter"
         }
     }
 
@@ -165,7 +164,6 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         case .highlight: return "highlighter"
         case .ocr: return "text.viewfinder"
         case .sign: return "signature"
-        case .filter: return "wand.and.stars"
         }
     }
 
@@ -175,7 +173,6 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         case .highlight: return "Tap a line of text to highlight it"
         case .ocr: return "Text recognition"
         case .sign: return "Draw your signature"
-        case .filter: return "Choose how this page looks"
         }
     }
 }
