@@ -1,4 +1,5 @@
 import CoreText
+import PDFKit
 import UIKit
 
 /// Builds a multi-page PDF from a document's pages, embedding recognized
@@ -6,7 +7,13 @@ import UIKit
 /// so the page image stays visually unchanged but the PDF becomes
 /// searchable/selectable — the same trick "OCR a PDF" tools use.
 enum PDFExportService {
-    static func makePDF(for document: DocumentModel) -> URL {
+    /// `password`, when non-nil/non-empty, is a Premium feature
+    /// (DESIGN_SPEC §5/§9 "PDF password protection") — the caller is
+    /// responsible for the premium check; this just does the encryption.
+    /// The same password is used as both the PDF's user (open) and owner
+    /// (permissions) password — this app has no separate "restrict editing
+    /// but allow opening" concept to justify two different passwords.
+    static func makePDF(for document: DocumentModel, password: String? = nil) -> URL {
         let pages = document.orderedPages
         let renderer = UIGraphicsPDFRenderer(bounds: .zero)
 
@@ -26,7 +33,21 @@ enum PDFExportService {
         }
 
         let filename = sanitizedFilename(document.name) + ".pdf"
-        return ImageStore.writeExportFile(data: data, filename: filename)
+        let url = ImageStore.writeExportFile(data: data, filename: filename)
+
+        // PDFKit can load and re-write ANY valid PDF data (not just ones it
+        // built itself), so the unprotected file written above is simply
+        // overwritten in place with an encrypted version — no need to
+        // restructure the rendering pipeline above to go through
+        // `PDFDocument` from the start.
+        if let password, !password.isEmpty, let pdfDocument = PDFDocument(data: data) {
+            pdfDocument.write(to: url, withOptions: [
+                .userPasswordOption: password,
+                .ownerPasswordOption: password,
+            ])
+        }
+
+        return url
     }
 
     /// Draws each recognized line's text at its bounding box using Core

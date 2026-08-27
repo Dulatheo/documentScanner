@@ -20,6 +20,10 @@ enum PaywallOutcome {
 /// trial mention, since a real trial is one-time-per-account.
 struct PaywallView: View {
     @ObservedObject var premiumManager: PremiumManager
+    /// Optional context shown as a small banner above the headline — e.g.
+    /// explaining *why* the paywall appeared when it wasn't a direct tap on
+    /// a premium tool (the free document limit, per DESIGN_SPEC §5).
+    var reason: String? = nil
     var onFinished: (PaywallOutcome) -> Void
 
     @Environment(\.theme) private var theme
@@ -53,6 +57,16 @@ struct PaywallView: View {
                             .background(Circle().fill(theme.accent))
                             .padding(.top, 4)
 
+                        if let reason {
+                            Text(reason)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(theme.accent)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Capsule().fill(theme.accentSoft))
+                        }
+
                         VStack(spacing: 8) {
                             Text(isTrialEligible ? "Try Premium free for 3 days" : "Unlock Premium")
                                 .font(.system(size: 22, weight: .bold))
@@ -71,8 +85,8 @@ struct PaywallView: View {
 
                         VStack(alignment: .leading, spacing: 14) {
                             featureRow(icon: "signature", text: "Sign documents with your finger")
-                            featureRow(icon: "wand.and.stars", text: "More premium tools on the way")
-                            featureRow(icon: "checkmark.seal", text: "Support ongoing development")
+                            featureRow(icon: "infinity", text: "Unlimited document scanning")
+                            featureRow(icon: "lock.fill", text: "Password-protect your PDF exports")
                         }
                         .padding(.horizontal, 30)
                         .frame(maxWidth: .infinity, alignment: .leading)

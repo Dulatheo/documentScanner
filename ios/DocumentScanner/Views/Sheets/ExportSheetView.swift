@@ -7,15 +7,22 @@ private struct ShareItem: Identifiable {
 
 /// Export sheet (DESIGN_SPEC §4.5): choose PDF (multi-page, searchable
 /// text layer when OCR has run) or JPG (one file per page), then hand off
-/// to the native share surface (§4.6).
+/// to the native share surface (§4.6). PDF can optionally be
+/// password-protected (Premium — DESIGN_SPEC §5/§9) via the row's trailing
+/// lock button; tapping the rest of the row still exports unprotected, same
+/// as before this feature existed.
 struct ExportSheetView: View {
     let document: DocumentModel
     let pendingSave: Bool
+    @ObservedObject var premiumManager: PremiumManager
     var onFinish: () -> Void
 
     @Environment(\.theme) private var theme
     @State private var activeShare: ShareItem?
     @State private var isExporting = false
+    @State private var showPasswordPrompt = false
+    @State private var passwordInput = ""
+    @State private var showPaywall = false
 
     private var subtitle: String {
         pendingSave ? "Saved to Documents \u{00b7} choose a format to share" : "Choose a format to share"
@@ -37,9 +44,7 @@ struct ExportSheetView: View {
             .padding(.top, 6)
 
             VStack(spacing: 10) {
-                exportOption(badge: "PDF", title: "PDF document", subtitle: "Searchable text, all pages") {
-                    exportPDF()
-                }
+                pdfOption
                 exportOption(badge: "JPG", title: "JPG images", subtitle: "One image per page") {
                     exportJPGs()
                 }
@@ -57,6 +62,78 @@ struct ExportSheetView: View {
         .padding(.bottom, 10)
         .sheet(item: $activeShare) { item in
             ShareSheet(items: item.urls, onDismiss: onFinish)
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(
+                premiumManager: premiumManager,
+                reason: "Password-protecting PDFs is a Premium feature"
+            ) { outcome in
+                showPaywall = false
+                switch outcome {
+                case .trialStarted, .subscribed:
+                    passwordInput = ""
+                    showPasswordPrompt = true
+                case .restored, .notRestored, .dismissed:
+                    break
+                }
+            }
+        }
+        .alert("Protect PDF", isPresented: $showPasswordPrompt) {
+            SecureField("Password", text: $passwordInput)
+            Button("Export") { exportPDF(password: passwordInput) }
+            Button("Cancel", role: .cancel) { passwordInput = "" }
+        } message: {
+            Text("Anyone opening this PDF will need this password.")
+        }
+    }
+
+    /// The PDF row is its own layout (rather than reusing `exportOption`)
+    /// since it has a second, independently-tappable lock button — the row
+    /// uses `.onTapGesture` for "export unprotected" instead of wrapping the
+    /// whole thing in a `Button`, so the nested lock `Button` isn't fighting
+    /// an outer one for the same touch.
+    private var pdfOption: some View {
+        HStack(spacing: 13) {
+            Text("PDF")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(theme.accent)
+                .frame(width: 34, height: 34)
+                .background(RoundedRectangle(cornerRadius: 9).fill(theme.accentSoft))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("PDF document")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(theme.ink)
+                Text("Searchable text, all pages")
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.ink3)
+            }
+            Spacer()
+
+            Button {
+                if premiumManager.isPremium {
+                    passwordInput = ""
+                    showPasswordPrompt = true
+                } else {
+                    showPaywall = true
+                }
+            } label: {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(theme.ink2)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(theme.bg))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+        .background(RoundedRectangle(cornerRadius: 14).fill(theme.bg))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.line, lineWidth: 1))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !isExporting else { return }
+            exportPDF(password: nil)
         }
     }
 
@@ -87,12 +164,15 @@ struct ExportSheetView: View {
         .disabled(isExporting)
     }
 
-    private func exportPDF() {
+    private func exportPDF(password: String?) {
         isExporting = true
+        let trimmed = password?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effectivePassword = (trimmed?.isEmpty ?? true) ? nil : trimmed
         Task {
-            let url = PDFExportService.makePDF(for: document)
+            let url = PDFExportService.makePDF(for: document, password: effectivePassword)
             await MainActor.run {
                 isExporting = false
+                passwordInput = ""
                 activeShare = ShareItem(urls: [url])
             }
         }

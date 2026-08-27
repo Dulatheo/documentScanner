@@ -26,6 +26,11 @@ final class PremiumManager: ObservableObject {
     @Published private(set) var hasUsedTrial: Bool
     @Published private(set) var trialEndDate: Date?
 
+    /// Free-tier document cap (DESIGN_SPEC §5/§9 "unlimited scanning"):
+    /// non-premium users can have at most this many documents in their
+    /// library at once; Premium removes the cap entirely.
+    static let freeDocumentLimit = 3
+
     private let defaults: UserDefaults
     private let trialLength: TimeInterval = 3 * 24 * 60 * 60
 
@@ -86,5 +91,12 @@ final class PremiumManager: ObservableObject {
         let wasPremium = isPremium
         refresh()
         return isPremium || wasPremium
+    }
+
+    /// Whether a new document can be created given the library's current
+    /// size — always true once premium, otherwise gated by
+    /// `freeDocumentLimit`.
+    func canCreateNewDocument(currentCount: Int) -> Bool {
+        isPremium || currentCount < Self.freeDocumentLimit
     }
 }
