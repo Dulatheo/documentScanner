@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -40,11 +41,14 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dulatheo.documentscanner.data.model.Signature
 import com.dulatheo.documentscanner.data.model.SignatureStroke
 import com.dulatheo.documentscanner.ui.camera.ScanSessionViewModel
 import com.dulatheo.documentscanner.ui.components.PageCard
 import com.dulatheo.documentscanner.ui.components.ToastState
+import com.dulatheo.documentscanner.ui.paywall.PaywallOutcome
+import com.dulatheo.documentscanner.ui.paywall.PaywallScreen
 import com.dulatheo.documentscanner.ui.sheets.OcrSheetContent
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 import com.dulatheo.documentscanner.util.PerspectiveCrop
@@ -92,6 +96,9 @@ fun EditScreen(
     var placementRect by remember { mutableStateOf<Rect?>(null) }
     var placementRotation by remember { mutableStateOf(0f) }
 
+    var showPaywall by remember { mutableStateOf(false) }
+    var isPremium by remember { mutableStateOf(editViewModel.premiumManager.isPremium()) }
+
     val currentPage = pages[scanSession.currentIndex]
 
     // Initialize crop corners (inset rectangle) once we know the displayed size.
@@ -134,6 +141,18 @@ fun EditScreen(
     fun selectTool(tool: EditTool?) {
         if (activeTool == EditTool.CROP && tool != EditTool.CROP) {
             commitCropIfNeeded()
+        }
+        // Sign is premium-only (DESIGN_SPEC §4.3/§7) — gate before touching
+        // activeTool/opening the drawing pad, and re-check on every tap
+        // (rather than trusting a possibly-stale `isPremium`) since a trial
+        // started elsewhere in the app could have expired since this
+        // screen last refreshed it.
+        if (tool == EditTool.SIGN) {
+            isPremium = editViewModel.premiumManager.isPremium()
+            if (!isPremium) {
+                showPaywall = true
+                return
+            }
         }
         activeTool = tool
         when (tool) {
@@ -293,6 +312,7 @@ fun EditScreen(
                         ToolButton(
                             tool = tool,
                             selected = activeTool == tool,
+                            showsProBadge = tool == EditTool.SIGN && !isPremium,
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 selectTool(if (activeTool == tool) null else tool)
@@ -329,6 +349,30 @@ fun EditScreen(
                         activeTool = null
                     },
                 )
+            }
+        }
+
+        if (showPaywall) {
+            PaywallScreen(premiumManager = editViewModel.premiumManager) { outcome ->
+                showPaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        isPremium = true
+                        toast.show("Trial started — enjoy Premium!")
+                        selectTool(EditTool.SIGN)
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        isPremium = true
+                        toast.show("Welcome to Premium!")
+                        selectTool(EditTool.SIGN)
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        isPremium = editViewModel.premiumManager.isPremium()
+                        toast.show("Purchases restored")
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
             }
         }
 
@@ -438,18 +482,39 @@ fun EditScreen(
 }
 
 @Composable
-private fun ToolButton(tool: EditTool, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ToolButton(
+    tool: EditTool,
+    selected: Boolean,
+    showsProBadge: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val tokens = LocalAppColors.current
     val bg = if (selected) tokens.accentSoft else Color.Transparent
     val fg = if (selected) tokens.accent else tokens.ink2
-    Column(
-        modifier = modifier
-            .background(bg, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(tool.label, color = fg, style = MaterialTheme.typography.labelMedium)
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(bg, RoundedCornerShape(12.dp))
+                .clickable(onClick = onClick)
+                .padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(tool.label, color = fg, style = MaterialTheme.typography.labelMedium)
+        }
+        if (showsProBadge) {
+            Text(
+                "PRO",
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-2).dp, y = 2.dp)
+                    .background(tokens.accent, RoundedCornerShape(50))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+            )
+        }
     }
 }
 

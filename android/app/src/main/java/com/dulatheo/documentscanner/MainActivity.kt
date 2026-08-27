@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val app = application as DocumentScannerApp
-        val factory = AppViewModelFactory(app.repository)
+        val factory = AppViewModelFactory(app.repository, app.premiumManager)
 
         setContent {
             DocumentScannerTheme {
