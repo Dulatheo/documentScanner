@@ -135,29 +135,17 @@ see the platform notes below for why, including a reversal on iOS.
     implementation, accepting its review screen's button layout as-is
     rather than continuing to chase custom-camera bugs.
   - **Both platforms — scan filters**: after the platform scanner's own
-    crop, every page gets a filter applied so it reads as a processed
-    *scan*, not a
-    cropped photo — and the user can change which one, the way other
-    scanner apps (Adobe Scan, Notes) do. Four filters, applied per page
-    (each page in a multi-page document can have its own):
-    - **Auto** (default) — exposure/color normalization plus a contrast/
-      sharpness pass tuned for text-on-paper.
-    - **Original** — no filter, the crop as captured.
-    - **Grayscale** — desaturated, mild contrast boost.
-    - **B&W** — desaturated with a strong contrast/brightness push, for
-      the classic high-contrast "black text, white paper" scanner look.
-    - Filter selection is a 5th tool alongside Crop/Highlight/Text/Sign in
-      the Edit flow's tool bar (§4.3), showing a row of the 4 options —
-      tapping one applies it live to the page preview already on screen.
-      The choice is **persisted per page** (re-opening a saved document
-      remembers it), and is independent of crop: changing the filter
-      re-applies to the already-cropped image rather than re-running
-      perspective correction, and re-cropping preserves whatever filter
-      is currently selected rather than resetting it.
-    - Applying a filter still runs off the main thread with the same
-      "show the fast geometric crop immediately, swap the filtered result
-      in a moment later" pattern as before, so neither capture nor
-      re-cropping loses responsiveness.
+    crop, every page gets the **Auto** filter applied automatically so it
+    reads as a processed *scan*, not a cropped photo — exposure/color
+    normalization plus a contrast/sharpness pass tuned for text-on-paper.
+    `DocumentFilter` (Auto/Original/Grayscale/B&W) and the per-page
+    `filter` persisted alongside the rest of a page's edits still exist in
+    the data model and rendering pipeline (`DocumentEnhancer`/
+    `PageRenderer`), but there is no longer a user-facing **Filter** tool in
+    the Edit flow's tool bar to change it after capture — every page simply
+    keeps the Auto result. (Android never had this tool; it was removed
+    from iOS.) Re-exposing filter choice — as a free option, or bundled
+    into Premium — is open for a future round.
 
 **iOS zoom-transition implementation note** (applies to both zoom
 transitions above — scan button → Camera, document card → Document
@@ -213,12 +201,14 @@ accumulated rotation either. Fixed by having the getter read
   document and opens the Export sheet with `pendingSave = true`).
 - Center: the page rendered on a `paper` card (drop shadow, hairline
   border).
-- **Tool bar** (5 equal-width buttons, bottom): **Crop**, **Highlight**,
-  **Text** (OCR), **Sign**, **Filter**. Active tool is visually selected
-  (`accentSoft` background + `accent` icon/label). A one-line contextual
-  hint above the tool bar changes per active tool ("Drag the corners to fit
-  the page" / "Tap a line of text to highlight it" / "Text recognition" /
-  "Draw your signature" / "Choose how this page looks").
+- **Tool bar** (4 equal-width buttons, bottom): **Crop**, **Highlight**,
+  **Text** (OCR), **Sign**. Active tool is visually selected (`accentSoft`
+  background + `accent` icon/label). A one-line contextual hint above the
+  tool bar changes per active tool ("Drag the corners to fit the page" /
+  "Tap a line of text to highlight it" / "Text recognition" / "Draw your
+  signature"). **Sign** carries a small **PRO** badge (top-right corner of
+  its button) when the user isn't currently premium — see §5 for the
+  gating and paywall behind it.
   - **Crop**: adjustable quad/rect overlay with draggable corner handles;
     commits a perspective-corrected crop of the page image. (If using
     VisionKit/ML Kit capture, an initial auto-crop is already applied — this
@@ -252,9 +242,6 @@ accumulated rotation either. Fixed by having the getter read
     the same normalized `rotation` (degrees, clockwise) field, so a
     signature's rotation round-trips correctly regardless of which platform
     placed it.
-  - **Filter**: a row of 4 options (**Auto** / **Original** / **Grayscale**
-    / **B&W** — see §4.2's "scan filters" note for what each does),
-    applied live to the page preview on tap. Persisted per page.
 - Saving moves the (new or edited) document into the library, shows a toast
   ("Saved to Documents"), and opens the Export sheet.
 
@@ -310,7 +297,44 @@ Transient, centered, low on screen (above the tab/tool bar), dark pill,
 white text, auto-dismiss ~1.6s. Used for confirmations: "Saved to
 Documents", "Signature added", "Copied", "Added from gallery", etc.
 
-## 5. Data model
+## 5. Premium & Paywall
+
+Sign is the first premium-gated tool (§4.3); more may follow (see §9's
+notes on future premium candidates). Entitlement is a **local mock** on
+both platforms right now — a `PremiumManager` (iOS: `UserDefaults`-backed
+`ObservableObject`; Android: `SharedPreferences`-backed plain class) that
+tracks `hasUsedTrial`/trial-end-date/`isSubscribed` and exposes
+`isPremium()`. Tapping the paywall's CTA grants entitlement immediately —
+there is no real payment processing yet, so the whole trial/subscribe UX
+can be built and tested without App Store Connect / Play Console
+subscription products existing. Wiring `startTrial`/`subscribe`/
+`restorePurchases` to real StoreKit 2 (iOS) / Play Billing Library
+(Android) calls is a separate, later step once those products are created;
+the gating check and paywall UI shouldn't need to change when that happens.
+
+- **Gating**: tapping **Sign** in the Edit tool bar calls
+  `premiumManager.isPremium()` (re-checked on every tap, not cached, so an
+  expired trial is caught immediately) before opening the signature pad.
+  If not premium, the paywall presents instead and the tool never
+  activates.
+- **Badge**: the Sign tool button shows a small **PRO** pill (top-right
+  corner) whenever the user isn't currently premium; it disappears once
+  they are (trial or subscribed).
+- **Trial**: 3 days, one-time-per-device (`hasUsedTrial` never resets).
+  Two paywall copy variants:
+  - **Never used the trial**: "Try Premium free for 3 days" headline,
+    **Start Free Trial** primary button, fine print noting the paid rate
+    it converts to after 3 days.
+  - **Already used the trial** (including an expired one): plain "Unlock
+    Premium" headline, no trial mention, **Subscribe — $4.99/mo** primary
+    button. ($4.99/mo is placeholder copy, not a configured real price —
+    see the mock-entitlement note above.)
+  - Both variants share: a feature-highlight list (signing, "more premium
+    tools on the way," supporting development), a **Restore Purchases**
+    link, and a dismiss (✕) button that backs out without changing
+    `activeTool`'s premium-gated state.
+
+## 6. Data model
 
 ```
 Document
@@ -349,7 +373,7 @@ Persistence: **SwiftData** on iOS, **Room** on Android. Page images are
 stored as files in the app's local documents/sandbox directory, referenced
 by path/UUID from the database — not stored as blobs.
 
-## 6. Platform implementation notes
+## 7. Platform implementation notes
 
 - **iOS**: SwiftUI, iOS 17+ target. SwiftData for persistence. VisionKit
   (`VNDocumentCameraViewController`) for capture. Vision framework
@@ -368,7 +392,7 @@ by path/UUID from the database — not stored as blobs.
   environment values / Compose `MaterialTheme` color scheme) so the two
   apps read as the same product.
 
-## 7. Deliberate simplifications vs. the interactive mock
+## 8. Deliberate simplifications vs. the interactive mock
 
 The `.dc.html` file is a clickable prototype built on a small custom
 UI-templating runtime (`support.js`), not a real app — it exists to pin down
@@ -389,3 +413,30 @@ should do *more* than the mock, not less:
 
 Everything else in §4 — screens, copy, tool set, sheet behavior, toasts —
 should be matched closely.
+
+## 9. Future premium candidates
+
+Brainstormed, **not built** — none of these are gated (or implemented) yet;
+listed here so a future round doesn't have to re-derive the list from
+scratch. Roughly grouped from "small lift, obvious value" to "bigger
+lift, needs its own design pass":
+
+- **Batch/unlimited scanning** — cap free documents or pages-per-document,
+  unlock unlimited for Premium (the classic scanner-app paywall lever).
+- **More export formats/options** — Word/editable text export, custom
+  watermarks, higher-resolution export, batch export of multiple documents
+  at once.
+- **Cloud backup/sync** — currently everything is local-only; syncing
+  across a user's devices is a natural premium tier (also the biggest
+  lift, since there's no backend at all today).
+- **Advanced OCR** — multi-language recognition, exporting recognized text
+  as a structured format (CSV for tables, etc.), batch OCR across a whole
+  document at once.
+- **AI-assisted features** — summarize a document, extract key fields
+  (dates, totals, names) as structured data, answer questions about a
+  document's contents, merge/reorder pages across multiple documents.
+  Highest lift (needs an LLM API integration + likely a backend proxy for
+  the API key), but also the most differentiated relative to other scanner
+  apps.
+- **Password-protected PDF export** and **custom branding/no-watermark**
+  export, if a free tier ever adds a watermark.
