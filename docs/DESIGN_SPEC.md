@@ -334,6 +334,47 @@ the gating check and paywall UI shouldn't need to change when that happens.
     link, and a dismiss (✕) button that backs out without changing
     `activeTool`'s premium-gated state.
 
+Sign is no longer the only gate — **unlimited scanning** and **PDF
+password protection** (both drawn from §9's brainstorm list) are now
+implemented the same way: `premiumManager.isPremium()`/`canCreateNewDocument`
+checked at the point of use, paywall shown on failure, entitlement re-checked
+live rather than cached.
+
+- **Unlimited scanning**: free accounts are capped at
+  `PremiumManager.freeDocumentLimit` / `FREE_DOCUMENT_LIMIT` (3) documents in
+  the library at once; Premium removes the cap. Gated at the entry points
+  that start a **new** document — iOS: Home's camera button and photo-import
+  button (`RootView.gateNewDocument`); Android: Home's floating scan button
+  and empty-state CTA (`HomeScreen.gatedScan`) — not at save time, so a user
+  never scans a document only to be blocked afterwards, and because these
+  entry points are the only ones this app fully controls (VisionKit's/ML
+  Kit's own capture UI isn't). Hitting the cap shows the paywall with a
+  reason banner ("You've reached the free plan's 3-document limit"); a
+  successful trial/subscribe/restore immediately continues into the
+  scan/import the user originally tapped.
+- **PDF password protection**: a small lock icon on the PDF row of the
+  Export sheet (JPG is unaffected) — tapping the row itself still exports an
+  unprotected PDF exactly as before; tapping the lock icon is the premium
+  gate. Premium users get a password prompt (SwiftUI `.alert` + `SecureField`
+  / Compose `AlertDialog` + `OutlinedTextField`) instead of expanding the
+  Export sheet itself, preserving its fixed, non-resizable height (§4.5).
+  Free users see the paywall (reason: "Password-protecting PDFs is a Premium
+  feature") first; success reopens the password prompt. Same password is
+  used as both the PDF's "open" and "permissions" password — there's no
+  separate "restrict editing" concept in this app to justify two.
+  - **iOS**: PDFKit already ships on-device — `PDFDocument(data:).write(to:
+    withOptions: [.userPasswordOption:, .ownerPasswordOption:])` loads the
+    already-written unprotected PDF and overwrites it in place encrypted.
+  - **Android**: `android.graphics.pdf.PdfDocument` (used for PDF generation
+    itself) has no encryption support at all, so this adds
+    `com.tom-roush:pdfbox-android` (Apache 2.0, an actively-maintained
+    Android port of Apache PDFBox) as a narrowly-scoped dependency —
+    `PdfPasswordProtector` loads the already-generated PDF file with
+    `PDDocument.load`, applies a `StandardProtectionPolicy` (128-bit), and
+    saves it back in place. Requires one-time
+    `PDFBoxResourceLoader.init(context)`, called from
+    `DocumentScannerApp.onCreate`.
+
 ## 6. Data model
 
 ```
@@ -416,13 +457,13 @@ should be matched closely.
 
 ## 9. Future premium candidates
 
-Brainstormed, **not built** — none of these are gated (or implemented) yet;
-listed here so a future round doesn't have to re-derive the list from
-scratch. Roughly grouped from "small lift, obvious value" to "bigger
-lift, needs its own design pass":
+Brainstormed; two have since been built (see §5's "Unlimited scanning" and
+"PDF password protection" — struck through below), the rest are still
+**not built**. Listed here so a future round doesn't have to re-derive the
+list from scratch. Roughly grouped from "small lift, obvious value" to
+"bigger lift, needs its own design pass":
 
-- **Batch/unlimited scanning** — cap free documents or pages-per-document,
-  unlock unlimited for Premium (the classic scanner-app paywall lever).
+- ~~**Batch/unlimited scanning**~~ — done, §5.
 - **More export formats/options** — Word/editable text export, custom
   watermarks, higher-resolution export, batch export of multiple documents
   at once.
@@ -438,5 +479,6 @@ lift, needs its own design pass":
   Highest lift (needs an LLM API integration + likely a backend proxy for
   the API key), but also the most differentiated relative to other scanner
   apps.
-- **Password-protected PDF export** and **custom branding/no-watermark**
-  export, if a free tier ever adds a watermark.
+- ~~**Password-protected PDF export**~~ — done, §5. **Custom
+  branding/no-watermark** export remains open, if a free tier ever adds a
+  watermark.
