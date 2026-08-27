@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .background(tokens.bg),
                 ) {
-                    AppNavGraph(factory = factory, toast = toast)
+                    AppNavGraph(factory = factory, toast = toast, premiumManager = app.premiumManager)
                     ToastHost(state = toast)
                 }
             }

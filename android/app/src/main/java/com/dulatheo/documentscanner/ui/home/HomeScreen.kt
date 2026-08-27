@@ -45,8 +45,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dulatheo.documentscanner.data.model.DocumentWithDetails
+import com.dulatheo.documentscanner.service.PremiumManager
 import com.dulatheo.documentscanner.ui.components.DocumentCard
 import com.dulatheo.documentscanner.ui.components.ScanCornersIcon
+import com.dulatheo.documentscanner.ui.components.ToastState
+import com.dulatheo.documentscanner.ui.paywall.PaywallOutcome
+import com.dulatheo.documentscanner.ui.paywall.PaywallScreen
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -58,11 +62,27 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenDocument: (String) -> Unit,
     onScan: () -> Unit,
+    premiumManager: PremiumManager,
+    toast: ToastState,
 ) {
     val tokens = LocalAppColors.current
     val documents by viewModel.documents.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
+    var showLimitPaywall by remember { mutableStateOf(false) }
+
+    // Gates starting a brand-new scan behind the free document limit
+    // (DESIGN_SPEC §5/§9 "unlimited scanning") — every scan creates a new
+    // document (never appends to an existing one), so this is the single
+    // place to enforce it regardless of which entry point (empty-state CTA
+    // or the floating scan button) was tapped.
+    fun gatedScan() {
+        if (premiumManager.canCreateNewDocument(documents.size)) {
+            onScan()
+        } else {
+            showLimitPaywall = true
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -140,7 +160,7 @@ fun HomeScreen(
             }
 
             if (documents.isEmpty() && query.isEmpty()) {
-                EmptyState(onScan = onScan, modifier = Modifier.weight(1f))
+                EmptyState(onScan = { gatedScan() }, modifier = Modifier.weight(1f))
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
@@ -182,7 +202,7 @@ fun HomeScreen(
                 .size(64.dp)
                 .clip(CircleShape)
                 .background(tokens.accent)
-                .clickable(onClick = onScan),
+                .clickable { gatedScan() },
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -191,6 +211,31 @@ fun HomeScreen(
                 tint = Color.White,
                 modifier = Modifier.size(27.dp),
             )
+        }
+
+        if (showLimitPaywall) {
+            PaywallScreen(
+                premiumManager = premiumManager,
+                reason = "You've reached the free plan's ${PremiumManager.FREE_DOCUMENT_LIMIT}-document limit",
+            ) { outcome ->
+                showLimitPaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        toast.show("Trial started — enjoy Premium!")
+                        onScan()
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        toast.show("Welcome to Premium!")
+                        onScan()
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        toast.show("Purchases restored")
+                        if (premiumManager.isPremium()) onScan()
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
+            }
         }
     }
 }

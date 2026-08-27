@@ -14,16 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -35,12 +39,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dulatheo.documentscanner.service.ExportManager
 import com.dulatheo.documentscanner.service.ExportPage
 import com.dulatheo.documentscanner.ui.components.PageCard
 import com.dulatheo.documentscanner.ui.components.ToastState
 import com.dulatheo.documentscanner.service.ExportFormat
+import com.dulatheo.documentscanner.ui.paywall.PaywallOutcome
+import com.dulatheo.documentscanner.ui.paywall.PaywallScreen
 import com.dulatheo.documentscanner.ui.sheets.CommentSheetContent
 import com.dulatheo.documentscanner.ui.sheets.ExportSheetContent
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
@@ -69,8 +77,28 @@ fun DocViewerScreen(
     var showComment by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
     var commentDraft by remember { mutableStateOf("") }
+    var showPasswordPrompt by remember { mutableStateOf(false) }
+    var passwordInput by remember { mutableStateOf("") }
+    var showProtectPaywall by remember { mutableStateOf(false) }
 
     val exportManager = remember { ExportManager(context, viewModel.imageStorage) }
+
+    fun exportPdf(password: String?) {
+        showExport = false
+        scope.launch {
+            val current = doc ?: return@launch
+            val pages = current.orderedPages.map { page ->
+                ExportPage(
+                    imagePath = page.imagePath,
+                    ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
+                    signature = JsonCodec.decodeSignature(page.signatureJson),
+                )
+            }
+            val files = exportManager.export(current.document.name, pages, ExportFormat.PDF, password)
+            exportManager.shareAndFinish(files, ExportFormat.PDF)
+            if (justSaved) onBack()
+        }
+    }
 
     val document = doc
     if (document == null) {
@@ -199,18 +227,31 @@ fun DocViewerScreen(
                     subtitle = subtitle,
                     dismissLabel = dismissLabel,
                     onExport = { format ->
-                        showExport = false
-                        scope.launch {
-                            val pages = document.orderedPages.map { page ->
-                                ExportPage(
-                                    imagePath = page.imagePath,
-                                    ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
-                                    signature = JsonCodec.decodeSignature(page.signatureJson),
-                                )
+                        if (format == ExportFormat.PDF) {
+                            exportPdf(null)
+                        } else {
+                            showExport = false
+                            scope.launch {
+                                val pages = document.orderedPages.map { page ->
+                                    ExportPage(
+                                        imagePath = page.imagePath,
+                                        ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
+                                        signature = JsonCodec.decodeSignature(page.signatureJson),
+                                    )
+                                }
+                                val files = exportManager.export(document.document.name, pages, format)
+                                exportManager.shareAndFinish(files, format)
+                                if (justSaved) onBack()
                             }
-                            val files = exportManager.export(document.document.name, pages, format)
-                            exportManager.shareAndFinish(files, format)
-                            if (justSaved) onBack()
+                        }
+                    },
+                    onProtectPdfClick = {
+                        showExport = false
+                        if (viewModel.premiumManager.isPremium()) {
+                            passwordInput = ""
+                            showPasswordPrompt = true
+                        } else {
+                            showProtectPaywall = true
                         }
                     },
                     onDismiss = {
@@ -218,6 +259,71 @@ fun DocViewerScreen(
                         if (justSaved) onBack()
                     },
                 )
+            }
+        }
+
+        if (showPasswordPrompt) {
+            AlertDialog(
+                onDismissRequest = { showPasswordPrompt = false; passwordInput = "" },
+                title = { Text("Protect PDF") },
+                text = {
+                    Column {
+                        Text(
+                            "Anyone opening this PDF will need this password.",
+                            color = tokens.ink2,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = passwordInput,
+                            onValueChange = { passwordInput = it },
+                            label = { Text("Password") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showPasswordPrompt = false
+                        exportPdf(passwordInput.trim().ifEmpty { null })
+                        passwordInput = ""
+                    }) { Text("Export") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showPasswordPrompt = false; passwordInput = "" }) { Text("Cancel") }
+                },
+            )
+        }
+
+        if (showProtectPaywall) {
+            PaywallScreen(
+                premiumManager = viewModel.premiumManager,
+                reason = "Password-protecting PDFs is a Premium feature",
+            ) { outcome ->
+                showProtectPaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        toast.show("Trial started — enjoy Premium!")
+                        passwordInput = ""
+                        showPasswordPrompt = true
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        toast.show("Welcome to Premium!")
+                        passwordInput = ""
+                        showPasswordPrompt = true
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        toast.show("Purchases restored")
+                        if (viewModel.premiumManager.isPremium()) {
+                            passwordInput = ""
+                            showPasswordPrompt = true
+                        }
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
             }
         }
     }

@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,12 +28,17 @@ import androidx.compose.ui.unit.dp
 import com.dulatheo.documentscanner.service.ExportFormat
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 
-/** "Export document" bottom sheet content (DESIGN_SPEC.md §4.5). */
+/** "Export document" bottom sheet content (DESIGN_SPEC.md §4.5). The PDF row
+ * carries an extra lock-icon button (Premium "PDF password protection",
+ * DESIGN_SPEC §5/§9) that opens a password prompt or the paywall instead of
+ * exporting immediately — tapping the rest of the row still exports
+ * unprotected, as before. */
 @Composable
 fun ExportSheetContent(
     subtitle: String,
     dismissLabel: String,
     onExport: (ExportFormat) -> Unit,
+    onProtectPdfClick: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppColors.current
@@ -54,6 +63,11 @@ fun ExportSheetContent(
             title = "PDF document",
             subtitle = "Searchable text, all pages",
             onClick = { onExport(ExportFormat.PDF) },
+            trailing = {
+                IconButton(onClick = onProtectPdfClick) {
+                    Icon(Icons.Filled.Lock, contentDescription = "Password-protect PDF", tint = tokens.ink2)
+                }
+            },
         )
         Spacer(Modifier.height(10.dp))
         ExportOptionRow(
@@ -79,7 +93,13 @@ fun ExportSheetContent(
 }
 
 @Composable
-private fun ExportOptionRow(badge: String, title: String, subtitle: String, onClick: () -> Unit) {
+private fun ExportOptionRow(
+    badge: String,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val tokens = LocalAppColors.current
     Row(
         modifier = Modifier
@@ -101,9 +121,12 @@ private fun ExportOptionRow(badge: String, title: String, subtitle: String, onCl
             Text(badge, color = tokens.accent, style = MaterialTheme.typography.labelSmall)
         }
         Spacer(Modifier.width(13.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, color = tokens.ink, style = MaterialTheme.typography.bodyMedium)
             Text(subtitle, color = tokens.ink3, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (trailing != null) {
+            trailing()
         }
     }
 }

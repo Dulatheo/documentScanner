@@ -26,7 +26,7 @@ class AppViewModelFactory(
             modelClass.isAssignableFrom(EditViewModel::class.java) ->
                 EditViewModel(repository, premiumManager) as T
             modelClass.isAssignableFrom(DocViewerViewModel::class.java) ->
-                DocViewerViewModel(repository) as T
+                DocViewerViewModel(repository, premiumManager) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: $modelClass")
         }
     }

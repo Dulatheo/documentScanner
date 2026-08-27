@@ -102,6 +102,14 @@ dependencies {
     // Accompanist system UI controller (status bar theming to match light/dark tokens)
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
 
+    // PDFBox-Android — used solely to password-protect an already-generated
+    // PDF (Premium feature, DESIGN_SPEC §5/§9). android.graphics.pdf.PdfDocument
+    // (used elsewhere for PDF generation itself) has no encryption support at
+    // all, and hand-rolling the PDF standard security handler isn't worth the
+    // risk of producing a non-conformant "encrypted" file — this is Apache
+    // PDFBox's actively-maintained Android port (Apache 2.0 licensed).
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

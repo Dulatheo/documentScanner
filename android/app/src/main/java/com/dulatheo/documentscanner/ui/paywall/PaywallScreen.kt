@@ -18,10 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,7 +50,11 @@ enum class PaywallOutcome { TRIAL_STARTED, SUBSCRIBED, RESTORED, NOT_RESTORED, D
  * with no trial mention, since a real trial is one-time-per-account.
  */
 @Composable
-fun PaywallScreen(premiumManager: PremiumManager, onFinished: (PaywallOutcome) -> Unit) {
+fun PaywallScreen(
+    premiumManager: PremiumManager,
+    reason: String? = null,
+    onFinished: (PaywallOutcome) -> Unit,
+) {
     val tokens = LocalAppColors.current
     val isTrialEligible = !premiumManager.hasUsedTrial()
 
@@ -90,6 +94,19 @@ fun PaywallScreen(premiumManager: PremiumManager, onFinished: (PaywallOutcome) -
                 Icon(Icons.Filled.Create, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
             }
             Spacer(Modifier.height(20.dp))
+            if (reason != null) {
+                Text(
+                    reason,
+                    color = tokens.accent,
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(tokens.accentSoft)
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                )
+                Spacer(Modifier.height(16.dp))
+            }
             Text(
                 if (isTrialEligible) "Try Premium free for 3 days" else "Unlock Premium",
                 color = tokens.ink,
@@ -110,8 +127,8 @@ fun PaywallScreen(premiumManager: PremiumManager, onFinished: (PaywallOutcome) -
             Spacer(Modifier.height(24.dp))
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 FeatureRow(icon = Icons.Filled.Create, text = "Sign documents with your finger", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.AutoAwesome, text = "More premium tools on the way", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.Verified, text = "Support ongoing development", tokens = tokens)
+                FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited document scanning", tokens = tokens)
+                FeatureRow(icon = Icons.Filled.Lock, text = "Password-protect your PDF exports", tokens = tokens)
             }
             Spacer(Modifier.height(16.dp))
         }

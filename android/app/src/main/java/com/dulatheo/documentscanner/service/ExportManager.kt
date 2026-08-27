@@ -26,10 +26,21 @@ class ExportManager(private val context: Context, private val imageStorage: Imag
 
     private val pdfService = PdfExportService()
 
-    suspend fun export(documentName: String, pages: List<ExportPage>, format: ExportFormat): List<File> =
+    suspend fun export(
+        documentName: String,
+        pages: List<ExportPage>,
+        format: ExportFormat,
+        password: String? = null,
+    ): List<File> =
         withContext(Dispatchers.IO) {
             when (format) {
-                ExportFormat.PDF -> listOf(exportPdf(documentName, pages))
+                ExportFormat.PDF -> {
+                    val file = exportPdf(documentName, pages)
+                    if (!password.isNullOrEmpty()) {
+                        PdfPasswordProtector.protect(file, password)
+                    }
+                    listOf(file)
+                }
                 ExportFormat.JPG -> exportJpgs(documentName, pages)
             }
         }

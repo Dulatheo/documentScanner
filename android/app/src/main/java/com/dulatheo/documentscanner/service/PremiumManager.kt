@@ -69,9 +69,19 @@ class PremiumManager(context: Context) {
      * toast ("Restored" vs. "No previous purchase found"). */
     fun restorePurchases(): Boolean = isPremium()
 
-    private companion object {
-        const val KEY_HAS_USED_TRIAL = "hasUsedTrial"
-        const val KEY_TRIAL_END = "trialEndMillis"
-        const val KEY_IS_SUBSCRIBED = "isSubscribed"
+    /** Whether a new document can be created given the library's current
+     * size — always true once premium, otherwise gated by
+     * [FREE_DOCUMENT_LIMIT]. */
+    fun canCreateNewDocument(currentCount: Int): Boolean = isPremium() || currentCount < FREE_DOCUMENT_LIMIT
+
+    companion object {
+        /** Free-tier document cap (DESIGN_SPEC §5/§9 "unlimited scanning"):
+         * non-premium users can have at most this many documents in their
+         * library at once; Premium removes the cap entirely. */
+        const val FREE_DOCUMENT_LIMIT = 3
+
+        private const val KEY_HAS_USED_TRIAL = "hasUsedTrial"
+        private const val KEY_TRIAL_END = "trialEndMillis"
+        private const val KEY_IS_SUBSCRIBED = "isSubscribed"
     }
 }

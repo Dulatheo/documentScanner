@@ -12,6 +12,7 @@ import com.dulatheo.documentscanner.ui.camera.ScanSessionViewModel
 import com.dulatheo.documentscanner.ui.components.ToastState
 import com.dulatheo.documentscanner.ui.docviewer.DocViewerScreen
 import com.dulatheo.documentscanner.ui.docviewer.DocViewerViewModel
+import com.dulatheo.documentscanner.service.PremiumManager
 import com.dulatheo.documentscanner.ui.edit.EditScreen
 import com.dulatheo.documentscanner.ui.edit.EditViewModel
 import com.dulatheo.documentscanner.ui.home.HomeScreen
@@ -32,7 +33,7 @@ private const val ROUTE_EDIT = "edit"
 private const val ROUTE_DOC_VIEWER = "docviewer/{documentId}?justSaved={justSaved}"
 
 @Composable
-fun AppNavGraph(factory: AppViewModelFactory, toast: ToastState) {
+fun AppNavGraph(factory: AppViewModelFactory, toast: ToastState, premiumManager: PremiumManager) {
     val navController = rememberNavController()
     val scanSession: ScanSessionViewModel = viewModel(factory = factory)
 
@@ -43,6 +44,8 @@ fun AppNavGraph(factory: AppViewModelFactory, toast: ToastState) {
                 viewModel = homeViewModel,
                 onOpenDocument = { id -> navController.navigate("docviewer/$id?justSaved=false") },
                 onScan = { navController.navigate(ROUTE_CAMERA) },
+                premiumManager = premiumManager,
+                toast = toast,
             )
         }
 
