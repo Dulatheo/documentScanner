@@ -190,20 +190,23 @@ so an in-progress crop on the page being left is always committed before
 switching, whichever way the user navigates.
 
 **iOS implementation note**: swiping is `TabView(.page style)`, with each
-page's content in its own vertical `ScrollView`. Both are native
-scrollable containers whose own pan recognizers can win an entire drag
-gesture that starts on content nested inside them, not just contest one
-axis of it — this only bit the Sign tool's "drag the whole signature body
-to reposition it" gesture (small, localized corner-handle drags for
-Crop/resize/rotate never triggered the competition, and neither did the
-vertical scroll axis, since that's the ScrollView's own axis and dragging
-there does move *something*, just the whole page rather than the signature
-independently). Rather than continuing to fight this with SwiftUI-side
-`.highPriorityGesture` tuning, both the per-page `ScrollView` and the
-`TabView` itself are `.scrollDisabled(true)` for the duration of signature
-placement — the official, targeted tool for turning off a container's own
-scrolling without (unlike `.disabled()`) disabling hit-testing for its
-children, so the signature's own gestures stay fully functional.
+page's content in its own vertical `ScrollView`; both are `.scrollDisabled`
+for the duration of signature placement as a defensive measure, but the
+real bug behind an earlier "the signature only moves vertically, never
+horizontally" report turned out to be unrelated to either container. It
+was a stale-snapshot bug in `PageEditorView`'s binding into
+`SignaturePlacementView`: `Binding(get: { placing }, ...)` closed over
+`placing` — a `let` captured once per `body` evaluation — instead of
+reading `placingSignature` itself each time. Placement's drag handler
+writes `signature.x` and `signature.y` as two separate statements per
+frame; with a snapshot-capturing getter, the second write's implicit
+read-modify-write reads that same frozen snapshot rather than the first
+write's result, silently discarding it — whichever field is written last
+always "wins," which is exactly why signatures could only ever move
+vertically, and (by the same mechanism, since `signature.rotation +=
+delta` is also a read-modify-write) why the rotate handle never actually
+accumulated rotation either. Fixed by having the getter read
+`placingSignature` directly.
 
 - Top bar: **Cancel** (discard back to camera/prior state), page label +
   prev/next chevrons (`session.pageCount > 1`), **Save** (commits the

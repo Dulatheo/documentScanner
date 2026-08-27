@@ -58,8 +58,21 @@ struct PageEditorView: View {
 
                 if activeTool != .crop {
                     if let placing = placingSignature {
+                        // The getter reads `placingSignature` itself (falling
+                        // back to `placing` only for the type checker, since
+                        // this branch guarantees it's non-nil) rather than
+                        // closing over `placing` as a fixed snapshot. Signature
+                        // placement writes `.x` and `.y` as two separate
+                        // statements in the same drag callback — with a
+                        // snapshot-capturing getter, the second write reads
+                        // that same stale snapshot instead of the first
+                        // write's result and overwrites it, so `x` updates
+                        // were silently discarded every time (whichever
+                        // field is written last always "wins," which is
+                        // exactly why signatures could only ever move
+                        // vertically).
                         SignaturePlacementView(
-                            signature: Binding(get: { placing }, set: { placingSignature = $0 }),
+                            signature: Binding(get: { placingSignature ?? placing }, set: { placingSignature = $0 }),
                             pageSize: size
                         )
                     } else if let committed = pageState.signature {
