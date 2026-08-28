@@ -352,16 +352,31 @@ live rather than cached.
   reason banner ("You've reached the free plan's 3-document limit"); a
   successful trial/subscribe/restore immediately continues into the
   scan/import the user originally tapped.
+  - **Discoverability**: the cap is surfaced before anyone hits it — Home's
+    subtitle line reads "N of 3 free documents — Premium for unlimited" for
+    a non-premium user with documents (or "Nothing saved yet · 3 free
+    documents" when empty), so the limit isn't only ever explained by the
+    paywall that appears once someone's already blocked.
 - **PDF password protection**: a small lock icon on the PDF row of the
-  Export sheet (JPG is unaffected) — tapping the row itself still exports an
-  unprotected PDF exactly as before; tapping the lock icon is the premium
-  gate. Premium users get a password prompt (SwiftUI `.alert` + `SecureField`
-  / Compose `AlertDialog` + `OutlinedTextField`) instead of expanding the
+  Export sheet (JPG is unaffected) — tapping the row itself exports the
+  PDF as before; tapping the lock icon is the dedicated premium gate.
+  Premium users get a password prompt (SwiftUI `.alert` + `SecureField` /
+  Compose `AlertDialog` + `OutlinedTextField`) instead of expanding the
   Export sheet itself, preserving its fixed, non-resizable height (§4.5).
   Free users see the paywall (reason: "Password-protecting PDFs is a Premium
   feature") first; success reopens the password prompt. Same password is
   used as both the PDF's "open" and "permissions" password — there's no
   separate "restrict editing" concept in this app to justify two.
+  - **Discoverability**: a small **PRO** badge sits on the lock icon for a
+    non-premium user (hidden once they're premium), and the icon itself no
+    longer needs a label to be found.
+  - **Freemium upsell on plain export**: a free user tapping the PDF row
+    itself (not the lock) sees a one-time-per-tap prompt — "Protect this
+    PDF? Add a password so only people who have it can open this file.
+    Available with Premium." — with **Add Password** (routes into the same
+    paywall → password-prompt flow as the lock icon) and **Export Without
+    Password** (proceeds exactly as before). This only fires for free users
+    exporting a PDF; premium users and JPG exports are unaffected.
   - **iOS**: PDFKit already ships on-device — `PDFDocument(data:).write(to:
     withOptions: [.userPasswordOption:, .ownerPasswordOption:])` loads the
     already-written unprotected PDF and overwrites it in place encrypted.
