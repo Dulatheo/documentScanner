@@ -73,7 +73,8 @@ struct RootView: View {
                     withAnimation(.zoomTransition) {
                         viewingDocument = document
                     }
-                }
+                },
+                premiumManager: premiumManager
             )
 
             if let viewingDocument {

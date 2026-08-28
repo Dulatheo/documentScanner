@@ -14,12 +14,22 @@ struct HomeView: View {
     /// push into a separate view hierarchy `matchedGeometryEffect` can't
     /// animate across.
     let onSelectDocument: (DocumentModel) -> Void
+    @ObservedObject var premiumManager: PremiumManager
 
     @Environment(\.theme) private var theme
     @Environment(\.appActions) private var actions
 
+    /// Surfaces the free-tier document cap (DESIGN_SPEC §5 "unlimited
+    /// scanning") before the user hits it, rather than only ever explaining
+    /// itself via the paywall that appears once they're already blocked.
     private var subtitle: String {
-        documents.isEmpty ? "Nothing saved yet" : (documents.count == 1 ? "1 document" : "\(documents.count) documents")
+        if premiumManager.isPremium {
+            return documents.isEmpty ? "Nothing saved yet" : (documents.count == 1 ? "1 document" : "\(documents.count) documents")
+        }
+        if documents.isEmpty {
+            return "Nothing saved yet \u{00b7} \(PremiumManager.freeDocumentLimit) free documents"
+        }
+        return "\(documents.count) of \(PremiumManager.freeDocumentLimit) free documents \u{2014} Premium for unlimited"
     }
 
     var body: some View {

@@ -23,6 +23,7 @@ struct ExportSheetView: View {
     @State private var showPasswordPrompt = false
     @State private var passwordInput = ""
     @State private var showPaywall = false
+    @State private var showPasswordSuggestion = false
 
     private var subtitle: String {
         pendingSave ? "Saved to Documents \u{00b7} choose a format to share" : "Choose a format to share"
@@ -85,6 +86,12 @@ struct ExportSheetView: View {
         } message: {
             Text("Anyone opening this PDF will need this password.")
         }
+        .alert("Protect this PDF?", isPresented: $showPasswordSuggestion) {
+            Button("Add Password") { showPaywall = true }
+            Button("Export Without Password", role: .cancel) { exportPDF(password: nil) }
+        } message: {
+            Text("Add a password so only people who have it can open this file. Available with Premium.")
+        }
     }
 
     /// The PDF row is its own layout (rather than reusing `exportOption`)
@@ -123,6 +130,17 @@ struct ExportSheetView: View {
                     .foregroundColor(theme.ink2)
                     .frame(width: 30, height: 30)
                     .background(Circle().fill(theme.bg))
+                    .overlay(alignment: .topTrailing) {
+                        if !premiumManager.isPremium {
+                            Text("PRO")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1.5)
+                                .background(Capsule().fill(theme.accent))
+                                .offset(x: 4, y: -2)
+                        }
+                    }
             }
             .buttonStyle(.plain)
         }
@@ -133,7 +151,11 @@ struct ExportSheetView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isExporting else { return }
-            exportPDF(password: nil)
+            if premiumManager.isPremium {
+                exportPDF(password: nil)
+            } else {
+                showPasswordSuggestion = true
+            }
         }
     }
 
