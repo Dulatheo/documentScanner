@@ -42,10 +42,11 @@ final class PremiumManager: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        hasUsedTrial = defaults.bool(forKey: Keys.hasUsedTrial)
-        trialEndDate = defaults.object(forKey: Keys.trialEndDate) as? Date
+        let storedTrialEndDate = defaults.object(forKey: Keys.trialEndDate) as? Date
         let isSubscribed = defaults.bool(forKey: Keys.isSubscribed)
-        let trialActive = trialEndDate.map { $0 > Date() } ?? false
+        let trialActive = storedTrialEndDate.map { $0 > Date() } ?? false
+        hasUsedTrial = defaults.bool(forKey: Keys.hasUsedTrial)
+        trialEndDate = storedTrialEndDate
         isPremium = isSubscribed || trialActive
     }
 
