@@ -23,8 +23,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dulatheo.documentscanner.service.ExportFormat
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 
@@ -32,13 +35,15 @@ import com.dulatheo.documentscanner.ui.theme.LocalAppColors
  * carries an extra lock-icon button (Premium "PDF password protection",
  * DESIGN_SPEC §5/§9) that opens a password prompt or the paywall instead of
  * exporting immediately — tapping the rest of the row still exports
- * unprotected, as before. */
+ * unprotected, as before. [showProBadge] marks the lock icon as a Premium
+ * feature for a free user; hidden once they're premium. */
 @Composable
 fun ExportSheetContent(
     subtitle: String,
     dismissLabel: String,
     onExport: (ExportFormat) -> Unit,
     onProtectPdfClick: () -> Unit,
+    showProBadge: Boolean,
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppColors.current
@@ -64,8 +69,24 @@ fun ExportSheetContent(
             subtitle = "Searchable text, all pages",
             onClick = { onExport(ExportFormat.PDF) },
             trailing = {
-                IconButton(onClick = onProtectPdfClick) {
-                    Icon(Icons.Filled.Lock, contentDescription = "Password-protect PDF", tint = tokens.ink2)
+                Box {
+                    IconButton(onClick = onProtectPdfClick) {
+                        Icon(Icons.Filled.Lock, contentDescription = "Password-protect PDF", tint = tokens.ink2)
+                    }
+                    if (showProBadge) {
+                        Text(
+                            "PRO",
+                            color = Color.White,
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 2.dp, end = 2.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(tokens.accent)
+                                .padding(horizontal = 4.dp, vertical = 1.dp),
+                        )
+                    }
                 }
             },
         )

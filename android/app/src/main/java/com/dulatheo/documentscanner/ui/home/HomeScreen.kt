@@ -57,6 +57,20 @@ import java.util.Locale
 
 private val dateFormatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
 
+/** Surfaces the free-tier document cap (DESIGN_SPEC §5 "unlimited
+ * scanning") before the user hits it, rather than only ever explaining
+ * itself via the paywall that appears once they're already blocked. */
+private fun documentCountLabel(count: Int, premiumManager: PremiumManager): String {
+    if (premiumManager.isPremium()) {
+        return if (count == 0) "Nothing saved yet" else "$count document${if (count == 1) "" else "s"}"
+    }
+    return if (count == 0) {
+        "Nothing saved yet · ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents"
+    } else {
+        "$count of ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents — Premium for unlimited"
+    }
+}
+
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
@@ -104,8 +118,7 @@ fun HomeScreen(
                         color = tokens.ink,
                     )
                     Text(
-                        text = if (documents.isEmpty()) "Nothing saved yet"
-                        else "${documents.size} document${if (documents.size == 1) "" else "s"}",
+                        text = documentCountLabel(documents.size, premiumManager),
                         style = MaterialTheme.typography.bodySmall,
                         color = tokens.ink3,
                         modifier = Modifier.padding(top = 5.dp),

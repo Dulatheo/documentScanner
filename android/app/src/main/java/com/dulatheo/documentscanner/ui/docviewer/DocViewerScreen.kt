@@ -80,6 +80,7 @@ fun DocViewerScreen(
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var showProtectPaywall by remember { mutableStateOf(false) }
+    var showPasswordSuggestion by remember { mutableStateOf(false) }
 
     val exportManager = remember { ExportManager(context, viewModel.imageStorage) }
 
@@ -228,7 +229,12 @@ fun DocViewerScreen(
                     dismissLabel = dismissLabel,
                     onExport = { format ->
                         if (format == ExportFormat.PDF) {
-                            exportPdf(null)
+                            if (viewModel.premiumManager.isPremium()) {
+                                exportPdf(null)
+                            } else {
+                                showExport = false
+                                showPasswordSuggestion = true
+                            }
                         } else {
                             showExport = false
                             scope.launch {
@@ -254,12 +260,39 @@ fun DocViewerScreen(
                             showProtectPaywall = true
                         }
                     },
+                    showProBadge = !viewModel.premiumManager.isPremium(),
                     onDismiss = {
                         showExport = false
                         if (justSaved) onBack()
                     },
                 )
             }
+        }
+
+        if (showPasswordSuggestion) {
+            AlertDialog(
+                onDismissRequest = { showPasswordSuggestion = false },
+                title = { Text("Protect this PDF?") },
+                text = {
+                    Text(
+                        "Add a password so only people who have it can open this file. Available with Premium.",
+                        color = tokens.ink2,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showPasswordSuggestion = false
+                        showProtectPaywall = true
+                    }) { Text("Add Password") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showPasswordSuggestion = false
+                        exportPdf(null)
+                    }) { Text("Export Without Password") }
+                },
+            )
         }
 
         if (showPasswordPrompt) {
