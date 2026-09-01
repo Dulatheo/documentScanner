@@ -435,52 +435,17 @@ live rather than cached.
   retries the same export on success, exactly like the Sign tool's gating.
   A **PRO** badge sits on each row's format-icon badge for a free user.
 
-  **Currently routed through CloudConvert** (`CloudConvertService`, both
-  platforms) rather than the hand-rolled writers described below — the
-  hand-rolled output looked noticeably off from the real scan (font-size
-  scaling, table detection), so this is a live test of whether a paid
-  conversion API does meaningfully better. The flow: generate the same PDF
-  plain PDF export produces (invisible OCR text layer and all), upload it
-  to CloudConvert (`POST /v2/jobs` with import/convert/export tasks →
-  multipart upload → poll → download), and hand the result to the share
-  sheet exactly like every other format. This is a **test integration**,
-  not a finished feature:
-  - **Needs an API key**: `CloudConvertConfig.apiKey` (iOS — copy
-    `CloudConvertConfig.swift.example` to `CloudConvertConfig.swift`,
-    gitignored) / `CLOUDCONVERT_API_KEY` in `local.properties` (Android —
-    copy `local.properties.example`, gitignored, read via
-    `BuildConfig.CLOUDCONVERT_API_KEY`). Get one at cloudconvert.com (free
-    tier: 25 conversion minutes/day, then pay-per-use).
-  - **Not offline** — unlike everything else in this app, this needs a
-    network connection; failures (missing key, offline, CloudConvert
-    error) are caught and surfaced (iOS: an alert on the Export sheet;
-    Android: a toast) rather than left to crash.
-  - **Loading overlay**: since a CloudConvert round-trip takes several
-    seconds (upload → convert → poll → download) rather than the near-
-    instant local generation PDF/JPG use, every export path (Export sheet,
-    Doc viewer, and the "export without saving" sheet in Edit) shows a
-    full-screen dimmed overlay with a spinner and a format-specific status
-    line ("Converting to Word…" / "…Excel…" / "…PowerPoint…", vs.
-    "Preparing your PDF…" / "…images…" for the still-instant formats) for
-    the duration of the export, so the UI doesn't look stuck or dismiss
-    silently while the network call is in flight.
-  - **Real per-conversion cost**: this breaks the "unlimited Premium
-    export costs nothing marginal" reasoning that applied to the
-    on-device writers — every CloudConvert call costs real money, so a
-    genuine ship decision would need a usage cap even for Premium, or a
-    switch back to on-device generation.
-  - **Documents leave the device**: the PDF is uploaded to a third-party
-    server to get converted — worth weighing for anything sensitive a
-    user scans.
-  - **API key shipped in the app**: fine for local testing, but a key
-    embedded in a release build can be extracted by decompiling the APK/IPA
-    and abused. Before shipping this for real, route it through a backend
-    proxy that holds the key server-side instead.
-  - **The hand-rolled writers are kept, just unused** — `ExportManager`
-    (Android) / `ExportSheetView` (iOS) have a comment at the swap point
-    showing exactly what to call to revert to them. Their behavior is
-    otherwise unchanged from what's described below, for whenever this
-    gets compared or reverted.
+  **CloudConvert was tried and dropped.** A test integration briefly routed
+  these three formats through CloudConvert's paid conversion API (upload
+  the same PDF plain PDF export produces, poll, download) to see whether a
+  real conversion engine handled layout better than the hand-rolled
+  writers below. It didn't look meaningfully better, and it added real
+  per-conversion cost, a network dependency the rest of the app doesn't
+  have, an API key shipped client-side, and documents leaving the device —
+  so it was removed entirely (`CloudConvertService` on both platforms,
+  `CloudConvertConfig`/`local.properties` API key plumbing, and the
+  Android `INTERNET` permission it needed) in favor of going back to the
+  on-device writers described below, which is what ships now.
 
   Hand-rolled OOXML on both platforms rather than a dependency (see the
   Office-export feasibility note in §9) — DOCX/XLSX/PPTX are all just ZIP
