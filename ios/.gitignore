@@ -16,7 +16,3 @@ xcuserdata/
 
 # Simulator / device logs
 *.ips
-
-# CloudConvert API key (DESIGN_SPEC §5/§9 "Office format export" — test
-# integration) — never commit the real key; see CloudConvertConfig.swift.example.
-DocumentScanner/Services/CloudConvertConfig.swift
