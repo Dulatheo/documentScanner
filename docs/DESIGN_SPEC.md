@@ -146,6 +146,42 @@ see the platform notes below for why, including a reversal on iOS.
     keeps the Auto result. (Android never had this tool; it was removed
     from iOS.) Re-exposing filter choice — as a free option, or bundled
     into Premium — is open for a future round.
+    - **iOS `DocumentEnhancer` pipeline** (Auto/Grayscale/B&W): since
+      VisionKit's own edge detection is a sealed system component (no
+      public API to tune its sensitivity, and `scan.imageOfPage(at:)`
+      only ever hands back the already-cropped result, so a bad boundary
+      call can't be re-detected from a fresher source afterward), the
+      lever this app actually has over *scan quality* is what happens to
+      the pixels after that crop. Two CoreImage passes run before the
+      existing contrast/saturation/sharpen tweaks, both single-image
+      filters chosen deliberately over a two-image blend (divide/
+      subtract a blurred background) technique that's harder to get right
+      without on-device testing:
+      - **Paper white balance** (`whiteBalanced`): finds the brightest
+        pixel per channel in the shot (`CIAreaMaximum`, read back via a
+        1x1 bitmap render) as a stand-in for "the color of the blank
+        paper," then neutralizes it to true white with
+        `CIWhitePointAdjust` — removes a warm-lamp or cool-window color
+        cast rather than trusting the camera's general-purpose auto white
+        balance. Skipped if the brightest pixel isn't actually bright
+        (a dim or already-broken shot), since forcing a white point
+        against a false signal would make things worse.
+      - **Shadow lifting** (`flattenLighting`, `CIHighlightShadowAdjust`):
+        evens out a page lit unevenly (a hand's shadow, an angled desk
+        lamp) with local, edge-aware tone mapping — the same building
+        block behind Photos' Shadows/Highlights sliders — rather than a
+        single global brightness curve that can only push the whole
+        image lighter or darker at once. B&W applies this more
+        aggressively than Auto/Grayscale before its contrast push, which
+        is what makes it closer to real adaptive thresholding than a flat
+        global contrast curve: without flattening the lighting first, the
+        same threshold leaves a shadowed half of the page gray/blotchy
+        while the lit half blows out to solid white.
+      - Genuine per-pixel adaptive binarization (a true Sauvola/Niblack-
+        style local threshold) would need a custom CoreImage kernel,
+        which was deliberately not attempted here given no on-device
+        build/test loop available to verify kernel math is correct before
+        shipping it.
 
 **iOS zoom-transition implementation note** (applies to both zoom
 transitions above — scan button → Camera, document card → Document
