@@ -1,5 +1,6 @@
 package com.dulatheo.documentscanner.service
 
+import com.dulatheo.documentscanner.data.model.OcrLine
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipOutputStream
@@ -15,7 +16,9 @@ import java.util.zip.ZipOutputStream
  * Alignment/relative size/paragraph spacing are approximated from each
  * line's OCR bounding box ([DocxLineLayout.analyze]) — ML Kit reports no
  * font weight/style/underline, only text + position, so bold/italic/
- * underline aren't reconstructed; see DESIGN_SPEC §5/§9.
+ * underline aren't reconstructed. Runs of lines that look like table rows
+ * ([DocxTableDetector]) are rendered as a real OOXML table instead of
+ * paragraphs. See DESIGN_SPEC §5/§9.
  */
 object DocxExportService {
     suspend fun buildDocx(documentName: String, pages: List<ExportPage>, outFile: File): File {
@@ -36,17 +39,7 @@ object DocxExportService {
             if (page.ocrLines.isEmpty()) {
                 body.append("<w:p/>")
             } else {
-                DocxLineLayout.analyze(page.ocrLines).forEach { line ->
-                    if (line.extraSpaceBefore) {
-                        body.append("<w:p/>")
-                    }
-                    val bold = if (line.bold) "<w:b/>" else ""
-                    body.append("<w:p><w:pPr><w:jc w:val=\"${line.alignment}\"/></w:pPr>")
-                        .append("<w:r><w:rPr>$bold<w:sz w:val=\"${line.halfPointSize}\"/><w:szCs w:val=\"${line.halfPointSize}\"/></w:rPr>")
-                        .append("<w:t xml:space=\"preserve\">")
-                        .append(OoxmlUtil.xmlEscape(line.text))
-                        .append("</w:t></w:r></w:p>")
-                }
+                body.append(renderPage(page.ocrLines))
             }
             if (index < pages.size - 1) {
                 body.append("<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>")
@@ -55,6 +48,77 @@ object DocxExportService {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
             "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">" +
             "<w:body>$body<w:sectPr/></w:body></w:document>"
+    }
+
+    /** Interleaves detected tables with ordinary paragraph lines, in
+     * reading order. Paragraph-layout stats (median height/gap used for
+     * relative bold/spacing) are computed once from only the non-table
+     * lines, so table cell text can't skew what counts as "typical" body
+     * text on the page. */
+    private fun renderPage(lines: List<OcrLine>): String {
+        // Same top-to-bottom sort DocxLineLayout.analyze uses internally —
+        // duplicated here (one line) so table detection and paragraph
+        // rendering agree on line order without either depending on the
+        // other's internals.
+        val sorted = lines.sortedBy { it.top }
+        val tables = DocxTableDetector.detect(sorted)
+
+        val isTableLine = BooleanArray(sorted.size)
+        for (table in tables) {
+            for (i in table.lineRange) isTableLine[i] = true
+        }
+        val nonTableLines = sorted.filterIndexed { i, _ -> !isTableLine[i] }
+        val analyzedParagraphs = DocxLineLayout.analyze(nonTableLines)
+
+        val output = StringBuilder()
+        var lineIndex = 0
+        var paragraphIndex = 0
+        var tableIndex = 0
+        while (lineIndex < sorted.size) {
+            if (tableIndex < tables.size && tables[tableIndex].lineRange.first == lineIndex) {
+                output.append(renderTable(tables[tableIndex].rows)).append("<w:p/>")
+                lineIndex = tables[tableIndex].lineRange.last + 1
+                tableIndex += 1
+            } else {
+                val line = analyzedParagraphs[paragraphIndex]
+                paragraphIndex += 1
+                if (line.extraSpaceBefore) {
+                    output.append("<w:p/>")
+                }
+                val bold = if (line.bold) "<w:b/>" else ""
+                output.append("<w:p><w:pPr><w:jc w:val=\"${line.alignment}\"/></w:pPr>")
+                    .append("<w:r><w:rPr>$bold<w:sz w:val=\"${line.halfPointSize}\"/><w:szCs w:val=\"${line.halfPointSize}\"/></w:rPr>")
+                    .append("<w:t xml:space=\"preserve\">")
+                    .append(OoxmlUtil.xmlEscape(line.text))
+                    .append("</w:t></w:r></w:p>")
+                lineIndex += 1
+            }
+        }
+        return output.toString()
+    }
+
+    private fun renderTable(rows: List<List<String>>): String {
+        val columnCount = rows.firstOrNull()?.size ?: return ""
+        if (columnCount == 0) return ""
+        val grid = "<w:gridCol/>".repeat(columnCount)
+        val trs = StringBuilder()
+        for (row in rows) {
+            val tcs = StringBuilder()
+            for (cell in row) {
+                tcs.append("<w:tc><w:tcPr><w:tcW w:w=\"0\" w:type=\"auto\"/></w:tcPr><w:p><w:r><w:t xml:space=\"preserve\">")
+                    .append(OoxmlUtil.xmlEscape(cell))
+                    .append("</w:t></w:r></w:p></w:tc>")
+            }
+            trs.append("<w:tr>").append(tcs).append("</w:tr>")
+        }
+        return "<w:tbl><w:tblPr><w:tblW w:w=\"0\" w:type=\"auto\"/><w:tblBorders>" +
+            "<w:top w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+            "<w:left w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+            "<w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+            "<w:right w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+            "<w:insideH w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+            "<w:insideV w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/>" +
+            "</w:tblBorders></w:tblPr><w:tblGrid>$grid</w:tblGrid>$trs</w:tbl>"
     }
 
     private fun coreXml(title: String) =

@@ -19,7 +19,8 @@ object DocxLineLayout {
         val text: String,
         /** OOXML `w:jc` value: "left", "center", or "right". */
         val alignment: String,
-        /** `w:sz`/`w:szCs` value — font size in half-points. */
+        /** `w:sz`/`w:szCs` value — font size in half-points. Currently
+         * always [BASE_FONT_SIZE_PT]; see that constant's doc comment. */
         val halfPointSize: Int,
         /** Approximated from size alone (see type-level doc) — lines
          * noticeably larger than the page's median line height are
@@ -31,9 +32,12 @@ object DocxLineLayout {
         val extraSpaceBefore: Boolean,
     )
 
+    /** Fixed body-text size (11pt, a common Word default) used for every
+     * line — scaling this by box-height ratio was tried and looked
+     * inconsistent with the actual scan (OCR box heights are too noisy a
+     * signal for a size a reader would find plausible), so size is left
+     * alone; only alignment/bold/spacing are geometry-derived. */
     private const val BASE_FONT_SIZE_PT = 11f
-    private const val MIN_FONT_SIZE_PT = 8f
-    private const val MAX_FONT_SIZE_PT = 36f
     private const val BOLD_RATIO_THRESHOLD = 1.4f
     private const val MARGIN_TOLERANCE = 0.02f
     private const val CENTER_TOLERANCE = 0.05f
@@ -78,8 +82,7 @@ object DocxLineLayout {
             }
 
             val ratio = if (medianHeight > 0f) (line.bottom - line.top) / medianHeight else 1f
-            val fontSizePt = (BASE_FONT_SIZE_PT * ratio).coerceIn(MIN_FONT_SIZE_PT, MAX_FONT_SIZE_PT)
-            val halfPointSize = (fontSizePt * 2).roundToInt()
+            val halfPointSize = (BASE_FONT_SIZE_PT * 2).roundToInt()
             val bold = ratio >= BOLD_RATIO_THRESHOLD
 
             val extraSpaceBefore = if (index > 0) {

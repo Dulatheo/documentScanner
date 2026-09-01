@@ -1,6 +1,7 @@
 package com.dulatheo.documentscanner.util
 
 import com.dulatheo.documentscanner.data.model.OcrLine
+import com.dulatheo.documentscanner.data.model.OcrWord
 import com.dulatheo.documentscanner.data.model.SigPoint
 import com.dulatheo.documentscanner.data.model.Signature
 import com.dulatheo.documentscanner.data.model.SignatureStroke
@@ -26,6 +27,19 @@ object JsonCodec {
                     put("right", l.right)
                     put("bottom", l.bottom)
                     put("highlighted", l.highlighted)
+                    val wordsArr = JSONArray()
+                    for (w in l.words) {
+                        wordsArr.put(
+                            JSONObject().apply {
+                                put("text", w.text)
+                                put("left", w.left)
+                                put("top", w.top)
+                                put("right", w.right)
+                                put("bottom", w.bottom)
+                            }
+                        )
+                    }
+                    put("words", wordsArr)
                 }
             )
         }
@@ -38,6 +52,17 @@ object JsonCodec {
             val arr = JSONArray(json)
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
+                val wordsArr = o.optJSONArray("words") ?: JSONArray()
+                val words = (0 until wordsArr.length()).map { j ->
+                    val wo = wordsArr.getJSONObject(j)
+                    OcrWord(
+                        text = wo.optString("text"),
+                        left = wo.optDouble("left").toFloat(),
+                        top = wo.optDouble("top").toFloat(),
+                        right = wo.optDouble("right").toFloat(),
+                        bottom = wo.optDouble("bottom").toFloat(),
+                    )
+                }
                 OcrLine(
                     text = o.optString("text"),
                     left = o.optDouble("left").toFloat(),
@@ -45,6 +70,7 @@ object JsonCodec {
                     right = o.optDouble("right").toFloat(),
                     bottom = o.optDouble("bottom").toFloat(),
                     highlighted = o.optBoolean("highlighted", false),
+                    words = words,
                 )
             }
         }.getOrDefault(emptyList())

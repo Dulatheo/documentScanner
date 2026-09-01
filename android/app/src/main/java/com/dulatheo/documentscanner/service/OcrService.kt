@@ -2,6 +2,7 @@ package com.dulatheo.documentscanner.service
 
 import android.graphics.Bitmap
 import com.dulatheo.documentscanner.data.model.OcrLine
+import com.dulatheo.documentscanner.data.model.OcrWord
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -36,12 +37,27 @@ class OcrService {
                 for (block in visionText.textBlocks) {
                     for (line in block.lines) {
                         val box = line.boundingBox ?: continue
+                        // Word-level boxes, used only for DOCX table
+                        // detection (DESIGN_SPEC §5/§9) — ML Kit already
+                        // returns these per line via `elements`, just not
+                        // previously read.
+                        val words = line.elements.mapNotNull { element ->
+                            val elementBox = element.boundingBox ?: return@mapNotNull null
+                            OcrWord(
+                                text = element.text,
+                                left = elementBox.left / w,
+                                top = elementBox.top / h,
+                                right = elementBox.right / w,
+                                bottom = elementBox.bottom / h,
+                            )
+                        }
                         lines += OcrLine(
                             text = line.text,
                             left = box.left / w,
                             top = box.top / h,
                             right = box.right / w,
                             bottom = box.bottom / h,
+                            words = words,
                         )
                     }
                 }

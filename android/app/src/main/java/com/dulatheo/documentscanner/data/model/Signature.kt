@@ -38,9 +38,22 @@ data class Signature(
     val rotation: Float = 0f,
 )
 
+/** One recognized word within an [OcrLine], used only for DOCX table
+ * detection (DESIGN_SPEC §5/§9) — an unusually large horizontal gap
+ * between two adjacent words on the same line suggests a table column
+ * break, which line-level boxes alone can't reveal. */
+data class OcrWord(
+    val text: String,
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+)
+
 /** A single OCR'd line of text on a page, with its bounding box normalized
  * to the page image's dimensions (0f..1f), and whether the user has toggled
- * a highlight over it. */
+ * a highlight over it. [words] is empty for lines recognized before it was
+ * added (see [com.dulatheo.documentscanner.util.JsonCodec.decodeOcrLines]). */
 data class OcrLine(
     val text: String,
     val left: Float,
@@ -48,4 +61,5 @@ data class OcrLine(
     val right: Float,
     val bottom: Float,
     val highlighted: Boolean = false,
+    val words: List<OcrWord> = emptyList(),
 )
