@@ -23,9 +23,12 @@ struct OCRSheetContainer: View {
     }
 }
 
-/// Bottom sheet for the Text (OCR) tool (DESIGN_SPEC §4.3): "Reading
-/// page…" while busy, then the recognized text with Copy and "Keep as
-/// searchable" actions.
+/// Full-screen page for the Text (OCR) tool (DESIGN_SPEC §4.3, Premium —
+/// see §5/§7): "Reading page…" while busy, then the recognized text with
+/// Copy and "Keep as searchable" actions. A full page rather than a
+/// bottom sheet gives the text room to breathe and makes it selectable —
+/// a cramped, fixed-height sheet was awkward to read and copy from on a
+/// page with more than a few lines.
 struct OCRSheetView: View {
     let isBusy: Bool
     let text: String?
@@ -36,70 +39,66 @@ struct OCRSheetView: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(spacing: 0) {
             HStack {
                 Text("Recognized text")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(theme.ink)
                 Spacer()
                 Button("Done", action: onDone)
-                    .font(.system(size: 14))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(theme.ink2)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, 14)
+
+            Divider().overlay(theme.line)
 
             if isBusy {
+                Spacer()
                 Text("Reading page\u{2026}")
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(theme.ink2)
-                    .padding(.vertical, 26)
+                Spacer()
             } else {
                 ScrollView {
+                    // `.textSelection(.enabled)` lets the user drag out and
+                    // copy just part of the text with the system's own
+                    // selection UI, alongside "Copy All" below for the
+                    // common case of wanting the whole page at once.
                     Text(text ?? "")
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.system(size: 15, design: .monospaced))
                         .foregroundColor(theme.ink)
-                        .lineSpacing(6)
+                        .lineSpacing(7)
+                        .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
+                        .padding(20)
                 }
-                .frame(maxHeight: 250)
-                .background(RoundedRectangle(cornerRadius: 12).fill(theme.bg))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(theme.line, lineWidth: 1))
 
                 HStack(spacing: 10) {
                     Button(action: onCopy) {
-                        Text("Copy text")
-                            .font(.system(size: 14, weight: .medium))
+                        Text("Copy All")
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                            .padding(.vertical, 14)
                             .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))
                     }
                     Button(action: onKeepSearchable) {
                         Text("Keep as searchable")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundColor(theme.ink)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 13)
+                            .padding(.vertical, 14)
                             .background(RoundedRectangle(cornerRadius: 12).stroke(theme.line, lineWidth: 1))
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 20)
-        .padding(.bottom, 42)
-        .background(theme.surface)
-        .clipShape(RoundedCorner(radius: 20, corners: [.topLeft, .topRight]))
-    }
-}
-
-/// Rounds only the specified corners (top corners for bottom sheets).
-struct RoundedCorner: Shape {
-    var radius: CGFloat
-    var corners: UIRectCorner
-
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
-        return Path(path.cgPath)
+        .background(theme.bg.ignoresSafeArea())
     }
 }

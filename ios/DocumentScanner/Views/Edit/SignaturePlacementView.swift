@@ -10,7 +10,6 @@ struct SignaturePlacementView: View {
     let pageSize: CGSize
 
     @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
     @State private var dragStartOrigin: CGPoint?
     @State private var resizeStartWidth: CGFloat?
     @State private var rotateLastAngle: Double?
@@ -23,7 +22,7 @@ struct SignaturePlacementView: View {
         let originX = CGFloat(signature.x) * pageSize.width
         let originY = CGFloat(signature.y) * pageSize.height
 
-        SignatureStrokesView(signature: signature, colorScheme: colorScheme)
+        SignatureStrokesView(signature: signature)
             .frame(width: width, height: height)
             .padding(10)
             .background(theme.accentSoft)

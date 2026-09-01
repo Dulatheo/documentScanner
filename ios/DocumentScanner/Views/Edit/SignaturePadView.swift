@@ -21,7 +21,6 @@ struct SignaturePadView: View {
     var onDone: (SignatureDraftResult) -> Void
 
     @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
 
     @State private var strokes: [[CGPoint]] = []
     @State private var currentStroke: [CGPoint] = []
@@ -89,7 +88,7 @@ struct SignaturePadView: View {
                     }
                     context.stroke(
                         path,
-                        with: .color(color.color(colorScheme)),
+                        with: .color(color.color),
                         style: StrokeStyle(lineWidth: CGFloat(thickness), lineCap: .round, lineJoin: .round)
                     )
                 }
@@ -138,7 +137,7 @@ struct SignaturePadView: View {
                         color = option
                     } label: {
                         Circle()
-                            .fill(option.color(colorScheme))
+                            .fill(option.color)
                             .frame(width: 30, height: 30)
                             .overlay(
                                 Circle().stroke(color == option ? theme.accent : theme.line, lineWidth: color == option ? 2 : 1)
@@ -157,7 +156,7 @@ struct SignaturePadView: View {
             }
 
             RoundedRectangle(cornerRadius: 6)
-                .fill(color.color(colorScheme))
+                .fill(color.color)
                 .frame(width: 34, height: max(CGFloat(thickness), 2))
 
             Button("Clear") {

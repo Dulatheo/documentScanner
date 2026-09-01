@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The per-page editor (DESIGN_SPEC §4.3): Cancel/"Page X of Y"/Save top
 /// bar, the page on a paper card with the active tool's overlay, a
-/// contextual hint, and the four-tool bottom bar.
+/// contextual hint, and the five-tool bottom bar.
 struct EditFlowView: View {
     @ObservedObject var session: EditSession
     @ObservedObject var toastCenter: ToastCenter
@@ -17,7 +17,6 @@ struct EditFlowView: View {
     var onSaved: (DocumentModel) -> Void
 
     @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
 
     @State private var activeTool: EditTool?
@@ -36,6 +35,27 @@ struct EditFlowView: View {
     /// scanned page") — e.g. after scanning the same page a few times and
     /// finding one capture came out badly during review.
     @State private var showDeletePageConfirm = false
+    /// Live Brightness/Contrast while the Adjust tool's sliders are being
+    /// dragged (DESIGN_SPEC §4.3 "Adjust tool") — kept separate from
+    /// `PageEditState.brightness/contrast` so dragging can preview
+    /// instantly via cheap SwiftUI `.brightness()/.contrast()` view
+    /// modifiers instead of re-running CoreImage on every frame; only
+    /// committed to the real pixel data (`PageEditState.commitAdjustments`)
+    /// once the drag ends.
+    @State private var liveBrightness: Double = 0
+    @State private var liveContrast: Double = 1
+    /// The current page's crop + filter result with brightness/contrast
+    /// still at their neutral defaults — computed once when the Adjust
+    /// tool opens (DESIGN_SPEC §4.3 "Adjust tool"), so the live
+    /// `.brightness()/.contrast()` preview modifiers apply on top of a
+    /// clean base instead of stacking on an image that already has the
+    /// *previous* committed brightness/contrast baked into its pixels.
+    /// Nil until that one-time computation finishes.
+    @State private var adjustBaseImage: UIImage?
+    /// Which premium-gated tool (`.sign` or `.ocr`) triggered `showPaywall`,
+    /// so a successful trial/subscription can resume the tool the user
+    /// actually tapped instead of always reopening Sign.
+    @State private var pendingPremiumTool: EditTool?
 
     var body: some View {
         ZStack {
@@ -84,11 +104,22 @@ struct EditFlowView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .scrollDisabled(placingSignature != nil)
+                .onChange(of: session.currentIndex) { _, _ in
+                    // Swiping to a different page while the Adjust tool is
+                    // still active (nothing stops that — unlike Sign
+                    // placement, the pager isn't disabled for Adjust) needs
+                    // to re-sync the live preview to the new page's own
+                    // values, since `liveBrightness`/`liveContrast`/
+                    // `adjustBaseImage` are shared state, not per-page.
+                    if activeTool == .adjust {
+                        loadAdjustPreview()
+                    }
+                }
 
                 bottomBar
             }
         }
-        .sheet(isPresented: $showOCRSheet) {
+        .fullScreenCover(isPresented: $showOCRSheet) {
             OCRSheetContainer(
                 page: session.current,
                 onCopy: {
@@ -98,8 +129,6 @@ struct EditFlowView: View {
                 onKeepSearchable: { showOCRSheet = false },
                 onDone: { showOCRSheet = false }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
         .fullScreenCover(isPresented: $isDrawingSignature) {
             SignaturePadView(
@@ -127,10 +156,10 @@ struct EditFlowView: View {
                 switch outcome {
                 case .trialStarted:
                     toastCenter.show("Trial started \u{2014} enjoy Premium!")
-                    isDrawingSignature = true
+                    resumePendingPremiumTool()
                 case .subscribed:
                     toastCenter.show("Welcome to Premium!")
-                    isDrawingSignature = true
+                    resumePendingPremiumTool()
                 case .restored:
                     toastCenter.show("Purchases restored")
                 case .notRestored:
@@ -138,6 +167,7 @@ struct EditFlowView: View {
                 case .dismissed:
                     activeTool = nil
                 }
+                pendingPremiumTool = nil
             }
         }
         .sheet(isPresented: $showSaveLimitPaywall) {
@@ -252,11 +282,23 @@ struct EditFlowView: View {
     // MARK: - Page card
 
     private func pageCard(for pageState: PageEditState) -> some View {
-        PageEditorView(pageState: pageState, activeTool: activeTool, placingSignature: $placingSignature)
-            .padding(24)
-            .background(RoundedRectangle(cornerRadius: 4).fill(theme.paper))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.line, lineWidth: 1))
-            .paperShadow(theme)
+        // The Adjust preview state is shared across the whole flow, not
+        // per-page, so it's only handed to the page actually being edited —
+        // every other page in the pager falls back to its own already-
+        // committed image untouched (see `PageEditorView.displayImage`).
+        let isCurrent = pageState.id == session.current.id
+        return PageEditorView(
+            pageState: pageState,
+            activeTool: activeTool,
+            placingSignature: $placingSignature,
+            adjustPreviewImage: isCurrent ? adjustBaseImage : nil,
+            liveBrightness: liveBrightness,
+            liveContrast: liveContrast
+        )
+        .padding(24)
+        .background(RoundedRectangle(cornerRadius: 4).fill(theme.paper))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(theme.line, lineWidth: 1))
+        .paperShadow(theme)
     }
 
     // MARK: - Bottom bar
@@ -276,6 +318,10 @@ struct EditFlowView: View {
                         .frame(maxWidth: .infinity)
                 }
 
+                if activeTool == .adjust {
+                    adjustSliders
+                }
+
                 HStack(spacing: 8) {
                     ForEach(EditTool.allCases) { tool in
                         toolButton(tool)
@@ -290,9 +336,38 @@ struct EditFlowView: View {
         }
     }
 
+    /// Brightness/Contrast sliders (DESIGN_SPEC §4.3 "Adjust tool"), shown
+    /// above the tool row while Adjust is active. Dragging updates
+    /// `liveBrightness`/`liveContrast` continuously for the live SwiftUI
+    /// preview (see `PageEditorView`); releasing commits the real,
+    /// precisely-computed pixels via `PageEditState.commitAdjustments`.
+    private var adjustSliders: some View {
+        VStack(spacing: 10) {
+            adjustSlider(label: "Brightness", value: $liveBrightness, range: -0.3...0.3)
+            adjustSlider(label: "Contrast", value: $liveContrast, range: 0.7...1.5)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 4)
+    }
+
+    private func adjustSlider(label: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(theme.ink2)
+                .frame(width: 74, alignment: .leading)
+            Slider(value: value, in: range) { isEditing in
+                if !isEditing {
+                    session.current.commitAdjustments(brightness: liveBrightness, contrast: liveContrast)
+                }
+            }
+            .tint(theme.accent)
+        }
+    }
+
     private func toolButton(_ tool: EditTool) -> some View {
         let isActive = activeTool == tool
-        let showsProBadge = tool == .sign && !premiumManager.isPremium
+        let showsProBadge = (tool == .sign || tool == .ocr) && !premiumManager.isPremium
         return Button {
             selectTool(tool)
         } label: {
@@ -332,7 +407,7 @@ struct EditFlowView: View {
                         placingSignature?.color = option
                     } label: {
                         Circle()
-                            .fill(option.color(colorScheme))
+                            .fill(option.color)
                             .frame(width: 30, height: 30)
                             .overlay(Circle().stroke(signature.color == option ? theme.accent : theme.line, lineWidth: signature.color == option ? 2 : 1))
                     }
@@ -374,14 +449,18 @@ struct EditFlowView: View {
             activeTool = nil
             return
         }
-        // Sign is premium-only (DESIGN_SPEC §4.3/§7) — gate before touching
-        // `activeTool`/opening the drawing pad, and re-check on every tap
-        // (rather than trusting a possibly-stale `isPremium`) since a trial
-        // started elsewhere in the app could have expired since this screen
-        // last refreshed it.
-        if tool == .sign {
+        // Sign and Text recognition are premium-only (DESIGN_SPEC §4.3/§7)
+        // — gate before touching `activeTool`/opening the drawing pad or
+        // the recognized-text page, and re-check on every tap (rather than
+        // trusting a possibly-stale `isPremium`) since a trial started
+        // elsewhere in the app could have expired since this screen last
+        // refreshed it. Highlight is unaffected even though it also runs
+        // OCR internally — only the Text tool's own recognized-text page
+        // is the gated feature.
+        if tool == .sign || tool == .ocr {
             premiumManager.refresh()
             guard premiumManager.isPremium else {
+                pendingPremiumTool = tool
                 showPaywall = true
                 return
             }
@@ -392,11 +471,44 @@ struct EditFlowView: View {
             break
         case .highlight:
             runOCRIfNeeded()
+        case .adjust:
+            loadAdjustPreview()
         case .ocr:
             showOCRSheet = true
             runOCRIfNeeded()
         case .sign:
             isDrawingSignature = true
+        }
+    }
+
+    /// Resumes whichever premium-gated tool (`.sign` or `.ocr`) sent the
+    /// user to the paywall, once a trial/subscription just made them
+    /// premium — so completing checkout drops straight back into the tool
+    /// they originally tapped instead of requiring a second tap.
+    private func resumePendingPremiumTool() {
+        if pendingPremiumTool == .ocr {
+            activeTool = .ocr
+            showOCRSheet = true
+            runOCRIfNeeded()
+        } else {
+            isDrawingSignature = true
+        }
+    }
+
+    /// Seeds the Adjust tool's live sliders from the current page's
+    /// committed values and (re)computes `adjustBaseImage` — the crop +
+    /// filter result with brightness/contrast still neutral — so the live
+    /// preview has a clean base to apply `.brightness()/.contrast()` on
+    /// top of. Called when Adjust is selected and again if the user swipes
+    /// to a different page while it's still active.
+    private func loadAdjustPreview() {
+        let page = session.current
+        liveBrightness = page.brightness
+        liveContrast = page.contrast
+        adjustBaseImage = nil
+        DocumentEnhancer.applyAsync(page.filter, to: page.recroppedImage) { filtered in
+            guard page === session.current else { return }
+            adjustBaseImage = filtered
         }
     }
 
@@ -453,6 +565,8 @@ struct EditFlowView: View {
             pageModel.highlightRegions = pageState.highlightRegions
             pageModel.signature = pageState.signature
             pageModel.filter = pageState.filter
+            pageModel.brightness = pageState.brightness
+            pageModel.contrast = pageState.contrast
         }
 
         return document

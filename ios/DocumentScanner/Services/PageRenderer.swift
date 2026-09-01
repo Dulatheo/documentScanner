@@ -24,13 +24,13 @@ enum PageRenderer {
 
     /// Draws a signature's strokes into a `size`-sized image using the
     /// signature's own normalized [0,1] stroke coordinates.
-    static func renderSignatureImage(_ signature: Signature, size: CGSize, scheme: SchemeHint) -> UIImage {
+    static func renderSignatureImage(_ signature: Signature, size: CGSize) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
             let cg = ctx.cgContext
             cg.setLineCap(.round)
             cg.setLineJoin(.round)
-            cg.setStrokeColor(signature.color.uiColor(scheme).cgColor)
+            cg.setStrokeColor(signature.color.uiColor.cgColor)
             // `thickness` is stored normalized (fraction of the signature's
             // own drawing-canvas width) so strokes stay proportional whether
             // rendered tiny on a page thumbnail or full-size when placing.
@@ -53,8 +53,7 @@ enum PageRenderer {
     static func flatten(
         base: UIImage,
         highlightRegions: [HighlightRegion],
-        signature: Signature?,
-        scheme: SchemeHint = .light
+        signature: Signature?
     ) -> UIImage {
         let size = base.size
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -76,8 +75,7 @@ enum PageRenderer {
                 let sigHeight = sigWidth * CGFloat(signature.aspectRatio)
                 let sigImage = renderSignatureImage(
                     signature,
-                    size: CGSize(width: sigWidth, height: sigHeight),
-                    scheme: scheme
+                    size: CGSize(width: sigWidth, height: sigHeight)
                 )
                 let originX = CGFloat(signature.x) * size.width
                 let originY = CGFloat(signature.y) * size.height
@@ -107,16 +105,15 @@ enum PageRenderer {
         }
     }
 
-    enum SchemeHint {
-        case light, dark
-    }
 }
 
 extension Theme.SignatureColor {
-    func uiColor(_ scheme: PageRenderer.SchemeHint) -> UIColor {
+    /// Always a fixed, dark-on-white color — see `Theme.SignatureColor.color`
+    /// for why a signature never follows the app's own light/dark appearance.
+    var uiColor: UIColor {
         switch self {
         case .ink:
-            return scheme == .dark ? UIColor(hex: 0xF2F0EC) : UIColor(hex: 0x171614)
+            return UIColor(hex: 0x171614)
         case .blue:
             return UIColor(hex: 0x2C5EA8)
         case .clay:

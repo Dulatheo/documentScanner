@@ -12,7 +12,6 @@ struct PageCompositeView: View {
     var signature: Signature? = nil
 
     @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         GeometryReader { proxy in
@@ -36,7 +35,7 @@ struct PageCompositeView: View {
                 if let signature {
                     let sigWidth = CGFloat(signature.width) * size.width
                     let sigHeight = sigWidth * CGFloat(signature.aspectRatio)
-                    SignatureStrokesView(signature: signature, colorScheme: colorScheme)
+                    SignatureStrokesView(signature: signature)
                         .frame(width: sigWidth, height: sigHeight)
                         .rotationEffect(.degrees(signature.rotation))
                         .position(x: CGFloat(signature.x) * size.width + sigWidth / 2, y: CGFloat(signature.y) * size.height + sigHeight / 2)
@@ -51,7 +50,6 @@ struct PageCompositeView: View {
 /// given.
 struct SignatureStrokesView: View {
     let signature: Signature
-    var colorScheme: ColorScheme = .light
 
     var body: some View {
         Canvas { context, size in
@@ -63,16 +61,11 @@ struct SignatureStrokesView: View {
                     path.addLine(to: CGPoint(x: CGFloat(p.x) * size.width, y: CGFloat(p.y) * size.height))
                 }
             }
-            let hint: PageRenderer.SchemeHint = colorScheme == .dark ? .dark : .light
             context.stroke(
                 path,
-                with: .color(signature.color.uiColor(hint).suColor),
+                with: .color(signature.color.color),
                 style: StrokeStyle(lineWidth: max(CGFloat(signature.thickness) * size.width, 0.75), lineCap: .round, lineJoin: .round)
             )
         }
     }
-}
-
-private extension UIColor {
-    var suColor: Color { Color(self) }
 }

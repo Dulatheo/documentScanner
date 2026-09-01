@@ -68,6 +68,7 @@ struct RootView: View {
                         viewingDocument = document
                     }
                 },
+                onDeleteDocument: deleteDocument,
                 premiumManager: premiumManager,
                 toastCenter: toastCenter
             )
@@ -185,5 +186,20 @@ struct RootView: View {
         }
         let name = "Scan \(documents.count + 1)"
         editSession = EditSession(pages: pages, existingDocument: nil, documentName: name)
+    }
+
+    /// Deletes a saved document from the library (DESIGN_SPEC §4.1 "delete
+    /// a saved document"). `PageModel`/`CommentModel` are cascade-deleted
+    /// by `DocumentModel`'s relationship rules, but SwiftData has no idea
+    /// the pages' `imagePath`/`originalImagePath` point at files on disk —
+    /// those have to be cleaned up explicitly, and before the document
+    /// itself goes away, since nothing else can reach them afterward.
+    private func deleteDocument(_ document: DocumentModel) {
+        for page in document.pages {
+            ImageStore.delete(page.imagePath)
+            ImageStore.delete(page.originalImagePath)
+        }
+        modelContext.delete(document)
+        try? modelContext.save()
     }
 }

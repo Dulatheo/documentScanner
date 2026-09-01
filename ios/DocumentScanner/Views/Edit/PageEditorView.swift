@@ -6,9 +6,15 @@ struct PageEditorView: View {
     @ObservedObject var pageState: PageEditState
     let activeTool: EditTool?
     @Binding var placingSignature: Signature?
+    /// The current crop + filter result with brightness/contrast still
+    /// neutral (DESIGN_SPEC §4.3 "Adjust tool") — nil for every page except
+    /// the one actually being edited, and nil there too until `EditFlowView`
+    /// finishes computing it. See `displayImage`.
+    var adjustPreviewImage: UIImage? = nil
+    var liveBrightness: Double = 0
+    var liveContrast: Double = 1
 
     @Environment(\.theme) private var theme
-    @Environment(\.colorScheme) private var colorScheme
 
     /// `pendingQuad`/`committedQuad` are normalized to `originalImage` (see
     /// `PageEditState`), and `commitCropIfNeeded()` always perspective-corrects
@@ -18,8 +24,17 @@ struct PageEditorView: View {
     /// used to scale/normalize them) would be measured against the previous
     /// crop's (differently-sized) result while the actual crop math runs
     /// against the pristine original, producing a wrong crop region.
+    ///
+    /// While the Adjust tool is active and its preview base is ready, that
+    /// brightness/contrast-neutral base is shown instead of `pageState.image`
+    /// (which already has the *previous* committed brightness/contrast baked
+    /// in) — the live `.brightness()/.contrast()` modifiers below apply on
+    /// top of it, so they represent the slider's absolute position rather
+    /// than stacking on top of an already-adjusted image.
     private var displayImage: UIImage {
-        activeTool == .crop ? pageState.originalImage : pageState.image
+        if activeTool == .crop { return pageState.originalImage }
+        if activeTool == .adjust, let adjustPreviewImage { return adjustPreviewImage }
+        return pageState.image
     }
 
     var body: some View {
@@ -30,6 +45,8 @@ struct PageEditorView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: size.width, height: size.height)
+                    .brightness(activeTool == .adjust && adjustPreviewImage != nil ? liveBrightness : 0)
+                    .contrast(activeTool == .adjust && adjustPreviewImage != nil ? liveContrast : 1)
 
                 if activeTool != .highlight, activeTool != .crop, !pageState.highlightRegions.isEmpty {
                     committedHighlights(imageSize: pageState.image.size, size: size)
@@ -78,7 +95,7 @@ struct PageEditorView: View {
                     } else if let committed = pageState.signature {
                         let width = CGFloat(committed.width) * size.width
                         let height = width * CGFloat(committed.aspectRatio)
-                        SignatureStrokesView(signature: committed, colorScheme: colorScheme)
+                        SignatureStrokesView(signature: committed)
                             .frame(width: width, height: height)
                             .rotationEffect(.degrees(committed.rotation))
                             .position(x: CGFloat(committed.x) * size.width + width / 2, y: CGFloat(committed.y) * size.height + height / 2)

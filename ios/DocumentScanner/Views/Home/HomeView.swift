@@ -14,12 +14,17 @@ struct HomeView: View {
     /// push into a separate view hierarchy `matchedGeometryEffect` can't
     /// animate across.
     let onSelectDocument: (DocumentModel) -> Void
+    /// Deletes a saved document (DESIGN_SPEC §4.1 "delete a saved
+    /// document") — image files and the SwiftData record alike; `HomeView`
+    /// only drives the confirmation UI.
+    let onDeleteDocument: (DocumentModel) -> Void
     @ObservedObject var premiumManager: PremiumManager
     @ObservedObject var toastCenter: ToastCenter
 
     @Environment(\.theme) private var theme
     @Environment(\.appActions) private var actions
     @State private var showPaywall = false
+    @State private var pendingDeleteDocument: DocumentModel?
 
     /// Surfaces the free-tier document cap (DESIGN_SPEC §5 "limited document
     /// storage") before the user hits it, rather than only ever explaining
@@ -64,6 +69,13 @@ struct HomeView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .matchedGeometryEffect(id: documentZoomID(for: document), in: zoomNamespace)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        pendingDeleteDocument = document
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                     }
@@ -92,6 +104,23 @@ struct HomeView: View {
                     break
                 }
             }
+        }
+        .alert(
+            "Delete \u{201c}\(pendingDeleteDocument?.name ?? "")\u{201d}?",
+            isPresented: Binding(
+                get: { pendingDeleteDocument != nil },
+                set: { if !$0 { pendingDeleteDocument = nil } }
+            )
+        ) {
+            Button("Delete", role: .destructive) {
+                if let document = pendingDeleteDocument {
+                    onDeleteDocument(document)
+                }
+                pendingDeleteDocument = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDeleteDocument = nil }
+        } message: {
+            Text("This can't be undone.")
         }
     }
 

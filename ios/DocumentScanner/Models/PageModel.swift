@@ -21,6 +21,8 @@ final class PageModel {
     private var highlightRegionsData: Data?
     private var signatureData: Data?
     private var filterRawValue: String = DocumentFilter.auto.rawValue
+    var brightness: Double = 0
+    var contrast: Double = 1
 
     var document: DocumentModel?
 

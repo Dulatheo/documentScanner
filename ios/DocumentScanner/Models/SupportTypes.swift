@@ -181,13 +181,14 @@ struct Signature: Codable, Hashable {
 }
 
 enum EditTool: String, CaseIterable, Identifiable, Hashable {
-    case crop, highlight, ocr, sign
+    case crop, highlight, adjust, ocr, sign
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .crop: return "Crop"
         case .highlight: return "Highlight"
+        case .adjust: return "Adjust"
         case .ocr: return "Text"
         case .sign: return "Sign"
         }
@@ -197,6 +198,7 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .crop: return "crop"
         case .highlight: return "highlighter"
+        case .adjust: return "slider.horizontal.3"
         case .ocr: return "text.viewfinder"
         case .sign: return "signature"
         }
@@ -206,6 +208,7 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .crop: return "Drag the corners to fit the page"
         case .highlight: return "Tap a line of text to highlight it"
+        case .adjust: return "Adjust brightness and contrast"
         case .ocr: return "Text recognition"
         case .sign: return "Draw your signature"
         }

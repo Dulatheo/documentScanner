@@ -73,9 +73,15 @@ enum Theme {
             }
         }
 
-        func color(_ scheme: ColorScheme) -> Color {
+        /// A signature is drawn onto a page that's always white paper
+        /// regardless of the app's own light/dark appearance, so unlike
+        /// every other themed color in this app, these never vary with
+        /// `ColorScheme` — `.ink` in particular must stay a dark, legible
+        /// color rather than following `Theme.ink(_:)`, which flips to a
+        /// near-white tone in dark mode for the app's own UI text.
+        var color: Color {
             switch self {
-            case .ink: return Theme.ink(scheme)
+            case .ink: return Color(hex: 0x171614)
             case .blue: return Color(hex: 0x2C5EA8)
             case .clay: return Color(hex: 0xA4552E)
             case .green: return Color(hex: 0x2F6B4F)

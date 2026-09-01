@@ -34,6 +34,16 @@ final class PageEditState: ObservableObject, Identifiable {
     /// correction, and re-cropping preserves whichever filter is selected.
     @Published var filter: DocumentFilter
 
+    /// Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool"), applied
+    /// on top of `filter`'s result. `brightness` is CoreImage's own scale
+    /// (0 = no change); `contrast` is a multiplier (1 = no change).
+    /// Independent of crop/filter, same as `filter` is independent of crop:
+    /// re-cropping or switching filters re-derives from `originalImage` and
+    /// re-applies whichever brightness/contrast is currently set, rather
+    /// than resetting it.
+    @Published var brightness: Double = 0
+    @Published var contrast: Double = 1
+
     /// Existing page id, when this state is editing an already-saved page
     /// (nil for a page captured in this session that hasn't been saved yet).
     var existingPageID: UUID?
@@ -44,6 +54,8 @@ final class PageEditState: ObservableObject, Identifiable {
         originalImage: UIImage? = nil,
         committedQuad: Quad = .fullImage,
         filter: DocumentFilter = .auto,
+        brightness: Double = 0,
+        contrast: Double = 1,
         existingPageID: UUID? = nil
     ) {
         self.order = order
@@ -51,6 +63,8 @@ final class PageEditState: ObservableObject, Identifiable {
         self.originalImage = originalImage ?? image
         self.committedQuad = committedQuad
         self.filter = filter
+        self.brightness = brightness
+        self.contrast = contrast
         self.existingPageID = existingPageID
     }
 
@@ -70,8 +84,8 @@ final class PageEditState: ObservableObject, Identifiable {
 
     /// Applies perspective correction using `pendingQuad` (if the user moved
     /// it) and clears crop-mode state. Safe to call even if nothing changed.
-    /// Re-cropping preserves whichever filter is currently selected — it's
-    /// not reset to `.auto`.
+    /// Re-cropping preserves whichever filter and brightness/contrast are
+    /// currently selected — they're not reset to their defaults.
     func commitCropIfNeeded() {
         guard let quad = pendingQuad, quad != committedQuad else {
             pendingQuad = nil
@@ -82,7 +96,7 @@ final class PageEditState: ObservableObject, Identifiable {
 
         guard let corrected = PerspectiveCorrectionService.correct(image: originalImage, quad: quad) else { return }
         image = corrected
-        applyFilterAsync(to: corrected, quad: quad, filter: filter)
+        reprocess(from: corrected, quad: quad)
     }
 
     /// Selects a new filter and re-derives `image` from `originalImage` +
@@ -91,21 +105,52 @@ final class PageEditState: ObservableObject, Identifiable {
     /// correction.
     func applyFilter(_ newFilter: DocumentFilter) {
         filter = newFilter
-        let base = committedQuad == .fullImage
-            ? originalImage
-            : (PerspectiveCorrectionService.correct(image: originalImage, quad: committedQuad) ?? originalImage)
-        applyFilterAsync(to: base, quad: committedQuad, filter: newFilter)
+        reprocess(from: recroppedImage, quad: committedQuad)
     }
 
-    /// Shared "show the fast geometric result now, swap in the filtered
-    /// one shortly after" pattern used by both `commitCropIfNeeded()` and
-    /// `applyFilter(_:)`. Guarded against `committedQuad`/`filter` having
-    /// already moved on by the time this finishes, so a stale result can't
-    /// clobber a newer crop or filter selection.
-    private func applyFilterAsync(to base: UIImage, quad: Quad, filter: DocumentFilter) {
+    /// Commits new Brightness/Contrast values (DESIGN_SPEC §4.3 "Adjust
+    /// tool") and re-derives `image` with them applied on top of the
+    /// current crop + filter. While the user is actively dragging a
+    /// slider, the Adjust tool's overlay shows a live SwiftUI
+    /// `.brightness()/.contrast()` preview instead of calling this on
+    /// every frame — a full CoreImage pass per drag tick would be far too
+    /// slow — and only calls this once, when the drag ends.
+    func commitAdjustments(brightness: Double, contrast: Double) {
+        self.brightness = brightness
+        self.contrast = contrast
+        reprocess(from: recroppedImage, quad: committedQuad)
+    }
+
+    /// `originalImage` perspective-corrected to `committedQuad`, or
+    /// `originalImage` itself when there's nothing to crop — the base that
+    /// `filter` and brightness/contrast both re-derive `image` from,
+    /// shared by `applyFilter(_:)` and `commitAdjustments(brightness:contrast:)`.
+    /// Also used by the Adjust tool's live-preview setup (`EditFlowView`)
+    /// to compute a brightness/contrast-free base to preview against.
+    var recroppedImage: UIImage {
+        committedQuad == .fullImage
+            ? originalImage
+            : (PerspectiveCorrectionService.correct(image: originalImage, quad: committedQuad) ?? originalImage)
+    }
+
+    /// Shared "show the fast geometric result now, swap in the fully
+    /// processed one shortly after" pattern used by `commitCropIfNeeded()`,
+    /// `applyFilter(_:)`, and `commitAdjustments(brightness:contrast:)`.
+    /// Guarded against `committedQuad`/`filter`/`brightness`/`contrast`
+    /// having already moved on by the time this finishes, so a stale
+    /// result can't clobber a newer crop, filter, or adjustment.
+    private func reprocess(from base: UIImage, quad: Quad) {
+        let filter = filter
+        let brightness = brightness
+        let contrast = contrast
         DocumentEnhancer.applyAsync(filter, to: base) { [weak self] filtered in
-            guard let self, self.committedQuad == quad, self.filter == filter else { return }
-            self.image = filtered
+            guard let self, self.committedQuad == quad, self.filter == filter,
+                  self.brightness == brightness, self.contrast == contrast else { return }
+            DocumentEnhancer.applyAdjustmentsAsync(brightness: brightness, contrast: contrast, to: filtered) { [weak self] adjusted in
+                guard let self, self.committedQuad == quad, self.filter == filter,
+                      self.brightness == brightness, self.contrast == contrast else { return }
+                self.image = adjusted
+            }
         }
     }
 }

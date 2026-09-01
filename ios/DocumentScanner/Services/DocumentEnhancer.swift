@@ -50,6 +50,34 @@ enum DocumentEnhancer {
         }
     }
 
+    /// The manual Brightness/Contrast sliders (DESIGN_SPEC §4.3 "Adjust
+    /// tool") — applied on top of whichever `DocumentFilter` is already
+    /// baked into `image`, as one more `CIColorControls` pass. `brightness`
+    /// is CoreImage's own scale (roughly -1...1, 0 = no change); `contrast`
+    /// is a multiplier (1 = no change). A no-op input returns `image`
+    /// untouched rather than paying for a CoreImage round-trip that
+    /// wouldn't change anything.
+    static func applyAdjustments(brightness: Double, contrast: Double, to image: UIImage) -> UIImage {
+        guard brightness != 0 || contrast != 1 else { return image }
+        guard let source = CIImage(image: image), let filter = CIFilter(name: "CIColorControls") else { return image }
+        filter.setValue(source, forKey: kCIInputImageKey)
+        filter.setValue(brightness, forKey: kCIInputBrightnessKey)
+        filter.setValue(contrast, forKey: kCIInputContrastKey)
+        guard let output = filter.outputImage else { return image }
+        return render(output, scale: image.scale) ?? image
+    }
+
+    /// Runs `applyAdjustments(brightness:contrast:to:)` off the main thread
+    /// and calls back on it — see `applyAsync(_:to:completion:)`.
+    static func applyAdjustmentsAsync(brightness: Double, contrast: Double, to image: UIImage, completion: @escaping (UIImage) -> Void) {
+        queue.async {
+            let result = applyAdjustments(brightness: brightness, contrast: contrast, to: image)
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
     // MARK: - Pipelines
 
     private static func applyAutoEnhance(_ image: UIImage) -> UIImage {
