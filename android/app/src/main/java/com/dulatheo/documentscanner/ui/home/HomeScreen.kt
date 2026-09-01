@@ -41,7 +41,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dulatheo.documentscanner.data.model.DocumentWithDetails
@@ -105,15 +107,17 @@ fun HomeScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         color = tokens.ink,
                     )
+                    val isPremiumNow = premiumManager.isPremium()
                     Text(
                         text = documentCountLabel(documents.size, premiumManager),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = tokens.ink3,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = if (isPremiumNow) FontWeight.Normal else FontWeight.Medium,
+                            textDecoration = if (isPremiumNow) TextDecoration.None else TextDecoration.Underline,
+                        ),
+                        color = if (isPremiumNow) tokens.ink3 else tokens.accent,
                         modifier = Modifier
                             .padding(top = 5.dp)
-                            .let { m ->
-                                if (premiumManager.isPremium()) m else m.clickable { showPaywall = true }
-                            },
+                            .let { m -> if (isPremiumNow) m else m.clickable { showPaywall = true } },
                     )
                 }
                 if (documents.isNotEmpty() || query.isNotEmpty()) {

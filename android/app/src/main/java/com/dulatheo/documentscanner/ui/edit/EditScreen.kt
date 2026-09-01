@@ -19,10 +19,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,6 +44,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,6 +60,7 @@ import com.dulatheo.documentscanner.ui.components.PageCard
 import com.dulatheo.documentscanner.ui.components.ToastState
 import com.dulatheo.documentscanner.ui.paywall.PaywallOutcome
 import com.dulatheo.documentscanner.ui.paywall.PaywallScreen
+import com.dulatheo.documentscanner.ui.sheets.ExportSheetContent
 import com.dulatheo.documentscanner.ui.sheets.OcrSheetContent
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 import com.dulatheo.documentscanner.util.PerspectiveCrop
@@ -109,6 +114,11 @@ fun EditScreen(
     var isPremium by remember { mutableStateOf(editViewModel.premiumManager.isPremium()) }
     var showSaveLimitDialog by remember { mutableStateOf(false) }
     var showSaveLimitPaywall by remember { mutableStateOf(false) }
+    var showExportWithoutSavingSheet by remember { mutableStateOf(false) }
+    var ewsPasswordPrompt by remember { mutableStateOf(false) }
+    var ewsPasswordInput by remember { mutableStateOf("") }
+    var ewsProtectPaywall by remember { mutableStateOf(false) }
+    var ewsPasswordSuggestion by remember { mutableStateOf(false) }
 
     val currentPage = pages[scanSession.currentIndex]
 
@@ -157,16 +167,19 @@ fun EditScreen(
     }
 
     /** "Export" on the save-limit dialog (DESIGN_SPEC §5 "limited document
-     * storage") — a plain PDF of the current pages, shared directly without
-     * ever being added to the library. */
-    fun exportWithoutSaving() {
+     * storage") — builds the given format from the current pages and shares
+     * it directly, without ever adding the document to the library. Ends
+     * the edit session afterward regardless of format, matching the "give
+     * up on saving" intent of picking Export over upgrading. */
+    fun exportWithoutSavingFormat(format: ExportFormat, password: String? = null) {
         scope.launch {
             commitCropSuspend()
             val exportPages = scanSession.pages.map { p ->
                 ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature)
             }
-            val files = exportManager.export("Scan", exportPages, ExportFormat.PDF)
-            exportManager.shareAndFinish(files, ExportFormat.PDF)
+            val files = exportManager.export("Scan", exportPages, format, password)
+            exportManager.shareAndFinish(files, format)
+            showExportWithoutSavingSheet = false
             scanSession.clear()
             onCancel()
         }
@@ -454,7 +467,7 @@ fun EditScreen(
                         )
                         TextButton(onClick = {
                             showSaveLimitDialog = false
-                            exportWithoutSaving()
+                            showExportWithoutSavingSheet = true
                         }) { Text("Export") }
                     }
                 },
@@ -470,6 +483,143 @@ fun EditScreen(
                     TextButton(onClick = { showSaveLimitDialog = false }) { Text("Cancel") }
                 },
             )
+        }
+
+        if (showExportWithoutSavingSheet) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    showExportWithoutSavingSheet = false
+                    scanSession.clear()
+                    onCancel()
+                },
+                containerColor = tokens.surface,
+            ) {
+                ExportSheetContent(
+                    subtitle = "Choose a format to share",
+                    dismissLabel = "Cancel",
+                    onExport = { format ->
+                        if (format == ExportFormat.PDF) {
+                            if (editViewModel.premiumManager.isPremium()) {
+                                exportWithoutSavingFormat(ExportFormat.PDF)
+                            } else {
+                                showExportWithoutSavingSheet = false
+                                ewsPasswordSuggestion = true
+                            }
+                        } else {
+                            exportWithoutSavingFormat(ExportFormat.JPG)
+                        }
+                    },
+                    onProtectPdfClick = {
+                        showExportWithoutSavingSheet = false
+                        if (editViewModel.premiumManager.isPremium()) {
+                            ewsPasswordInput = ""
+                            ewsPasswordPrompt = true
+                        } else {
+                            ewsProtectPaywall = true
+                        }
+                    },
+                    showProBadge = !editViewModel.premiumManager.isPremium(),
+                    onDismiss = {
+                        showExportWithoutSavingSheet = false
+                        scanSession.clear()
+                        onCancel()
+                    },
+                )
+            }
+        }
+
+        if (ewsPasswordSuggestion) {
+            AlertDialog(
+                onDismissRequest = { ewsPasswordSuggestion = false },
+                title = { Text("Protect this PDF?") },
+                text = {
+                    Text(
+                        "Add a password so only people who have it can open this file. Available with Premium.",
+                        color = tokens.ink2,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        ewsPasswordSuggestion = false
+                        ewsProtectPaywall = true
+                    }) { Text("Add Password") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        ewsPasswordSuggestion = false
+                        exportWithoutSavingFormat(ExportFormat.PDF)
+                    }) { Text("Export Without Password") }
+                },
+            )
+        }
+
+        if (ewsPasswordPrompt) {
+            AlertDialog(
+                onDismissRequest = { ewsPasswordPrompt = false; ewsPasswordInput = "" },
+                title = { Text("Protect PDF") },
+                text = {
+                    Column {
+                        Text(
+                            "Anyone opening this PDF will need this password.",
+                            color = tokens.ink2,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = ewsPasswordInput,
+                            onValueChange = { ewsPasswordInput = it },
+                            label = { Text("Password") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        ewsPasswordPrompt = false
+                        exportWithoutSavingFormat(ExportFormat.PDF, ewsPasswordInput.trim().ifEmpty { null })
+                        ewsPasswordInput = ""
+                    }) { Text("Export") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { ewsPasswordPrompt = false; ewsPasswordInput = "" }) { Text("Cancel") }
+                },
+            )
+        }
+
+        if (ewsProtectPaywall) {
+            PaywallScreen(
+                premiumManager = editViewModel.premiumManager,
+                reason = "Password-protecting PDFs is a Premium feature",
+            ) { outcome ->
+                ewsProtectPaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        isPremium = true
+                        toast.show("Trial started — enjoy Premium!")
+                        ewsPasswordInput = ""
+                        ewsPasswordPrompt = true
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        isPremium = true
+                        toast.show("Welcome to Premium!")
+                        ewsPasswordInput = ""
+                        ewsPasswordPrompt = true
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        isPremium = editViewModel.premiumManager.isPremium()
+                        toast.show("Purchases restored")
+                        if (isPremium) {
+                            ewsPasswordInput = ""
+                            ewsPasswordPrompt = true
+                        }
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
+            }
         }
 
         if (signMode == SignMode.DRAWING) {
