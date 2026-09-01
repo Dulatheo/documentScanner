@@ -11,6 +11,11 @@ import java.util.zip.ZipOutputStream
  * page with no recognized text yet contributes an empty paragraph rather
  * than being skipped, so the page count in the export still matches the
  * document.
+ *
+ * Alignment/relative size/paragraph spacing are approximated from each
+ * line's OCR bounding box ([DocxLineLayout.analyze]) — ML Kit reports no
+ * font weight/style/underline, only text + position, so bold/italic/
+ * underline aren't reconstructed; see DESIGN_SPEC §5/§9.
  */
 object DocxExportService {
     suspend fun buildDocx(documentName: String, pages: List<ExportPage>, outFile: File): File {
@@ -31,8 +36,14 @@ object DocxExportService {
             if (page.ocrLines.isEmpty()) {
                 body.append("<w:p/>")
             } else {
-                page.ocrLines.forEach { line ->
-                    body.append("<w:p><w:r><w:t xml:space=\"preserve\">")
+                DocxLineLayout.analyze(page.ocrLines).forEach { line ->
+                    if (line.extraSpaceBefore) {
+                        body.append("<w:p/>")
+                    }
+                    val bold = if (line.bold) "<w:b/>" else ""
+                    body.append("<w:p><w:pPr><w:jc w:val=\"${line.alignment}\"/></w:pPr>")
+                        .append("<w:r><w:rPr>$bold<w:sz w:val=\"${line.halfPointSize}\"/><w:szCs w:val=\"${line.halfPointSize}\"/></w:rPr>")
+                        .append("<w:t xml:space=\"preserve\">")
                         .append(OoxmlUtil.xmlEscape(line.text))
                         .append("</w:t></w:r></w:p>")
                 }
