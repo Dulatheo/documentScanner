@@ -334,29 +334,41 @@ the gating check and paywall UI shouldn't need to change when that happens.
     link, and a dismiss (✕) button that backs out without changing
     `activeTool`'s premium-gated state.
 
-Sign is no longer the only gate — **unlimited scanning** and **PDF
+Sign is no longer the only gate — **limited document storage** and **PDF
 password protection** (both drawn from §9's brainstorm list) are now
 implemented the same way: `premiumManager.isPremium()`/`canCreateNewDocument`
 checked at the point of use, paywall shown on failure, entitlement re-checked
 live rather than cached.
 
-- **Unlimited scanning**: free accounts are capped at
-  `PremiumManager.freeDocumentLimit` / `FREE_DOCUMENT_LIMIT` (3) documents in
-  the library at once; Premium removes the cap. Gated at the entry points
-  that start a **new** document — iOS: Home's camera button and photo-import
-  button (`RootView.gateNewDocument`); Android: Home's floating scan button
-  and empty-state CTA (`HomeScreen.gatedScan`) — not at save time, so a user
-  never scans a document only to be blocked afterwards, and because these
-  entry points are the only ones this app fully controls (VisionKit's/ML
-  Kit's own capture UI isn't). Hitting the cap shows the paywall with a
-  reason banner ("You've reached the free plan's 3-document limit"); a
-  successful trial/subscribe/restore immediately continues into the
-  scan/import the user originally tapped.
+- **Limited document storage**: scanning itself is unrestricted on both
+  platforms — the camera and gallery-import entry points always work,
+  since blocking capture wastes the time a user just spent scanning and
+  these entry points can't be un-done cleanly if the user is denied
+  afterward. The cap instead applies to **saving**: a free account can have
+  at most `PremiumManager.freeDocumentLimit` / `FREE_DOCUMENT_LIMIT` (3)
+  documents in the library; Premium removes it. Checked when **Save** is
+  tapped in the Edit flow (iOS: `EditFlowView.save()`; Android:
+  `EditScreen`'s Save action, via `EditViewModel.documentCount()`) —
+  re-saving an already-saved document (a re-edit) is never gated, only
+  creating a brand-new one.
+  - **At the limit**: Save shows a dialog — "Document limit reached: Free
+    plan is limited to 3 saved documents. Upgrade for unlimited storage,
+    export this one without saving, or cancel." — with three actions:
+    - **Start Free Trial** / **Upgrade to Premium** (label depends on
+      `hasUsedTrial`) opens the paywall; on trial-start/subscribe/restored
+      success the save is retried automatically.
+    - **Export** builds a plain (unencrypted) PDF of the current pages and
+      hands it straight to the native share sheet — the document is never
+      added to the library, so nothing here counts against the cap.
+    - **Cancel** dismisses the dialog; the user stays on the Edit screen
+      with nothing saved or exported.
   - **Discoverability**: the cap is surfaced before anyone hits it — Home's
     subtitle line reads "N of 3 free documents — Premium for unlimited" for
     a non-premium user with documents (or "Nothing saved yet · 3 free
-    documents" when empty), so the limit isn't only ever explained by the
-    paywall that appears once someone's already blocked.
+    documents" when empty). That line is itself tappable (when not
+    premium), opening the paywall directly as a standing shortcut — so the
+    limit isn't only ever explained by a dialog shown once someone's
+    already blocked.
 - **PDF password protection**: a small lock icon on the PDF row of the
   Export sheet (JPG is unaffected) — tapping the row itself exports the
   PDF as before; tapping the lock icon is the dedicated premium gate.
@@ -472,16 +484,27 @@ should be matched closely.
 
 ## 9. Future premium candidates
 
-Brainstormed; two have since been built (see §5's "Unlimited scanning" and
-"PDF password protection" — struck through below), the rest are still
-**not built**. Listed here so a future round doesn't have to re-derive the
-list from scratch. Roughly grouped from "small lift, obvious value" to
-"bigger lift, needs its own design pass":
+Brainstormed; two have since been built (see §5's "Limited document
+storage" and "PDF password protection" — struck through below), the rest
+are still **not built**. Listed here so a future round doesn't have to
+re-derive the list from scratch. Roughly grouped from "small lift, obvious
+value" to "bigger lift, needs its own design pass":
 
-- ~~**Batch/unlimited scanning**~~ — done, §5.
-- **More export formats/options** — Word/editable text export, custom
-  watermarks, higher-resolution export, batch export of multiple documents
-  at once.
+- ~~**Batch/unlimited scanning**~~ — done, §5, as a **saved-document** cap
+  rather than a scanning cap (scanning itself stays unrestricted; see §5's
+  "Limited document storage" for why).
+- **More export formats/options** — custom watermarks, higher-resolution
+  export, batch export of multiple documents at once. Also **DOCX
+  (Word) export** of the OCR-recognized text — genuinely cheap: DOCX is
+  just a zip of XML, hand-rollable with a small template writer on both
+  platforms (no heavy dependency needed), runs entirely on-device with no
+  marginal cost, so unlimited Premium use is fine business-wise, the same
+  reasoning that already applies to unrestricted PDF/JPG export today.
+  **XLSX/PPTX export do *not* belong in this bucket** — this app only ever
+  has OCR text (lines + bounding boxes), not detected tables or slide
+  layouts, so "export to Excel/PowerPoint" would need real table/layout
+  detection first; that's `Advanced OCR`/`AI-assisted features`-sized work
+  below, not a simple new export format.
 - **Cloud backup/sync** — currently everything is local-only; syncing
   across a user's devices is a natural premium tier (also the biggest
   lift, since there's no backend at all today).
