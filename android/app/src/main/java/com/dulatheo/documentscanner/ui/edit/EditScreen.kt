@@ -179,11 +179,22 @@ fun EditScreen(
             val exportPages = scanSession.pages.map { p ->
                 ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature)
             }
-            val files = exportManager.export("Scan", exportPages, format, password)
-            exportManager.shareAndFinish(files, format)
-            showExportWithoutSavingSheet = false
-            scanSession.clear()
-            onCancel()
+            // DOCX/XLSX/PPTX are currently routed through CloudConvert
+            // (network), so unlike PDF/JPG this can genuinely fail (missing
+            // API key, offline, CloudConvert error) — caught and toasted,
+            // leaving the export sheet open so the user can retry or pick
+            // a different format, rather than losing their scan.
+            try {
+                val files = exportManager.export("Scan", exportPages, format, password)
+                exportManager.shareAndFinish(files, format)
+                showExportWithoutSavingSheet = false
+                scanSession.clear()
+                onCancel()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                toast.show(e.message ?: "Export failed")
+            }
         }
     }
 

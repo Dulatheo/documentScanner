@@ -105,7 +105,10 @@ fun DocViewerScreen(
 
     /** DOCX/XLSX/PPTX (DESIGN_SPEC §5/§9 "Office format export") — all
      * Premium, gated the same way as the Sign tool: paywall on tap when
-     * not premium, direct export once premium. */
+     * not premium, direct export once premium. Currently routed through
+     * CloudConvert (network), so unlike every other export path here this
+     * can genuinely fail (missing API key, offline, CloudConvert error) —
+     * caught and toasted rather than left to crash the coroutine. */
     fun exportOfficeFormat(format: ExportFormat) {
         showExport = false
         scope.launch {
@@ -117,9 +120,15 @@ fun DocViewerScreen(
                     signature = JsonCodec.decodeSignature(page.signatureJson),
                 )
             }
-            val files = exportManager.export(current.document.name, pages, format)
-            exportManager.shareAndFinish(files, format)
-            if (justSaved) onBack()
+            try {
+                val files = exportManager.export(current.document.name, pages, format)
+                exportManager.shareAndFinish(files, format)
+                if (justSaved) onBack()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                toast.show(e.message ?: "Export failed")
+            }
         }
     }
 
