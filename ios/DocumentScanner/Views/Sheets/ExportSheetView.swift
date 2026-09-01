@@ -30,6 +30,11 @@ struct ExportSheetView: View {
     /// subscription proceeds straight into the export they originally
     /// tapped, rather than requiring a second tap.
     @State private var pendingOfficeExport: (() -> Void)?
+    /// Set when a CloudConvert-backed Office export fails (network,
+    /// missing API key, CloudConvert error) — these can genuinely fail,
+    /// unlike every other export path here, so it needs a visible error
+    /// instead of silently doing nothing.
+    @State private var exportError: String?
 
     private var subtitle: String {
         pendingSave ? "Saved to Documents \u{00b7} choose a format to share" : "Choose a format to share"
@@ -125,6 +130,14 @@ struct ExportSheetView: View {
                 }
                 pendingOfficeExport = nil
             }
+        }
+        .alert("Export Failed", isPresented: Binding(
+            get: { exportError != nil },
+            set: { if !$0 { exportError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportError ?? "")
         }
     }
 
@@ -295,33 +308,43 @@ struct ExportSheetView: View {
 
     private func exportDocx() {
         isExporting = true
-        Task {
-            let url = await DocxExportService.makeDocx(for: document)
-            await MainActor.run {
-                isExporting = false
-                activeShare = ShareItem(urls: [url])
-            }
-        }
+        Task { await exportViaCloudConvert(outputFormat: "docx") }
     }
 
     private func exportXlsx() {
         isExporting = true
-        Task {
-            let url = await XlsxExportService.makeXlsx(for: document)
-            await MainActor.run {
-                isExporting = false
-                activeShare = ShareItem(urls: [url])
-            }
-        }
+        Task { await exportViaCloudConvert(outputFormat: "xlsx") }
     }
 
     private func exportPptx() {
         isExporting = true
-        Task {
-            let url = PptxExportService.makePptx(for: document)
+        Task { await exportViaCloudConvert(outputFormat: "pptx") }
+    }
+
+    /// Routed through CloudConvert (test integration, DESIGN_SPEC §5/§9)
+    /// rather than DocxExportService/XlsxExportService/PptxExportService —
+    /// those looked noticeably off from the real scan. The hand-rolled
+    /// path is kept, just unused: call e.g. `DocxExportService.makeDocx(for:
+    /// document)` directly (it's `async`) to revert. Uploads the same PDF
+    /// plain PDF export would produce, and lets CloudConvert's own engine
+    /// do the layout reconstruction.
+    private func exportViaCloudConvert(outputFormat: String) async {
+        let pdfURL = PDFExportService.makePDF(for: document)
+        let filenameBase = PDFExportService.sanitizedFilename(document.name)
+        do {
+            let url = try await CloudConvertService.convert(
+                pdfURL: pdfURL,
+                outputFormat: outputFormat,
+                filenameBase: filenameBase
+            )
             await MainActor.run {
                 isExporting = false
                 activeShare = ShareItem(urls: [url])
+            }
+        } catch {
+            await MainActor.run {
+                isExporting = false
+                exportError = error.localizedDescription
             }
         }
     }

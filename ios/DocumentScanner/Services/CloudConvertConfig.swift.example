@@ -1,0 +1,14 @@
+import Foundation
+
+// Copy this file to CloudConvertConfig.swift (already gitignored) and fill
+// in your own key.
+//
+// CloudConvert API key (DESIGN_SPEC §5/§9 "Office format export" — test
+// integration). Get one at https://cloudconvert.com (free tier: 25
+// conversion minutes/day). Embedding it here is fine for local testing
+// only — never ship a release build with a real key baked in like this;
+// anyone can decompile the app and steal it. Route through a backend proxy
+// before shipping.
+enum CloudConvertConfig {
+    static let apiKey = ""
+}

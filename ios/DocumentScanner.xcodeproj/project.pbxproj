@@ -29,6 +29,8 @@
 		D81F7BC0817343AE978BAF6A /* DocxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */; };
 		233B88D1D8AF471793E1D419 /* DocxLineLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25EC781C4DA4A08BBA2F74A /* DocxLineLayout.swift */; };
 		5B045926632749DE99081A82 /* DocxTableDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0CC2C7DF2D4F6980354B66 /* DocxTableDetector.swift */; };
+		319502E700DA40428C7E1BF9 /* CloudConvertConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D6D42C971CE498AA75828F2 /* CloudConvertConfig.swift */; };
+		5773C454C2AD4CE5B93507D6 /* CloudConvertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3DD23DF667442DBE0BD1CB /* CloudConvertService.swift */; };
 		C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784922103DF14295BDD50EE0 /* XlsxExportService.swift */; };
 		712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */; };
 		AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1893D3B8FB16C2E11551BA /* PaywallView.swift */; };
@@ -76,6 +78,8 @@
 		DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxExportService.swift; sourceTree = "<group>"; };
 		F25EC781C4DA4A08BBA2F74A /* DocxLineLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxLineLayout.swift; sourceTree = "<group>"; };
 		AF0CC2C7DF2D4F6980354B66 /* DocxTableDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxTableDetector.swift; sourceTree = "<group>"; };
+		0D6D42C971CE498AA75828F2 /* CloudConvertConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudConvertConfig.swift; sourceTree = "<group>"; };
+		FD3DD23DF667442DBE0BD1CB /* CloudConvertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudConvertService.swift; sourceTree = "<group>"; };
 		784922103DF14295BDD50EE0 /* XlsxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxExportService.swift; sourceTree = "<group>"; };
 		4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PptxExportService.swift; sourceTree = "<group>"; };
 		AD1893D3B8FB16C2E11551BA /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
@@ -148,6 +152,8 @@
 				DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */,
 				F25EC781C4DA4A08BBA2F74A /* DocxLineLayout.swift */,
 				AF0CC2C7DF2D4F6980354B66 /* DocxTableDetector.swift */,
+				0D6D42C971CE498AA75828F2 /* CloudConvertConfig.swift */,
+				FD3DD23DF667442DBE0BD1CB /* CloudConvertService.swift */,
 				784922103DF14295BDD50EE0 /* XlsxExportService.swift */,
 				4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */,
 			);
@@ -306,6 +312,8 @@
 				D81F7BC0817343AE978BAF6A /* DocxExportService.swift in Sources */,
 				233B88D1D8AF471793E1D419 /* DocxLineLayout.swift in Sources */,
 				5B045926632749DE99081A82 /* DocxTableDetector.swift in Sources */,
+				319502E700DA40428C7E1BF9 /* CloudConvertConfig.swift in Sources */,
+				5773C454C2AD4CE5B93507D6 /* CloudConvertService.swift in Sources */,
 				C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */,
 				712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */,
 				AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */,
