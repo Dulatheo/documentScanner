@@ -13,7 +13,8 @@ enum DocxLineLayout {
         let text: String
         /// OOXML `w:jc` value: "left", "center", or "right".
         let alignment: String
-        /// `w:sz`/`w:szCs` value — font size in half-points.
+        /// `w:sz`/`w:szCs` value — font size in half-points. Currently
+        /// always `baseFontSizePt`; see that constant's doc comment.
         let halfPointSize: Int
         /// Approximated from size alone (see type-level doc) — lines
         /// noticeably larger than the page's median line height are
@@ -25,11 +26,12 @@ enum DocxLineLayout {
         let extraSpaceBefore: Bool
     }
 
-    /// Base body-text size (11pt, a common Word default) that the relative
-    /// scaling below is anchored to.
+    /// Fixed body-text size (11pt, a common Word default) used for every
+    /// line — scaling this by box-height ratio was tried and looked
+    /// inconsistent with the actual scan (OCR box heights are too noisy
+    /// a signal for a size a reader would find plausible), so size is
+    /// left alone; only alignment/bold/spacing are geometry-derived.
     private static let baseFontSizePt: Double = 11
-    private static let minFontSizePt: Double = 8
-    private static let maxFontSizePt: Double = 36
     /// A line's box height must exceed the page's median by this factor to
     /// be treated as emphasized/heading-like.
     private static let boldRatioThreshold: Double = 1.4
@@ -96,8 +98,7 @@ enum DocxLineLayout {
             }
 
             let ratio = medianHeight > 0 ? box.height / medianHeight : 1
-            let fontSizePt = min(max(baseFontSizePt * ratio, minFontSizePt), maxFontSizePt)
-            let halfPointSize = Int((fontSizePt * 2).rounded())
+            let halfPointSize = Int((baseFontSizePt * 2).rounded())
             let bold = ratio >= boldRatioThreshold
 
             var extraSpaceBefore = false

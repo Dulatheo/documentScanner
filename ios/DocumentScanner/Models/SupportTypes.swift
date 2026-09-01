@@ -44,6 +44,41 @@ struct OCRLine: Codable, Hashable, Identifiable {
     var text: String
     /// Normalized rect, Vision convention (origin bottom-left).
     var normalizedBox: CGRectCodable
+    /// Word-level boxes within this line — empty for lines recognized
+    /// before this was added (see `init(from:)`), and for anything that
+    /// doesn't need them. Used by DOCX table detection (DESIGN_SPEC §5/§9)
+    /// to find column gaps within a line.
+    var words: [OCRWord] = []
+
+    init(id: UUID = UUID(), text: String, normalizedBox: CGRectCodable, words: [OCRWord] = []) {
+        self.id = id
+        self.text = text
+        self.normalizedBox = normalizedBox
+        self.words = words
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, normalizedBox, words
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        text = try container.decode(String.self, forKey: .text)
+        normalizedBox = try container.decode(CGRectCodable.self, forKey: .normalizedBox)
+        words = try container.decodeIfPresent([OCRWord].self, forKey: .words) ?? []
+    }
+}
+
+/// One recognized word within an `OCRLine`, used only for DOCX table
+/// detection (DESIGN_SPEC §5/§9) — an unusually large horizontal gap
+/// between two adjacent words on the same line suggests a table column
+/// break, which line-level boxes alone can't reveal.
+struct OCRWord: Codable, Hashable {
+    var text: String
+    /// Normalized rect, Vision convention (origin bottom-left) — same
+    /// coordinate space as `OCRLine.normalizedBox`.
+    var normalizedBox: CGRectCodable
 }
 
 /// Codable `CGRect` mirror.

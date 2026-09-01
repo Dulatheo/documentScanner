@@ -30,7 +30,8 @@ enum OCRService {
                     lines.append(
                         OCRLine(
                             text: candidate.string,
-                            normalizedBox: CGRectCodable(observation.boundingBox)
+                            normalizedBox: CGRectCodable(observation.boundingBox),
+                            words: extractWords(from: candidate)
                         )
                     )
                 }
@@ -70,6 +71,22 @@ enum OCRService {
         page.ocrText = result.fullText
         page.ocrLines = result.lines
         return result.lines
+    }
+
+    /// Per-word bounding boxes within one recognized line, used only for
+    /// DOCX table detection (DESIGN_SPEC §5/§9) — Vision's line-level API
+    /// doesn't expose per-word boxes directly, but `boundingBox(for:)` can
+    /// compute one for any substring range of the recognized string, so
+    /// this slices the line on word boundaries and queries it per word.
+    private static func extractWords(from candidate: VNRecognizedText) -> [OCRWord] {
+        let string = candidate.string
+        guard !string.isEmpty else { return [] }
+        var words: [OCRWord] = []
+        string.enumerateSubstrings(in: string.startIndex..<string.endIndex, options: .byWords) { substring, range, _, _ in
+            guard let substring, let observation = try? candidate.boundingBox(for: range) else { return }
+            words.append(OCRWord(text: substring, normalizedBox: CGRectCodable(observation.boundingBox)))
+        }
+        return words
     }
 
     private static func cgOrientation(from orientation: UIImage.Orientation) -> CGImagePropertyOrientation {
