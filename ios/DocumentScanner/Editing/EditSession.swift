@@ -39,4 +39,16 @@ final class EditSession: ObservableObject, Identifiable {
         current.commitCropIfNeeded()
         currentIndex = index
     }
+
+    /// Removes the page at `index` (DESIGN_SPEC §4.3 "delete a scanned
+    /// page") — used when reviewing a multi-page capture and one page
+    /// didn't come out well. Clamps `currentIndex` to stay valid, favoring
+    /// the new last page over resetting to 0 so deleting a page near the
+    /// end doesn't jump the user back to the start.
+    func deletePage(at index: Int) {
+        guard pages.indices.contains(index) else { return }
+        pages.remove(at: index)
+        guard !pages.isEmpty else { return }
+        currentIndex = min(currentIndex, pages.count - 1)
+    }
 }

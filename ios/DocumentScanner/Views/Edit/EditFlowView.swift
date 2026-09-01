@@ -32,6 +32,10 @@ struct EditFlowView: View {
     /// the current pages, without ever adding the document to the library
     /// (see `exportWithoutSaving()`).
     @State private var saveLimitExportTarget: ExportTarget?
+    /// Confirms deleting the current page (DESIGN_SPEC §4.3 "delete a
+    /// scanned page") — e.g. after scanning the same page a few times and
+    /// finding one capture came out badly during review.
+    @State private var showDeletePageConfirm = false
 
     var body: some View {
         ZStack {
@@ -180,6 +184,12 @@ struct EditFlowView: View {
         } message: {
             Text("Free plan is limited to \(PremiumManager.freeDocumentLimit) saved documents. Upgrade for unlimited storage, export this one without saving, or cancel.")
         }
+        .alert("Delete this page?", isPresented: $showDeletePageConfirm) {
+            Button("Delete", role: .destructive) { deleteCurrentPage() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This can't be undone.")
+        }
     }
 
     // MARK: - Top bar
@@ -216,6 +226,15 @@ struct EditFlowView: View {
                     }
                     .disabled(session.currentIndex == session.pageCount - 1)
                 }
+
+                Button {
+                    showDeletePageConfirm = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 13))
+                        .foregroundColor(theme.ink2)
+                }
+                .padding(.leading, 4)
             }
 
             Spacer()
@@ -455,9 +474,39 @@ struct EditFlowView: View {
         let document = buildDocument()
         if session.existingDocument == nil {
             modelContext.insert(document)
+        } else {
+            removeDeletedPages(from: document)
         }
         try? modelContext.save()
         onSaved(document)
+    }
+
+    /// Deletes any already-persisted page that's no longer in the current
+    /// session (DESIGN_SPEC §4.3 "delete a scanned page") — `buildDocument()`
+    /// only creates/updates pages present in `session.pages`, it never
+    /// removes ones dropped from it, and SwiftData's cascade delete rule
+    /// only fires when the *document* itself is deleted, not when a page
+    /// is removed from its `pages` array. Also removes the page's on-disk
+    /// image files, which nothing else would clean up otherwise.
+    private func removeDeletedPages(from document: DocumentModel) {
+        let keptIDs = Set(session.pages.compactMap(\.existingPageID))
+        for pageModel in document.pages where !keptIDs.contains(pageModel.id) {
+            ImageStore.delete(pageModel.imagePath)
+            ImageStore.delete(pageModel.originalImagePath)
+            modelContext.delete(pageModel)
+        }
+    }
+
+    /// Removes the currently-viewed page from the session (DESIGN_SPEC
+    /// §4.3 "delete a scanned page"). Deleting the last remaining page
+    /// leaves nothing to edit, so that closes the whole Edit flow instead
+    /// of leaving an empty editor on screen.
+    private func deleteCurrentPage() {
+        let wasLastPage = session.pageCount <= 1
+        session.deletePage(at: session.currentIndex)
+        if wasLastPage {
+            onCancel()
+        }
     }
 
     /// Opens the standard Export sheet (PDF/JPG choice, PDF password

@@ -20,6 +20,11 @@ struct ExportSheetView: View {
     @Environment(\.theme) private var theme
     @State private var activeShare: ShareItem?
     @State private var isExporting = false
+    /// Shown in the loading overlay while `isExporting` — the Office
+    /// formats go through CloudConvert (network, several seconds), so
+    /// unlike PDF/JPG this needs a visible "this is working" cue rather
+    /// than the row just looking disabled for a moment.
+    @State private var exportingMessage = "Preparing your file\u{2026}"
     @State private var showPasswordPrompt = false
     @State private var passwordInput = ""
     @State private var showPaywall = false
@@ -138,6 +143,23 @@ struct ExportSheetView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(exportError ?? "")
+        }
+        .overlay {
+            if isExporting {
+                ZStack {
+                    Color.black.opacity(0.15).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text(exportingMessage)
+                            .font(.system(size: 13))
+                            .foregroundColor(theme.ink2)
+                    }
+                    .padding(20)
+                    .frame(minWidth: 160)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(theme.surface))
+                }
+                .transition(.opacity)
+            }
         }
     }
 
@@ -283,6 +305,7 @@ struct ExportSheetView: View {
 
     private func exportPDF(password: String?) {
         isExporting = true
+        exportingMessage = "Preparing your PDF\u{2026}"
         let trimmed = password?.trimmingCharacters(in: .whitespacesAndNewlines)
         let effectivePassword = (trimmed?.isEmpty ?? true) ? nil : trimmed
         Task {
@@ -297,6 +320,7 @@ struct ExportSheetView: View {
 
     private func exportJPGs() {
         isExporting = true
+        exportingMessage = "Preparing your images\u{2026}"
         Task {
             let urls = JPGExportService.makeJPGs(for: document)
             await MainActor.run {
@@ -308,16 +332,19 @@ struct ExportSheetView: View {
 
     private func exportDocx() {
         isExporting = true
+        exportingMessage = "Converting to Word\u{2026}"
         Task { await exportViaCloudConvert(outputFormat: "docx") }
     }
 
     private func exportXlsx() {
         isExporting = true
+        exportingMessage = "Converting to Excel\u{2026}"
         Task { await exportViaCloudConvert(outputFormat: "xlsx") }
     }
 
     private func exportPptx() {
         isExporting = true
+        exportingMessage = "Converting to PowerPoint\u{2026}"
         Task { await exportViaCloudConvert(outputFormat: "pptx") }
     }
 
