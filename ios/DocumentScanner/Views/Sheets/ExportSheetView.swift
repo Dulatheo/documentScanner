@@ -1,9 +1,6 @@
 import SwiftUI
 
-/// Not `private` — also used by `EditFlowView`'s "Export without saving"
-/// path (the save-limit dialog's Export button), which presents its own
-/// `ShareSheet` directly rather than going through this sheet.
-struct ShareItem: Identifiable {
+private struct ShareItem: Identifiable {
     let id = UUID()
     let urls: [URL]
 }

@@ -94,8 +94,9 @@ struct HomeView: View {
                 .tracking(-0.5)
                 .foregroundColor(theme.ink)
             Text(subtitle)
-                .font(.system(size: 13))
-                .foregroundColor(theme.ink3)
+                .font(.system(size: 13, weight: premiumManager.isPremium ? .regular : .medium))
+                .foregroundColor(premiumManager.isPremium ? theme.ink3 : theme.accent)
+                .underline(!premiumManager.isPremium)
                 .onTapGesture {
                     if !premiumManager.isPremium {
                         showPaywall = true

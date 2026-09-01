@@ -27,10 +27,11 @@ struct EditFlowView: View {
     @State private var showPaywall = false
     @State private var showSaveLimitAlert = false
     @State private var showSaveLimitPaywall = false
-    /// Set by "Export" on the save-limit dialog — a plain PDF of the
-    /// current pages, shared directly without ever being added to the
-    /// library (see `exportWithoutSaving()`).
-    @State private var exportWithoutSavingItem: ShareItem?
+    /// Set by "Export" on the save-limit dialog — opens the same Export
+    /// sheet used elsewhere (PDF/JPG choice, PDF password protection) over
+    /// the current pages, without ever adding the document to the library
+    /// (see `exportWithoutSaving()`).
+    @State private var saveLimitExportTarget: ExportTarget?
 
     var body: some View {
         ZStack {
@@ -158,11 +159,15 @@ struct EditFlowView: View {
                 }
             }
         }
-        .sheet(item: $exportWithoutSavingItem) { item in
-            ShareSheet(items: item.urls, onDismiss: {
-                exportWithoutSavingItem = nil
+        .sheet(item: $saveLimitExportTarget) { target in
+            ExportSheetView(document: target.document, pendingSave: target.pendingSave, premiumManager: premiumManager) {
+                let tempImagePaths = target.document.orderedPages.flatMap { [$0.imagePath, $0.originalImagePath].compactMap { $0 } }
+                for path in tempImagePaths { ImageStore.delete(path) }
+                saveLimitExportTarget = nil
                 onCancel()
-            })
+            }
+            .presentationDetents([.height(380)])
+            .presentationDragIndicator(.visible)
         }
         .alert("Document limit reached", isPresented: $showSaveLimitAlert) {
             Button(premiumManager.hasUsedTrial ? "Upgrade to Premium" : "Start Free Trial") {
@@ -455,21 +460,15 @@ struct EditFlowView: View {
         onSaved(document)
     }
 
-    /// Builds a plain (unencrypted) PDF from the current pages and hands it
-    /// straight to the share sheet — the document is never inserted into
-    /// `modelContext`, so nothing is added to the library. Since
-    /// `buildDocument()` still needs page images on disk to render the PDF,
-    /// those temporary files are deleted again right after rendering so
-    /// this doesn't leak a JPEG pair into storage on every use.
+    /// Opens the standard Export sheet (PDF/JPG choice, PDF password
+    /// protection) over the current pages — the document is never inserted
+    /// into `modelContext`, so nothing is added to the library regardless
+    /// of what's exported. Cleanup of the temporary page images built for
+    /// this happens once the sheet is dismissed (see `saveLimitExportTarget`'s
+    /// `.sheet`), not here, since the user may export more than one format
+    /// before finishing.
     private func exportWithoutSaving() {
         let document = buildDocument()
-        let tempImagePaths = document.orderedPages.flatMap { [$0.imagePath, $0.originalImagePath].compactMap { $0 } }
-        Task {
-            let url = PDFExportService.makePDF(for: document)
-            for path in tempImagePaths { ImageStore.delete(path) }
-            await MainActor.run {
-                exportWithoutSavingItem = ShareItem(urls: [url])
-            }
-        }
+        saveLimitExportTarget = ExportTarget(document: document, pendingSave: false)
     }
 }
