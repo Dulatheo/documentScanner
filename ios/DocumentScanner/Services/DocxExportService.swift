@@ -7,6 +7,11 @@ import Foundation
 /// between pages. A page with no recognized text yet contributes an empty
 /// paragraph rather than being skipped, so the page count in the export
 /// still matches the document.
+///
+/// Alignment/relative size/paragraph spacing are approximated from each
+/// line's OCR bounding box (`DocxLineLayout.analyze`) — neither Vision nor
+/// ML Kit report font weight/style/underline, only text + position, so
+/// bold/italic/underline aren't reconstructed; see DESIGN_SPEC §5/§9.
 enum DocxExportService {
     static func makeDocx(for document: DocumentModel) async -> URL {
         var zip = OOXMLZipWriter()
@@ -32,8 +37,14 @@ enum DocxExportService {
             if lines.isEmpty {
                 body += "<w:p/>"
             } else {
-                for line in lines {
-                    body += "<w:p><w:r><w:t xml:space=\"preserve\">\(XMLEscape.text(line.text))</w:t></w:r></w:p>"
+                for line in DocxLineLayout.analyze(lines) {
+                    if line.extraSpaceBefore {
+                        body += "<w:p/>"
+                    }
+                    let bold = line.bold ? "<w:b/>" : ""
+                    body += "<w:p><w:pPr><w:jc w:val=\"\(line.alignment)\"/></w:pPr>"
+                    body += "<w:r><w:rPr>\(bold)<w:sz w:val=\"\(line.halfPointSize)\"/><w:szCs w:val=\"\(line.halfPointSize)\"/></w:rPr>"
+                    body += "<w:t xml:space=\"preserve\">\(XMLEscape.text(line.text))</w:t></w:r></w:p>"
                 }
             }
             if index < pages.count - 1 {

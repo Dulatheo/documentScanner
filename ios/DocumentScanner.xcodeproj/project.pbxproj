@@ -27,6 +27,7 @@
 		FD69E3299E9B91BE9F950A36 /* PremiumManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24FE87AAC7F81F85E83950B3 /* PremiumManager.swift */; };
 		A7D19B087B5A4CCAADF64B93 /* OOXMLZipWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A781B353B9E42ACAC54E851 /* OOXMLZipWriter.swift */; };
 		D81F7BC0817343AE978BAF6A /* DocxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */; };
+		233B88D1D8AF471793E1D419 /* DocxLineLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25EC781C4DA4A08BBA2F74A /* DocxLineLayout.swift */; };
 		C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784922103DF14295BDD50EE0 /* XlsxExportService.swift */; };
 		712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */; };
 		AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1893D3B8FB16C2E11551BA /* PaywallView.swift */; };
@@ -72,6 +73,7 @@
 		24FE87AAC7F81F85E83950B3 /* PremiumManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumManager.swift; sourceTree = "<group>"; };
 		7A781B353B9E42ACAC54E851 /* OOXMLZipWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OOXMLZipWriter.swift; sourceTree = "<group>"; };
 		DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxExportService.swift; sourceTree = "<group>"; };
+		F25EC781C4DA4A08BBA2F74A /* DocxLineLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxLineLayout.swift; sourceTree = "<group>"; };
 		784922103DF14295BDD50EE0 /* XlsxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxExportService.swift; sourceTree = "<group>"; };
 		4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PptxExportService.swift; sourceTree = "<group>"; };
 		AD1893D3B8FB16C2E11551BA /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
@@ -142,6 +144,7 @@
 				24FE87AAC7F81F85E83950B3 /* PremiumManager.swift */,
 				7A781B353B9E42ACAC54E851 /* OOXMLZipWriter.swift */,
 				DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */,
+				F25EC781C4DA4A08BBA2F74A /* DocxLineLayout.swift */,
 				784922103DF14295BDD50EE0 /* XlsxExportService.swift */,
 				4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */,
 			);
@@ -298,6 +301,7 @@
 				FD69E3299E9B91BE9F950A36 /* PremiumManager.swift in Sources */,
 				A7D19B087B5A4CCAADF64B93 /* OOXMLZipWriter.swift in Sources */,
 				D81F7BC0817343AE978BAF6A /* DocxExportService.swift in Sources */,
+				233B88D1D8AF471793E1D419 /* DocxLineLayout.swift in Sources */,
 				C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */,
 				712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */,
 				AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */,
