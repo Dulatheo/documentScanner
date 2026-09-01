@@ -357,16 +357,20 @@ live rather than cached.
     - **Start Free Trial** / **Upgrade to Premium** (label depends on
       `hasUsedTrial`) opens the paywall; on trial-start/subscribe/restored
       success the save is retried automatically.
-    - **Export** builds a plain (unencrypted) PDF of the current pages and
-      hands it straight to the native share sheet — the document is never
-      added to the library, so nothing here counts against the cap.
+    - **Export** opens the same Export sheet used everywhere else (PDF/JPG
+      choice, PDF password protection) over the current pages — the
+      document is never added to the library regardless of which format
+      is chosen, so nothing here counts against the cap. Dismissing that
+      sheet (by exporting or by Cancel/Close) always ends the edit session.
     - **Cancel** dismisses the dialog; the user stays on the Edit screen
       with nothing saved or exported.
   - **Discoverability**: the cap is surfaced before anyone hits it — Home's
     subtitle line reads "N of 3 free documents — Premium for unlimited" for
     a non-premium user with documents (or "Nothing saved yet · 3 free
-    documents" when empty). That line is itself tappable (when not
-    premium), opening the paywall directly as a standing shortcut — so the
+    documents" when empty), styled in the accent color with an underline
+    (vs. the plain muted count once premium) so it visually reads as a
+    tappable link, not just informational text. Tapping it (when not
+    premium) opens the paywall directly as a standing shortcut — so the
     limit isn't only ever explained by a dialog shown once someone's
     already blocked.
 - **PDF password protection**: a small lock icon on the PDF row of the
