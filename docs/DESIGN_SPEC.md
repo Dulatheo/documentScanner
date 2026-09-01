@@ -56,7 +56,17 @@ on iOS, `isSystemInDarkTheme()` on Android).
 
 ### 3.3 Signature colors
 
-Ink (= `ink` token), Blue `#2C5EA8`, Clay `#A4552E`, Green `#2F6B4F`.
+Ink `#171614`, Blue `#2C5EA8`, Clay `#A4552E`, Green `#2F6B4F` — all four
+fixed values, deliberately **not** tied to light/dark appearance the way
+every other themed color in this app is. A signature is drawn onto a page
+that's always white paper regardless of which appearance the app itself is
+in, so it must always render dark-on-white; Android's `SignatureColorOptions`
+was already fixed hex strings, but iOS's `Theme.SignatureColor.color`
+originally mapped `.ink` to `Theme.ink(_:)` — the same dynamic token used
+for the app's own UI text, which flips to a near-white tone in dark mode —
+so a signature drawn in dark mode rendered as pale, barely-visible ink on
+the (white) page. Fixed by making `.ink` (and `PageRenderer`'s `UIColor`
+equivalent) always resolve to `#171614` regardless of `ColorScheme`.
 
 ### 3.4 App icon
 
@@ -91,6 +101,15 @@ a parallel `home → doc viewer (existing document) → (comment | export sheet
   Viewer (§4.4) from the tapped card's own position/size — see the iOS
   implementation note in §4.2 for how (same technique as the scan button →
   Camera transition).
+  - **Delete a saved document**: long-press a card (Android: `combinedClickable`'s
+    `onLongClick`; iOS: `.contextMenu` with a destructive **Delete** entry)
+    to bring up a confirmation ("Delete "\<name\>"? / This can't be
+    undone."). Confirming removes the document's DB/SwiftData record and
+    its page image files from disk (`DocumentRepository.deleteDocument` on
+    Android, `RootView.deleteDocument(_:)` on iOS) — cascade-delete rules
+    handle the page/comment rows themselves, but not the files on disk
+    those rows pointed at, so both platforms clean those up explicitly
+    before dropping the record.
 - **Empty state**: centered icon tile (viewfinder/scan-corners glyph),
   "No documents yet", helper copy ("Scanned documents are saved here. Point
   your camera at a page to begin."), and a primary "Scan a document" button.
@@ -260,25 +279,73 @@ accumulated rotation either. Fixed by having the getter read
     already wrote them to disk.
 - Center: the page rendered on a `paper` card (drop shadow, hairline
   border).
-- **Tool bar** (4 equal-width buttons, bottom): **Crop**, **Highlight**,
-  **Text** (OCR), **Sign**. Active tool is visually selected (`accentSoft`
-  background + `accent` icon/label). A one-line contextual hint above the
-  tool bar changes per active tool ("Drag the corners to fit the page" /
-  "Tap a line of text to highlight it" / "Text recognition" / "Draw your
-  signature"). **Sign** carries a small **PRO** badge (top-right corner of
-  its button) when the user isn't currently premium — see §5 for the
-  gating and paywall behind it.
+- **Tool bar** (5 equal-width buttons, bottom): **Crop**, **Highlight**,
+  **Adjust**, **Text** (OCR), **Sign**. Active tool is visually selected
+  (`accentSoft` background + `accent` icon/label). A one-line contextual
+  hint above the tool bar changes per active tool ("Drag the corners to fit
+  the page" / "Tap a line of text to highlight it" / "Adjust brightness and
+  contrast" / "Text recognition" / "Draw your signature"). **Sign** and
+  **Text** both carry a small **PRO** badge (top-right corner of the
+  button) when the user isn't currently premium — see §5 for the gating and
+  paywall behind it. Tapping either while free routes to the paywall
+  instead of opening the tool, same mechanism for both (`pendingPremiumTool`
+  on both platforms remembers which one was tapped, so completing a trial/
+  subscription resumes that tool rather than always reopening Sign).
   - **Crop**: adjustable quad/rect overlay with draggable corner handles;
     commits a perspective-corrected crop of the page image. (If using
     VisionKit/ML Kit capture, an initial auto-crop is already applied — this
     tool lets the user refine it.)
   - **Highlight**: on-page OCR text regions become tappable; tapping toggles
-    a translucent `highlight` color band over that line/region.
-  - **Text (OCR)**: runs on-device text recognition (`Vision`/`VNRecognizeTextRequest`
-    on iOS, ML Kit **Text Recognition v2** on Android) and opens a bottom
-    sheet: "Reading page…" while busy, then the recognized text in a
-    scrollable monospace-ish block with **Copy text** and **Keep as
-    searchable** (embeds the OCR text layer into the page/PDF) actions.
+    a translucent `highlight` color band over that line/region. Free — runs
+    its own OCR call independently of the Text tool below, and isn't
+    Premium-gated even though it also depends on OCR.
+  - **Adjust**: two sliders, **Brightness** and **Contrast**, each a
+    standard platform slider (track + draggable thumb). Applied on top of
+    whatever the page currently looks like (crop + the page's other
+    processing), not a replacement for it. The two platforms implement this
+    with genuinely different architectures, not just different code:
+    - **iOS**: brightness/contrast are baked into `PageEditState.image`'s
+      actual pixels via `DocumentEnhancer.applyAdjustments` (one more
+      `CIColorControls` pass, after whatever `DocumentFilter` is active —
+      see §4.2's scan-filter note). Dragging a slider doesn't re-run
+      CoreImage on every frame — that would be far too slow — it shows a
+      live SwiftUI `.brightness()/.contrast()` preview on top of a
+      brightness/contrast-neutral base (`adjustBaseImage`, computed once
+      when Adjust opens), and only commits the real, precisely-recomputed
+      pixels (`PageEditState.commitAdjustments`) when the drag ends.
+      `PageModel.brightness`/`.contrast` persist the values (for a future
+      re-edit entry point to read back from, mirroring `PageModel.filter` —
+      neither is actually restored into a fresh `PageEditState` today,
+      since there's no live way to reach re-editing yet, same caveat as
+      `filter`).
+    - **Android**: never baked into `imagePath` at all — applied live via
+      an `android.graphics.ColorMatrix`/`androidx.compose.ui.graphics.ColorMatrix`
+      brightness-contrast matrix (`util/ColorAdjust.kt`), the same
+      "composite at render/export time, never touch the file" treatment
+      `PageRenderer` already gives highlights and the signature. `PageCard`
+      applies it as a Compose `ColorFilter` on screen; `PageRenderer.flatten`
+      applies the `android.graphics` equivalent when baking the flat export
+      bitmap. Since nothing is ever baked into the stored file, there's no
+      "live preview vs. committed pixels" distinction to manage — the
+      slider's value *is* the live state, written straight into the
+      `DraftPage`/`PageEntity` on every drag tick. `PageEntity.brightness`/
+      `.contrast` are new Room columns (schema bumped to version 2 with
+      `fallbackToDestructiveMigration()` — pre-release, no real install
+      base yet to preserve).
+  - **Text (OCR), Premium** (see §5/§7): runs on-device text recognition
+    (`Vision`/`VNRecognizeTextRequest` on iOS, ML Kit **Text Recognition
+    v2** on Android) and opens a **full-screen page** (not a bottom sheet —
+    a fixed-height sheet was cramped for reading/copying anything longer
+    than a few lines): "Reading page…" while busy, then the recognized
+    text filling the screen with **Copy All** and **Keep as searchable**
+    (embeds the OCR text layer into the page/PDF) actions. The text itself
+    is also directly selectable (`.textSelection(.enabled)` on iOS,
+    `SelectionContainer` on Android), so a user who only wants part of it
+    can drag out a selection with the system's own UI instead of copying
+    everything. iOS presents it via `.fullScreenCover`; Android via a
+    `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false))`
+    rather than a plain full-size overlay Box, so the system back
+    button/gesture dismisses it for free.
   - **Sign**: opens a full-screen, landscape signature pad — "Sign with your
     finger", a canvas with a baseline guide, a color picker (Ink/Blue/Clay/
     Green), a thickness slider, **Clear**, **Cancel**, **Done**. On Done,
@@ -371,14 +438,19 @@ subscription products existing. Wiring `startTrial`/`subscribe`/
 (Android) calls is a separate, later step once those products are created;
 the gating check and paywall UI shouldn't need to change when that happens.
 
-- **Gating**: tapping **Sign** in the Edit tool bar calls
+- **Gating**: tapping **Sign** or **Text** in the Edit tool bar calls
   `premiumManager.isPremium()` (re-checked on every tap, not cached, so an
-  expired trial is caught immediately) before opening the signature pad.
-  If not premium, the paywall presents instead and the tool never
-  activates.
-- **Badge**: the Sign tool button shows a small **PRO** pill (top-right
-  corner) whenever the user isn't currently premium; it disappears once
-  they are (trial or subscribed).
+  expired trial is caught immediately) before opening the signature pad or
+  the recognized-text page. If not premium, the paywall presents instead
+  and the tool never activates; which of the two was tapped is remembered
+  (`pendingPremiumTool`) so a successful trial/subscription resumes that
+  same tool rather than always reopening Sign. **Highlight** is not gated
+  even though it also runs OCR internally — only the Text tool's own
+  recognized-text page is a premium feature, not OCR as an implementation
+  detail wherever it's used.
+- **Badge**: the Sign and Text tool buttons each show a small **PRO** pill
+  (top-right corner) whenever the user isn't currently premium; it
+  disappears once they are (trial or subscribed).
 - **Trial**: 3 days, one-time-per-device (`hasUsedTrial` never resets).
   Two paywall copy variants:
   - **Never used the trial**: "Try Premium free for 3 days" headline,
@@ -393,11 +465,12 @@ the gating check and paywall UI shouldn't need to change when that happens.
     link, and a dismiss (✕) button that backs out without changing
     `activeTool`'s premium-gated state.
 
-Sign is no longer the only gate — **limited document storage** and **PDF
-password protection** (both drawn from §9's brainstorm list) are now
-implemented the same way: `premiumManager.isPremium()`/`canCreateNewDocument`
-checked at the point of use, paywall shown on failure, entitlement re-checked
-live rather than cached.
+Sign is no longer the only gate — **Text (OCR)** (§4.3), **limited document
+storage**, and **PDF password protection** (the latter two drawn from §9's
+brainstorm list) are all implemented the same way:
+`premiumManager.isPremium()`/`canCreateNewDocument` checked at the point of
+use, paywall shown on failure, entitlement re-checked live rather than
+cached.
 
 - **Limited document storage**: scanning itself is unrestricted on both
   platforms — the camera and gallery-import entry points always work,
