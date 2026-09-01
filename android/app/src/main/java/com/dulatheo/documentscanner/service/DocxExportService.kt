@@ -13,12 +13,13 @@ import java.util.zip.ZipOutputStream
  * document.
  */
 object DocxExportService {
-    fun buildDocx(documentName: String, pages: List<ExportPage>, outFile: File): File {
+    suspend fun buildDocx(documentName: String, pages: List<ExportPage>, outFile: File): File {
+        val resolvedPages = pages.map { OoxmlUtil.ensureOcrLines(it) }
         ZipOutputStream(FileOutputStream(outFile)).use { zip ->
             zip.writeEntry("[Content_Types].xml", CONTENT_TYPES)
             zip.writeEntry("_rels/.rels", ROOT_RELS)
             zip.writeEntry("docProps/core.xml", coreXml(documentName))
-            zip.writeEntry("word/document.xml", documentXml(pages))
+            zip.writeEntry("word/document.xml", documentXml(resolvedPages))
             zip.writeEntry("word/_rels/document.xml.rels", DOCUMENT_RELS)
         }
         return outFile

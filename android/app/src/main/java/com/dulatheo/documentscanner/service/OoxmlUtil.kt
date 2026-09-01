@@ -1,5 +1,6 @@
 package com.dulatheo.documentscanner.service
 
+import android.graphics.BitmapFactory
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -11,6 +12,21 @@ import java.util.zip.ZipOutputStream
  * convenience shared across the three writers.
  */
 internal object OoxmlUtil {
+    private val ocrService by lazy { OcrService() }
+
+    /** Returns [page] with `ocrLines` filled in, running OCR live if it's
+     * empty first. Normal editing only runs OCR when the Text/Highlight
+     * tool is opened, so a page nobody happened to visit either tool on
+     * would otherwise export as empty content in DOCX/XLSX — unlike
+     * PDF/JPG, they have no page image to fall back on. */
+    suspend fun ensureOcrLines(page: ExportPage): ExportPage {
+        if (page.ocrLines.isNotEmpty()) return page
+        val bitmap = BitmapFactory.decodeFile(page.imagePath) ?: return page
+        val result = ocrService.recognize(bitmap)
+        bitmap.recycle()
+        return page.copy(ocrLines = result.lines)
+    }
+
     fun xmlEscape(s: String): String {
         val sb = StringBuilder(s.length)
         for (c in s) {

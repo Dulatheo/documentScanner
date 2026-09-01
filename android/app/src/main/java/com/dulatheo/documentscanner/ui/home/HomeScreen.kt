@@ -62,15 +62,18 @@ private val dateFormatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
 /** Surfaces the free-tier saved-document cap (DESIGN_SPEC §5 "limited
  * document storage") before the user hits it, rather than only ever
  * explaining itself via the paywall shown when Save is actually blocked.
- * Tappable (when not premium) as a standing shortcut into the paywall. */
-private fun documentCountLabel(count: Int, premiumManager: PremiumManager): String {
+ * Only the "Premium for unlimited" portion (see [HomeScreen]) is styled
+ * and tappable — this is the plain lead-in text before it, so it's empty
+ * once premium (nothing left to show) or when there's nothing to attach
+ * the link to yet (the empty-library case has no natural place for it). */
+private fun documentCountPrefix(count: Int, premiumManager: PremiumManager): String {
     if (premiumManager.isPremium()) {
         return if (count == 0) "Nothing saved yet" else "$count document${if (count == 1) "" else "s"}"
     }
     return if (count == 0) {
         "Nothing saved yet · ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents"
     } else {
-        "$count of ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents — Premium for unlimited"
+        "$count of ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents — "
     }
 }
 
@@ -108,17 +111,25 @@ fun HomeScreen(
                         color = tokens.ink,
                     )
                     val isPremiumNow = premiumManager.isPremium()
-                    Text(
-                        text = documentCountLabel(documents.size, premiumManager),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = if (isPremiumNow) FontWeight.Normal else FontWeight.Medium,
-                            textDecoration = if (isPremiumNow) TextDecoration.None else TextDecoration.Underline,
-                        ),
-                        color = if (isPremiumNow) tokens.ink3 else tokens.accent,
-                        modifier = Modifier
-                            .padding(top = 5.dp)
-                            .let { m -> if (isPremiumNow) m else m.clickable { showPaywall = true } },
-                    )
+                    val showPremiumLink = !isPremiumNow && documents.isNotEmpty()
+                    Row(modifier = Modifier.padding(top = 5.dp)) {
+                        Text(
+                            text = documentCountPrefix(documents.size, premiumManager),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = tokens.ink3,
+                        )
+                        if (showPremiumLink) {
+                            Text(
+                                text = "Premium for unlimited",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    textDecoration = TextDecoration.Underline,
+                                ),
+                                color = tokens.accent,
+                                modifier = Modifier.clickable { showPaywall = true },
+                            )
+                        }
+                    }
                 }
                 if (documents.isNotEmpty() || query.isNotEmpty()) {
                     Box(

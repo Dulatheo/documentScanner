@@ -14,17 +14,18 @@ import java.util.zip.ZipOutputStream
  * export is a separate, bigger feature.
  */
 object XlsxExportService {
-    fun buildXlsx(pages: List<ExportPage>, outFile: File): File {
+    suspend fun buildXlsx(pages: List<ExportPage>, outFile: File): File {
         val sheetCount = maxOf(pages.size, 1)
+        val resolvedPages = pages.map { OoxmlUtil.ensureOcrLines(it) }
         ZipOutputStream(FileOutputStream(outFile)).use { zip ->
             zip.writeEntry("[Content_Types].xml", contentTypesXml(sheetCount))
             zip.writeEntry("_rels/.rels", ROOT_RELS)
             zip.writeEntry("xl/workbook.xml", workbookXml(sheetCount))
             zip.writeEntry("xl/_rels/workbook.xml.rels", workbookRelsXml(sheetCount))
-            pages.forEachIndexed { index, page ->
+            resolvedPages.forEachIndexed { index, page ->
                 zip.writeEntry("xl/worksheets/sheet${index + 1}.xml", sheetXml(page))
             }
-            if (pages.isEmpty()) {
+            if (resolvedPages.isEmpty()) {
                 zip.writeEntry("xl/worksheets/sheet1.xml", sheetXml(ExportPage(imagePath = "")))
             }
         }
