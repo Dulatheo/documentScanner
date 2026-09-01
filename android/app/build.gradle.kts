@@ -1,20 +1,7 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
-}
-
-// CloudConvert API key (DESIGN_SPEC §5/§9 "Office format export" — test
-// integration), read from local.properties so it's never committed. Add a
-// line `CLOUDCONVERT_API_KEY=your-key-here` to android/local.properties
-// (gitignored already, alongside the SDK path Android Studio puts there).
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) {
-        file.inputStream().use { load(it) }
-    }
 }
 
 android {
@@ -34,12 +21,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        buildConfigField(
-            "String",
-            "CLOUDCONVERT_API_KEY",
-            "\"${localProperties.getProperty("CLOUDCONVERT_API_KEY", "")}\""
-        )
     }
 
     buildTypes {
@@ -63,7 +44,6 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 
     composeOptions {

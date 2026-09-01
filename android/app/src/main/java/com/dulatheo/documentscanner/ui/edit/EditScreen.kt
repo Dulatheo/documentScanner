@@ -128,9 +128,6 @@ fun EditScreen(
     var ewsOfficePaywall by remember { mutableStateOf(false) }
     var ewsPendingOfficeFormat by remember { mutableStateOf<ExportFormat?>(null) }
     var isExporting by remember { mutableStateOf(false) }
-    // The Office formats go through CloudConvert (network, several
-    // seconds), so unlike PDF/JPG this needs a visible "this is working"
-    // cue rather than the sheet just closing for a moment.
     var exportingMessage by remember { mutableStateOf("") }
     // Confirms deleting the current page (DESIGN_SPEC §4.3 "delete a
     // scanned page") — e.g. after scanning the same page a few times and
@@ -201,33 +198,20 @@ fun EditScreen(
         exportingMessage = when (format) {
             ExportFormat.PDF -> "Preparing your PDF…"
             ExportFormat.JPG -> "Preparing your images…"
-            ExportFormat.DOCX -> "Converting to Word…"
-            ExportFormat.XLSX -> "Converting to Excel…"
-            ExportFormat.PPTX -> "Converting to PowerPoint…"
+            ExportFormat.DOCX -> "Preparing your Word document…"
+            ExportFormat.XLSX -> "Preparing your Excel spreadsheet…"
+            ExportFormat.PPTX -> "Preparing your PowerPoint slides…"
         }
         scope.launch {
             commitCropSuspend()
             val exportPages = scanSession.pages.map { p ->
                 ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature)
             }
-            // DOCX/XLSX/PPTX are currently routed through CloudConvert
-            // (network), so unlike PDF/JPG this can genuinely fail (missing
-            // API key, offline, CloudConvert error) — caught and toasted,
-            // leaving the export sheet open so the user can retry or pick
-            // a different format, rather than losing their scan.
-            try {
-                val files = exportManager.export("Scan", exportPages, format, password)
-                exportManager.shareAndFinish(files, format)
-                showExportWithoutSavingSheet = false
-                scanSession.clear()
-                onCancel()
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                toast.show(e.message ?: "Export failed")
-            } finally {
-                isExporting = false
-            }
+            val files = exportManager.export("Scan", exportPages, format, password)
+            exportManager.shareAndFinish(files, format)
+            showExportWithoutSavingSheet = false
+            scanSession.clear()
+            onCancel()
         }
     }
 

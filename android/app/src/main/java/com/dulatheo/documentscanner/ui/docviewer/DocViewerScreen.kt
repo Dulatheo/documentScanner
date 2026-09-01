@@ -87,9 +87,6 @@ fun DocViewerScreen(
     var showOfficePaywall by remember { mutableStateOf(false) }
     var pendingOfficeFormat by remember { mutableStateOf<ExportFormat?>(null) }
     var isExporting by remember { mutableStateOf(false) }
-    // The Office formats go through CloudConvert (network, several
-    // seconds), so unlike PDF/JPG this needs a visible "this is working"
-    // cue rather than the sheet just closing for a moment.
     var exportingMessage by remember { mutableStateOf("") }
 
     val exportManager = remember { ExportManager(context, viewModel.imageStorage) }
@@ -116,17 +113,14 @@ fun DocViewerScreen(
 
     /** DOCX/XLSX/PPTX (DESIGN_SPEC §5/§9 "Office format export") — all
      * Premium, gated the same way as the Sign tool: paywall on tap when
-     * not premium, direct export once premium. Currently routed through
-     * CloudConvert (network), so unlike every other export path here this
-     * can genuinely fail (missing API key, offline, CloudConvert error) —
-     * caught and toasted rather than left to crash the coroutine. */
+     * not premium, direct export once premium. */
     fun exportOfficeFormat(format: ExportFormat) {
         showExport = false
         isExporting = true
         exportingMessage = when (format) {
-            ExportFormat.DOCX -> "Converting to Word…"
-            ExportFormat.XLSX -> "Converting to Excel…"
-            ExportFormat.PPTX -> "Converting to PowerPoint…"
+            ExportFormat.DOCX -> "Preparing your Word document…"
+            ExportFormat.XLSX -> "Preparing your Excel spreadsheet…"
+            ExportFormat.PPTX -> "Preparing your PowerPoint slides…"
             else -> "Preparing your file…"
         }
         scope.launch {
@@ -138,17 +132,10 @@ fun DocViewerScreen(
                     signature = JsonCodec.decodeSignature(page.signatureJson),
                 )
             }
-            try {
-                val files = exportManager.export(current.document.name, pages, format)
-                exportManager.shareAndFinish(files, format)
-                if (justSaved) onBack()
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                toast.show(e.message ?: "Export failed")
-            } finally {
-                isExporting = false
-            }
+            val files = exportManager.export(current.document.name, pages, format)
+            exportManager.shareAndFinish(files, format)
+            isExporting = false
+            if (justSaved) onBack()
         }
     }
 

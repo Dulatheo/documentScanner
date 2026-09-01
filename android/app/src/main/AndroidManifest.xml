@@ -6,11 +6,6 @@
          hardware feature + permission so the Play Store filters correctly
          and so a manual gallery-import fallback can request it if needed. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Used only by the CloudConvert test integration (DESIGN_SPEC §5/§9
-         "Office format export") to upload the exported PDF and download
-         the converted DOCX/XLSX/PPTX — the rest of the app is fully
-         offline. -->
-    <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />

@@ -42,33 +42,11 @@ class ExportManager(private val context: Context, private val imageStorage: Imag
                     listOf(file)
                 }
                 ExportFormat.JPG -> exportJpgs(documentName, pages)
-                // Routed through CloudConvert (test integration, DESIGN_SPEC
-                // §5/§9) rather than the hand-rolled OOXML writers below —
-                // those looked noticeably off from the real scan. The
-                // hand-rolled path is kept, just unused: swap the three
-                // lines below back to
-                //   DocxExportService.buildDocx(documentName, pages, imageStorage.newExportFile(documentName, "docx"))
-                //   XlsxExportService.buildXlsx(pages, imageStorage.newExportFile(documentName, "xlsx"))
-                //   PptxExportService.buildPptx(pages, imageStorage.newExportFile(documentName, "pptx"))
-                // to revert.
-                ExportFormat.DOCX -> listOf(convertViaCloudConvert(documentName, pages, "docx"))
-                ExportFormat.XLSX -> listOf(convertViaCloudConvert(documentName, pages, "xlsx"))
-                ExportFormat.PPTX -> listOf(convertViaCloudConvert(documentName, pages, "pptx"))
+                ExportFormat.DOCX -> listOf(DocxExportService.buildDocx(documentName, pages, imageStorage.newExportFile(documentName, "docx")))
+                ExportFormat.XLSX -> listOf(XlsxExportService.buildXlsx(pages, imageStorage.newExportFile(documentName, "xlsx")))
+                ExportFormat.PPTX -> listOf(PptxExportService.buildPptx(pages, imageStorage.newExportFile(documentName, "pptx")))
             }
         }
-
-    /** Generates the same PDF plain PDF export would (invisible OCR text
-     * layer and all) and hands it to CloudConvert to convert to
-     * [outputFormat] ("docx"/"xlsx"/"pptx") — see [CloudConvertService]. */
-    private suspend fun convertViaCloudConvert(
-        documentName: String,
-        pages: List<ExportPage>,
-        outputFormat: String,
-    ): File {
-        val pdfFile = exportPdf(documentName, pages)
-        val outFile = imageStorage.newExportFile(documentName, outputFormat)
-        return CloudConvertService.convert(pdfFile, outputFormat, outFile)
-    }
 
     fun shareAndFinish(files: List<File>, format: ExportFormat) {
         val mime = when (format) {
