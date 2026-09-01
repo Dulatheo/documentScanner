@@ -14,14 +14,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -121,6 +127,15 @@ fun EditScreen(
     var ewsPasswordSuggestion by remember { mutableStateOf(false) }
     var ewsOfficePaywall by remember { mutableStateOf(false) }
     var ewsPendingOfficeFormat by remember { mutableStateOf<ExportFormat?>(null) }
+    var isExporting by remember { mutableStateOf(false) }
+    // The Office formats go through CloudConvert (network, several
+    // seconds), so unlike PDF/JPG this needs a visible "this is working"
+    // cue rather than the sheet just closing for a moment.
+    var exportingMessage by remember { mutableStateOf("") }
+    // Confirms deleting the current page (DESIGN_SPEC §4.3 "delete a
+    // scanned page") — e.g. after scanning the same page a few times and
+    // finding one capture came out badly during review.
+    var showDeletePageConfirm by remember { mutableStateOf(false) }
 
     val currentPage = pages[scanSession.currentIndex]
 
@@ -168,12 +183,28 @@ fun EditScreen(
         onSaved(id)
     }
 
+    /** Removes the currently-viewed page (DESIGN_SPEC §4.3 "delete a
+     * scanned page"). Deleting the last remaining page is handled by the
+     * `pages.isEmpty()` guard at the top of this composable, which calls
+     * `onCancel()` on the next recomposition — nothing extra needed here. */
+    fun deleteCurrentPage() {
+        scanSession.deletePage(scanSession.currentIndex)
+    }
+
     /** "Export" on the save-limit dialog (DESIGN_SPEC §5 "limited document
      * storage") — builds the given format from the current pages and shares
      * it directly, without ever adding the document to the library. Ends
      * the edit session afterward regardless of format, matching the "give
      * up on saving" intent of picking Export over upgrading. */
     fun exportWithoutSavingFormat(format: ExportFormat, password: String? = null) {
+        isExporting = true
+        exportingMessage = when (format) {
+            ExportFormat.PDF -> "Preparing your PDF…"
+            ExportFormat.JPG -> "Preparing your images…"
+            ExportFormat.DOCX -> "Converting to Word…"
+            ExportFormat.XLSX -> "Converting to Excel…"
+            ExportFormat.PPTX -> "Converting to PowerPoint…"
+        }
         scope.launch {
             commitCropSuspend()
             val exportPages = scanSession.pages.map { p ->
@@ -194,6 +225,8 @@ fun EditScreen(
                 throw e
             } catch (e: Exception) {
                 toast.show(e.message ?: "Export failed")
+            } finally {
+                isExporting = false
             }
         }
     }
@@ -272,11 +305,21 @@ fun EditScreen(
                         onCancel()
                     },
                 )
-                Text(
-                    "Page ${scanSession.currentIndex + 1} of ${pages.size}",
-                    color = tokens.ink,
-                    style = MaterialTheme.typography.titleSmall,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Page ${scanSession.currentIndex + 1} of ${pages.size}",
+                        color = tokens.ink,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = "Delete this page",
+                        tint = tokens.ink2,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable { showDeletePageConfirm = true },
+                    )
+                }
                 Text(
                     "Save",
                     color = tokens.accent,
@@ -464,6 +507,29 @@ fun EditScreen(
                     PaywallOutcome.DISMISSED -> {}
                 }
             }
+        }
+
+        if (showDeletePageConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeletePageConfirm = false },
+                title = { Text("Delete this page?") },
+                text = {
+                    Text(
+                        "This can't be undone.",
+                        color = tokens.ink2,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeletePageConfirm = false
+                        deleteCurrentPage()
+                    }) { Text("Delete") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeletePageConfirm = false }) { Text("Cancel") }
+                },
+            )
         }
 
         if (showSaveLimitDialog) {
@@ -775,6 +841,27 @@ fun EditScreen(
                     ) {
                         Text("Done", color = Color.White, style = MaterialTheme.typography.labelLarge)
                     }
+                }
+            }
+        }
+
+        if (isExporting) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(tokens.surface)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator(color = tokens.accent)
+                    Spacer(Modifier.height(12.dp))
+                    Text(exportingMessage, color = tokens.ink2, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

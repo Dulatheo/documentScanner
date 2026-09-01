@@ -54,6 +54,24 @@ class ScanSessionViewModel(private val repository: DocumentRepository) : ViewMod
         pages = pages.toMutableList().also { it[idx] = updater(it[idx]) }
     }
 
+    /** Removes the page at [index] (DESIGN_SPEC §4.3 "delete a scanned
+     * page") — used when reviewing a multi-page capture and one page
+     * didn't come out well. Also deletes its on-disk image file(s), since
+     * capture/crop already write these to disk immediately (unlike the
+     * final save). Clamps [currentIndex] to stay valid, favoring the new
+     * last page over resetting to 0 so deleting a page near the end
+     * doesn't jump back to the start. */
+    fun deletePage(index: Int) {
+        if (index !in pages.indices) return
+        val removed = pages[index]
+        pages = pages.toMutableList().also { it.removeAt(index) }
+        imageStorage.delete(removed.imagePath)
+        removed.originalImagePath?.let { imageStorage.delete(it) }
+        if (pages.isNotEmpty()) {
+            currentIndex = currentIndex.coerceAtMost(pages.size - 1)
+        }
+    }
+
     suspend fun save(name: String? = null): String {
         val id = repository.createDocument(name = name, pages = pages)
         savedDocumentId = id

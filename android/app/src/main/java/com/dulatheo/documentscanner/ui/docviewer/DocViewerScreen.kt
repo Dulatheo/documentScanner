@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -83,11 +86,18 @@ fun DocViewerScreen(
     var showPasswordSuggestion by remember { mutableStateOf(false) }
     var showOfficePaywall by remember { mutableStateOf(false) }
     var pendingOfficeFormat by remember { mutableStateOf<ExportFormat?>(null) }
+    var isExporting by remember { mutableStateOf(false) }
+    // The Office formats go through CloudConvert (network, several
+    // seconds), so unlike PDF/JPG this needs a visible "this is working"
+    // cue rather than the sheet just closing for a moment.
+    var exportingMessage by remember { mutableStateOf("") }
 
     val exportManager = remember { ExportManager(context, viewModel.imageStorage) }
 
     fun exportPdf(password: String?) {
         showExport = false
+        isExporting = true
+        exportingMessage = "Preparing your PDF…"
         scope.launch {
             val current = doc ?: return@launch
             val pages = current.orderedPages.map { page ->
@@ -99,6 +109,7 @@ fun DocViewerScreen(
             }
             val files = exportManager.export(current.document.name, pages, ExportFormat.PDF, password)
             exportManager.shareAndFinish(files, ExportFormat.PDF)
+            isExporting = false
             if (justSaved) onBack()
         }
     }
@@ -111,6 +122,13 @@ fun DocViewerScreen(
      * caught and toasted rather than left to crash the coroutine. */
     fun exportOfficeFormat(format: ExportFormat) {
         showExport = false
+        isExporting = true
+        exportingMessage = when (format) {
+            ExportFormat.DOCX -> "Converting to Word…"
+            ExportFormat.XLSX -> "Converting to Excel…"
+            ExportFormat.PPTX -> "Converting to PowerPoint…"
+            else -> "Preparing your file…"
+        }
         scope.launch {
             val current = doc ?: return@launch
             val pages = current.orderedPages.map { page ->
@@ -128,6 +146,8 @@ fun DocViewerScreen(
                 throw e
             } catch (e: Exception) {
                 toast.show(e.message ?: "Export failed")
+            } finally {
+                isExporting = false
             }
         }
     }
@@ -270,6 +290,8 @@ fun DocViewerScreen(
                             }
                             ExportFormat.JPG -> {
                                 showExport = false
+                                isExporting = true
+                                exportingMessage = "Preparing your images…"
                                 scope.launch {
                                     val pages = document.orderedPages.map { page ->
                                         ExportPage(
@@ -280,6 +302,7 @@ fun DocViewerScreen(
                                     }
                                     val files = exportManager.export(document.document.name, pages, format)
                                     exportManager.shareAndFinish(files, format)
+                                    isExporting = false
                                     if (justSaved) onBack()
                                 }
                             }
@@ -428,6 +451,27 @@ fun DocViewerScreen(
                     PaywallOutcome.DISMISSED -> {}
                 }
                 pendingOfficeFormat = null
+            }
+        }
+
+        if (isExporting) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(tokens.surface)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator(color = tokens.accent)
+                    Spacer(Modifier.height(12.dp))
+                    Text(exportingMessage, color = tokens.ink2, style = MaterialTheme.typography.labelMedium)
+                }
             }
         }
     }
