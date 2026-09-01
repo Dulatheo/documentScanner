@@ -147,10 +147,12 @@ struct RootView: View {
             // left as the default free-form sheet) — this sheet's content
             // is a short, fixed set of rows, so it should present at
             // exactly that height and never be draggable to a different
-            // size. 380 comfortably fits the title/subtitle, both export
-            // rows, and the dismiss button, including the home-indicator
-            // safe area sheets add automatically.
-            .presentationDetents([.height(380)])
+            // size. 560 comfortably fits the title/subtitle, all five
+            // export rows (PDF/JPG/DOCX/XLSX/PPTX), and the dismiss button,
+            // including the home-indicator safe area sheets add
+            // automatically — the rows themselves also scroll as a safety
+            // net on shorter screens.
+            .presentationDetents([.height(560)])
             .presentationDragIndicator(.visible)
         }
     }

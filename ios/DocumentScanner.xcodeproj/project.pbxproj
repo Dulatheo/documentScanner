@@ -25,6 +25,10 @@
 		9B9351D34B45909E2E920CD2 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF712FBED015D525ADC5D33B /* ShareSheet.swift */; };
 		202665C5D18CD7F9A4B2D851 /* ToastCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 772201243C78927BD861C87B /* ToastCenter.swift */; };
 		FD69E3299E9B91BE9F950A36 /* PremiumManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24FE87AAC7F81F85E83950B3 /* PremiumManager.swift */; };
+		A7D19B087B5A4CCAADF64B93 /* OOXMLZipWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A781B353B9E42ACAC54E851 /* OOXMLZipWriter.swift */; };
+		D81F7BC0817343AE978BAF6A /* DocxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */; };
+		C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784922103DF14295BDD50EE0 /* XlsxExportService.swift */; };
+		712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */; };
 		AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1893D3B8FB16C2E11551BA /* PaywallView.swift */; };
 		39232E9234B8898F3497A791 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C0007B619BD4BA6B0345B5 /* Theme.swift */; };
 		7A7C92B76E4B52D4B59B9163 /* DocumentCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C290DA773A8911E0BF1BA0 /* DocumentCameraView.swift */; };
@@ -66,6 +70,10 @@
 		DF712FBED015D525ADC5D33B /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		772201243C78927BD861C87B /* ToastCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastCenter.swift; sourceTree = "<group>"; };
 		24FE87AAC7F81F85E83950B3 /* PremiumManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumManager.swift; sourceTree = "<group>"; };
+		7A781B353B9E42ACAC54E851 /* OOXMLZipWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OOXMLZipWriter.swift; sourceTree = "<group>"; };
+		DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocxExportService.swift; sourceTree = "<group>"; };
+		784922103DF14295BDD50EE0 /* XlsxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxExportService.swift; sourceTree = "<group>"; };
+		4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PptxExportService.swift; sourceTree = "<group>"; };
 		AD1893D3B8FB16C2E11551BA /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		12C0007B619BD4BA6B0345B5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D1C290DA773A8911E0BF1BA0 /* DocumentCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCameraView.swift; sourceTree = "<group>"; };
@@ -132,6 +140,10 @@
 				DF712FBED015D525ADC5D33B /* ShareSheet.swift */,
 				772201243C78927BD861C87B /* ToastCenter.swift */,
 				24FE87AAC7F81F85E83950B3 /* PremiumManager.swift */,
+				7A781B353B9E42ACAC54E851 /* OOXMLZipWriter.swift */,
+				DFFF7223F6864AD48EC03A1C /* DocxExportService.swift */,
+				784922103DF14295BDD50EE0 /* XlsxExportService.swift */,
+				4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -284,6 +296,10 @@
 				9B9351D34B45909E2E920CD2 /* ShareSheet.swift in Sources */,
 				202665C5D18CD7F9A4B2D851 /* ToastCenter.swift in Sources */,
 				FD69E3299E9B91BE9F950A36 /* PremiumManager.swift in Sources */,
+				A7D19B087B5A4CCAADF64B93 /* OOXMLZipWriter.swift in Sources */,
+				D81F7BC0817343AE978BAF6A /* DocxExportService.swift in Sources */,
+				C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */,
+				712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */,
 				AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */,
 				39232E9234B8898F3497A791 /* Theme.swift in Sources */,
 				7A7C92B76E4B52D4B59B9163 /* DocumentCameraView.swift in Sources */,

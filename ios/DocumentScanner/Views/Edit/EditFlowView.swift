@@ -166,7 +166,7 @@ struct EditFlowView: View {
                 saveLimitExportTarget = nil
                 onCancel()
             }
-            .presentationDetents([.height(380)])
+            .presentationDetents([.height(560)])
             .presentationDragIndicator(.visible)
         }
         .alert("Document limit reached", isPresented: $showSaveLimitAlert) {

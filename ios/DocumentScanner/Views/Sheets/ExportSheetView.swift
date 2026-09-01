@@ -6,11 +6,11 @@ private struct ShareItem: Identifiable {
 }
 
 /// Export sheet (DESIGN_SPEC §4.5): choose PDF (multi-page, searchable
-/// text layer when OCR has run) or JPG (one file per page), then hand off
-/// to the native share surface (§4.6). PDF can optionally be
-/// password-protected (Premium — DESIGN_SPEC §5/§9) via the row's trailing
-/// lock button; tapping the rest of the row still exports unprotected, same
-/// as before this feature existed.
+/// text layer when OCR has run), JPG (one file per page), or one of three
+/// Premium Office formats — DOCX/XLSX/PPTX (§5/§9) — then hand off to the
+/// native share surface (§4.6). PDF can optionally be password-protected
+/// (also Premium) via the row's trailing lock button; tapping the rest of
+/// the row still exports unprotected, same as before that feature existed.
 struct ExportSheetView: View {
     let document: DocumentModel
     let pendingSave: Bool
@@ -24,6 +24,12 @@ struct ExportSheetView: View {
     @State private var passwordInput = ""
     @State private var showPaywall = false
     @State private var showPasswordSuggestion = false
+    @State private var showOfficePaywall = false
+    /// The Office-format export deferred while `showOfficePaywall` is up —
+    /// run once the user actually gets premium, so completing a trial or
+    /// subscription proceeds straight into the export they originally
+    /// tapped, rather than requiring a second tap.
+    @State private var pendingOfficeExport: (() -> Void)?
 
     private var subtitle: String {
         pendingSave ? "Saved to Documents \u{00b7} choose a format to share" : "Choose a format to share"
@@ -44,10 +50,21 @@ struct ExportSheetView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 6)
 
-            VStack(spacing: 10) {
-                pdfOption
-                exportOption(badge: "JPG", title: "JPG images", subtitle: "One image per page") {
-                    exportJPGs()
+            ScrollView {
+                VStack(spacing: 10) {
+                    pdfOption
+                    exportOption(badge: "JPG", title: "JPG images", subtitle: "One image per page") {
+                        exportJPGs()
+                    }
+                    officeExportOption(badge: "DOC", title: "Word document", subtitle: "Recognized text, all pages") {
+                        exportDocx()
+                    }
+                    officeExportOption(badge: "XLS", title: "Excel spreadsheet", subtitle: "One row per line of text") {
+                        exportXlsx()
+                    }
+                    officeExportOption(badge: "PPT", title: "PowerPoint slides", subtitle: "One slide per page") {
+                        exportPptx()
+                    }
                 }
             }
 
@@ -91,6 +108,23 @@ struct ExportSheetView: View {
             Button("Export Without Password", role: .cancel) { exportPDF(password: nil) }
         } message: {
             Text("Add a password so only people who have it can open this file. Available with Premium.")
+        }
+        .sheet(isPresented: $showOfficePaywall) {
+            PaywallView(
+                premiumManager: premiumManager,
+                reason: "Office format export is a Premium feature"
+            ) { outcome in
+                showOfficePaywall = false
+                switch outcome {
+                case .trialStarted, .subscribed:
+                    pendingOfficeExport?()
+                case .restored:
+                    if premiumManager.isPremium { pendingOfficeExport?() }
+                case .notRestored, .dismissed:
+                    break
+                }
+                pendingOfficeExport = nil
+            }
         }
     }
 
@@ -186,6 +220,54 @@ struct ExportSheetView: View {
         .disabled(isExporting)
     }
 
+    /// Like `exportOption`, but gated behind Premium with a **PRO** badge
+    /// on the icon — used for the Office-format rows. Tapping it while not
+    /// premium defers `action` and shows the paywall instead of running it.
+    private func officeExportOption(badge: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button {
+            if premiumManager.isPremium {
+                action()
+            } else {
+                pendingOfficeExport = action
+                showOfficePaywall = true
+            }
+        } label: {
+            HStack(spacing: 13) {
+                Text(badge)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(theme.accent)
+                    .frame(width: 34, height: 34)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(theme.accentSoft))
+                    .overlay(alignment: .topTrailing) {
+                        if !premiumManager.isPremium {
+                            Text("PRO")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1.5)
+                                .background(Capsule().fill(theme.accent))
+                                .offset(x: 8, y: -6)
+                        }
+                    }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(theme.ink)
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundColor(theme.ink3)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 15)
+            .background(RoundedRectangle(cornerRadius: 14).fill(theme.bg))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(theme.line, lineWidth: 1))
+        }
+        .disabled(isExporting)
+    }
+
     private func exportPDF(password: String?) {
         isExporting = true
         let trimmed = password?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -207,6 +289,39 @@ struct ExportSheetView: View {
             await MainActor.run {
                 isExporting = false
                 activeShare = ShareItem(urls: urls)
+            }
+        }
+    }
+
+    private func exportDocx() {
+        isExporting = true
+        Task {
+            let url = DocxExportService.makeDocx(for: document)
+            await MainActor.run {
+                isExporting = false
+                activeShare = ShareItem(urls: [url])
+            }
+        }
+    }
+
+    private func exportXlsx() {
+        isExporting = true
+        Task {
+            let url = XlsxExportService.makeXlsx(for: document)
+            await MainActor.run {
+                isExporting = false
+                activeShare = ShareItem(urls: [url])
+            }
+        }
+    }
+
+    private func exportPptx() {
+        isExporting = true
+        Task {
+            let url = PptxExportService.makePptx(for: document)
+            await MainActor.run {
+                isExporting = false
+                activeShare = ShareItem(urls: [url])
             }
         }
     }
