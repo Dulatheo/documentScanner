@@ -415,6 +415,30 @@ live rather than cached.
   Office-export feasibility note in §9) — DOCX/XLSX/PPTX are all just ZIP
   archives of XML parts:
   - **DOCX**: one paragraph per OCR'd line, a page break between pages.
+    Alignment, relative font size, and paragraph spacing are approximated
+    purely from each line's OCR bounding box (`DocxLineLayout.analyze`,
+    same logic hand-ported on both platforms):
+    - **Alignment**: a line's left/right edges are compared against the
+      page's overall left margin and right edge (from all its lines) to
+      classify it left/center/right — e.g. a line whose midpoint sits near
+      the page's horizontal center and that's meaningfully narrower than
+      the page's content width reads as centered.
+    - **Relative size**: a line's box height relative to the page's
+      *median* line height scales an 11pt body-text baseline up or down
+      (clamped 8–36pt) — a line much taller than typical body text (≥1.4×
+      the median) is also marked bold, as a stand-in for real emphasis.
+    - **Paragraph spacing**: an extra blank paragraph is inserted before
+      any line whose vertical gap from the previous one is notably larger
+      (>1.6×) than the page's typical line-to-line gap, approximating a
+      paragraph break rather than a mere line wrap.
+    - **What this can't do**: neither Vision (iOS) nor ML Kit (Android)
+      report actual font weight, italics, or underline — only recognized
+      text and a bounding box. Real bold/underline detection would need
+      pixel-level image analysis (stroke thickness, underline strokes
+      beneath the baseline), which is separate, riskier computer-vision
+      work — closer to the `Advanced OCR` candidate below than a
+      refinement of this export format. The "bold" above is therefore a
+      size-based approximation, not a real style detection.
   - **XLSX**: one worksheet per page, one row per OCR'd line, all in
     column A (using inline strings, so no shared-strings table is needed).
     This is honestly "the recognized text, one line per row," not a real
