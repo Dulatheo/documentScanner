@@ -19,6 +19,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
@@ -29,6 +31,7 @@ import com.dulatheo.documentscanner.data.model.Signature
 import com.dulatheo.documentscanner.ui.edit.CropOverlay
 import com.dulatheo.documentscanner.ui.edit.SignaturePlacement
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
+import com.dulatheo.documentscanner.util.brightnessContrastMatrixValues
 import kotlin.math.roundToInt
 
 /**
@@ -46,6 +49,10 @@ fun PageCard(
     ocrLines: List<OcrLine> = emptyList(),
     onLineTap: ((Int) -> Unit)? = null,
     signature: Signature? = null,
+    /** Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool") — applied
+     * live via a `ColorFilter`, never baked into the file at [imagePath]. */
+    brightness: Float = 0f,
+    contrast: Float = 1f,
     cropCorners: List<Offset>? = null,
     onCropCornersChange: ((List<Offset>) -> Unit)? = null,
     placementRect: Rect? = null,
@@ -80,6 +87,9 @@ fun PageCard(
                 model = imagePath,
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth(),
+                colorFilter = if (brightness != 0f || contrast != 1f) {
+                    ColorFilter.colorMatrix(ColorMatrix(brightnessContrastMatrixValues(brightness, contrast, zeroToOneDomain = true)))
+                } else null,
             )
 
             if (ocrLines.any { it.highlighted } && displaySize.width > 0) {

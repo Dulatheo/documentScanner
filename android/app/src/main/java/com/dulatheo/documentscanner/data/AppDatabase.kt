@@ -13,7 +13,7 @@ import com.dulatheo.documentscanner.data.model.PageEntity
 
 @Database(
     entities = [DocumentEntity::class, PageEntity::class, CommentEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,7 +31,14 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "documentscanner.db",
-                ).build().also { instance = it }
+                )
+                    // No shipped release depends on this schema surviving
+                    // an upgrade yet (pre-release, exportSchema = false) —
+                    // a real migration path can replace this once that's
+                    // no longer true. Added for PageEntity.brightness/
+                    // contrast (DESIGN_SPEC §4.3 "Adjust tool").
+                    .fallbackToDestructiveMigration()
+                    .build().also { instance = it }
             }
     }
 }

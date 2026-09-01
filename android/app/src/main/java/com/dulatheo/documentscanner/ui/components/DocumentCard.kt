@@ -1,8 +1,9 @@
 package com.dulatheo.documentscanner.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import com.dulatheo.documentscanner.ui.theme.LocalAppColors
  * (real first-page thumbnail once available, else simulated text-line bars),
  * a page-count badge, the document name, and the date.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DocumentCard(
     name: String,
@@ -37,9 +39,14 @@ fun DocumentCard(
     thumbnailPath: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Long-press to delete (DESIGN_SPEC §4.1 "delete a saved document") —
+     * the same gesture Android's own launcher/home-screen grids use for a
+     * "manage this item" affordance, so it doesn't need its own visible
+     * button crowding the card. */
+    onLongClick: (() -> Unit)? = null,
 ) {
     val tokens = LocalAppColors.current
-    Column(modifier = modifier.clickable(onClick = onClick)) {
+    Column(modifier = modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()

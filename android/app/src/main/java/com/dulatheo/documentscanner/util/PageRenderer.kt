@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import com.dulatheo.documentscanner.data.model.OcrLine
 import com.dulatheo.documentscanner.data.model.Signature
@@ -17,11 +19,33 @@ import com.dulatheo.documentscanner.data.model.Signature
  */
 object PageRenderer {
 
-    fun flatten(imagePath: String, ocrLines: List<OcrLine>, signature: Signature?): Bitmap {
+    fun flatten(
+        imagePath: String,
+        ocrLines: List<OcrLine>,
+        signature: Signature?,
+        brightness: Float = 0f,
+        contrast: Float = 1f,
+    ): Bitmap {
         val base = BitmapFactory.decodeFile(imagePath)
             ?: return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
-        val out = base.copy(Bitmap.Config.ARGB_8888, true)
+        val out = Bitmap.createBitmap(base.width, base.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
+
+        // Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool") — the
+        // only element here actually baked into pixels, since (unlike
+        // highlights/signature) there's no overlay shape to redraw at
+        // export size; drawing `base` onto the blank `out` through a
+        // ColorMatrix-filtered Paint achieves the same live-vs-export
+        // consistency PageCard's ColorFilter gives on screen. (Drawing
+        // `out` onto its own canvas here instead of `base` would read and
+        // write the same pixels in one pass — undefined, possibly
+        // corrupted output.)
+        val basePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            if (brightness != 0f || contrast != 1f) {
+                colorFilter = ColorMatrixColorFilter(ColorMatrix(brightnessContrastMatrixValues(brightness, contrast, zeroToOneDomain = false)))
+            }
+        }
+        canvas.drawBitmap(base, 0f, 0f, basePaint)
 
         if (ocrLines.any { it.highlighted }) {
             val highlightPaint = Paint().apply {

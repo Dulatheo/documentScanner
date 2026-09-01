@@ -37,4 +37,11 @@ data class PageEntity(
     val ocrLinesJson: String = "[]",
     /** Placed signature, JSON-encoded, null if none. */
     val signatureJson: String? = null,
+    /** Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool"), applied
+     * live at render/export time via a ColorMatrix — never baked into
+     * [imagePath]'s pixels, same as highlights/signature. `brightness` is
+     * additive in the 0..255 pixel domain (0 = no change); `contrast` is a
+     * multiplier (1 = no change). */
+    val brightness: Float = 0f,
+    val contrast: Float = 1f,
 )

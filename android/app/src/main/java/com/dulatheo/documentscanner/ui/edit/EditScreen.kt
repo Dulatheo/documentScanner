@@ -30,10 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetState
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +70,8 @@ import com.dulatheo.documentscanner.ui.sheets.OcrSheetContent
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 import com.dulatheo.documentscanner.util.PerspectiveCrop
 import kotlinx.coroutines.launch
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 /**
  * Per-page editor (DESIGN_SPEC.md §4.3): Crop / Highlight / Text / Sign tools
@@ -117,6 +118,10 @@ fun EditScreen(
     var placementRotation by remember { mutableStateOf(0f) }
 
     var showPaywall by remember { mutableStateOf(false) }
+    // Which premium-gated tool (SIGN or TEXT) triggered showPaywall, so a
+    // successful trial/subscription can resume the tool the user actually
+    // tapped instead of always reopening Sign.
+    var pendingPremiumTool by remember { mutableStateOf<EditTool?>(null) }
     var isPremium by remember { mutableStateOf(editViewModel.premiumManager.isPremium()) }
     var showSaveLimitDialog by remember { mutableStateOf(false) }
     var showSaveLimitPaywall by remember { mutableStateOf(false) }
@@ -205,7 +210,7 @@ fun EditScreen(
         scope.launch {
             commitCropSuspend()
             val exportPages = scanSession.pages.map { p ->
-                ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature)
+                ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature, brightness = p.brightness, contrast = p.contrast)
             }
             val files = exportManager.export("Scan", exportPages, format, password)
             exportManager.shareAndFinish(files, format)
@@ -219,14 +224,18 @@ fun EditScreen(
         if (activeTool == EditTool.CROP && tool != EditTool.CROP) {
             commitCropIfNeeded()
         }
-        // Sign is premium-only (DESIGN_SPEC §4.3/§7) — gate before touching
-        // activeTool/opening the drawing pad, and re-check on every tap
-        // (rather than trusting a possibly-stale `isPremium`) since a trial
-        // started elsewhere in the app could have expired since this
-        // screen last refreshed it.
-        if (tool == EditTool.SIGN) {
+        // Sign and Text recognition are premium-only (DESIGN_SPEC §4.3/§7)
+        // — gate before touching activeTool/opening the drawing pad or the
+        // recognized-text page, and re-check on every tap (rather than
+        // trusting a possibly-stale `isPremium`) since a trial started
+        // elsewhere in the app could have expired since this screen last
+        // refreshed it. Highlight is unaffected even though it also runs
+        // OCR internally — only the Text tool's own recognized-text page
+        // is the gated feature.
+        if (tool == EditTool.SIGN || tool == EditTool.TEXT) {
             isPremium = editViewModel.premiumManager.isPremium()
             if (!isPremium) {
+                pendingPremiumTool = tool
                 showPaywall = true
                 return
             }
@@ -352,6 +361,8 @@ fun EditScreen(
                             }
                         } else null,
                         signature = if (pageIndex == scanSession.currentIndex && signMode != SignMode.PLACING) page.signature else null,
+                        brightness = page.brightness,
+                        contrast = page.contrast,
                         cropCorners = if (isCurrentPageCropping) cropCorners else null,
                         onCropCornersChange = if (isCurrentPageCropping) {
                             { cropCorners = it }
@@ -393,6 +404,14 @@ fun EditScreen(
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
+                if (activeTool == EditTool.ADJUST) {
+                    AdjustSliders(
+                        brightness = currentPage.brightness,
+                        contrast = currentPage.contrast,
+                        onBrightnessChange = { v -> scanSession.replaceCurrentPage { it.copy(brightness = v) } },
+                        onContrastChange = { v -> scanSession.replaceCurrentPage { it.copy(contrast = v) } },
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
@@ -401,7 +420,7 @@ fun EditScreen(
                         ToolButton(
                             tool = tool,
                             selected = activeTool == tool,
-                            showsProBadge = tool == EditTool.SIGN && !isPremium,
+                            showsProBadge = (tool == EditTool.SIGN || tool == EditTool.TEXT) && !isPremium,
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 selectTool(if (activeTool == tool) null else tool)
@@ -413,11 +432,14 @@ fun EditScreen(
         }
 
         if (ocrSheetOpen) {
-            val sheetState: SheetState = rememberModalBottomSheetState()
-            ModalBottomSheet(
+            // A full-screen Dialog rather than a ModalBottomSheet — the
+            // recognized text needs room to breathe and be selectable, and
+            // a Dialog (unlike a plain full-size overlay Box) also gets the
+            // system back button/gesture for free as an equivalent to
+            // onDismissRequest.
+            Dialog(
                 onDismissRequest = { ocrSheetOpen = false; activeTool = null },
-                sheetState = sheetState,
-                containerColor = tokens.surface,
+                properties = DialogProperties(usePlatformDefaultWidth = false),
             ) {
                 OcrSheetContent(
                     busy = ocrBusy,
@@ -448,12 +470,12 @@ fun EditScreen(
                     PaywallOutcome.TRIAL_STARTED -> {
                         isPremium = true
                         toast.show("Trial started — enjoy Premium!")
-                        selectTool(EditTool.SIGN)
+                        selectTool(pendingPremiumTool ?: EditTool.SIGN)
                     }
                     PaywallOutcome.SUBSCRIBED -> {
                         isPremium = true
                         toast.show("Welcome to Premium!")
-                        selectTool(EditTool.SIGN)
+                        selectTool(pendingPremiumTool ?: EditTool.SIGN)
                     }
                     PaywallOutcome.RESTORED -> {
                         isPremium = editViewModel.premiumManager.isPremium()
@@ -462,6 +484,7 @@ fun EditScreen(
                     PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
                     PaywallOutcome.DISMISSED -> {}
                 }
+                pendingPremiumTool = null
             }
         }
 
@@ -849,6 +872,57 @@ fun EditScreen(
                 }
             }
         }
+    }
+}
+
+/** Brightness/Contrast sliders (DESIGN_SPEC §4.3 "Adjust tool"), shown
+ * above the tool row while Adjust is active. Unlike iOS, there's no
+ * separate "commit" step — [onBrightnessChange]/[onContrastChange] write
+ * straight into the current page's [com.dulatheo.documentscanner.data.DraftPage]
+ * on every drag tick, since brightness/contrast are applied live via a
+ * cheap `ColorFilter` (`PageCard`) rather than re-rendering a bitmap. */
+@Composable
+private fun AdjustSliders(
+    brightness: Float,
+    contrast: Float,
+    onBrightnessChange: (Float) -> Unit,
+    onContrastChange: (Float) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+    ) {
+        AdjustSlider(label = "Brightness", value = brightness, range = -0.3f..0.3f, onValueChange = onBrightnessChange)
+        AdjustSlider(label = "Contrast", value = contrast, range = 0.7f..1.5f, onValueChange = onContrastChange)
+    }
+}
+
+@Composable
+private fun AdjustSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+) {
+    val tokens = LocalAppColors.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label,
+            color = tokens.ink2,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.width(74.dp),
+        )
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            modifier = Modifier.weight(1f),
+            colors = androidx.compose.material3.SliderDefaults.colors(
+                thumbColor = tokens.accent,
+                activeTrackColor = tokens.accent,
+            ),
+        )
     }
 }
 

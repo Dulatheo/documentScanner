@@ -3,6 +3,7 @@ package com.dulatheo.documentscanner.ui.edit
 enum class EditTool(val label: String, val hint: String) {
     CROP("Crop", "Drag the corners to fit the page"),
     HIGHLIGHT("Highlight", "Tap a line of text to highlight it"),
+    ADJUST("Adjust", "Adjust brightness and contrast"),
     TEXT("Text", "Text recognition"),
     SIGN("Sign", "Draw your signature"),
 }

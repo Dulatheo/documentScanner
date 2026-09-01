@@ -26,6 +26,10 @@ data class DraftPage(
     val ocrText: String? = null,
     val ocrLines: List<OcrLine> = emptyList(),
     val signature: Signature? = null,
+    /** Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool") — see
+     * [PageEntity.brightness]/[PageEntity.contrast]. */
+    val brightness: Float = 0f,
+    val contrast: Float = 1f,
 )
 
 /** Single entry point the UI layer talks to for persistence — wraps Room DAOs
@@ -66,6 +70,8 @@ class DocumentRepository(context: Context) {
                     ocrText = draft.ocrText,
                     ocrLinesJson = JsonCodec.encodeOcrLines(draft.ocrLines),
                     signatureJson = draft.signature?.let { JsonCodec.encodeSignature(it) },
+                    brightness = draft.brightness,
+                    contrast = draft.contrast,
                 )
             }
             pageDao.insertAll(entities)

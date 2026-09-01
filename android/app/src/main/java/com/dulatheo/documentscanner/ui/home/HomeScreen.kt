@@ -24,11 +24,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,6 +92,7 @@ fun HomeScreen(
     val query by viewModel.searchQuery.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
+    var pendingDeleteDocument by remember { mutableStateOf<DocumentWithDetails?>(null) }
 
     Box(
         modifier = Modifier
@@ -196,6 +199,7 @@ fun HomeScreen(
                             pageCount = doc.pages.size,
                             thumbnailPath = doc.orderedPages.firstOrNull()?.imagePath,
                             onClick = { onOpenDocument(doc.document.id) },
+                            onLongClick = { pendingDeleteDocument = doc },
                         )
                     }
                 }
@@ -244,6 +248,29 @@ fun HomeScreen(
                     PaywallOutcome.DISMISSED -> {}
                 }
             }
+        }
+
+        pendingDeleteDocument?.let { doc ->
+            AlertDialog(
+                onDismissRequest = { pendingDeleteDocument = null },
+                title = { Text("Delete “${doc.document.name}”?") },
+                text = {
+                    Text(
+                        "This can't be undone.",
+                        color = tokens.ink2,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.deleteDocument(doc)
+                        pendingDeleteDocument = null
+                    }) { Text("Delete") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeleteDocument = null }) { Text("Cancel") }
+                },
+            )
         }
     }
 }

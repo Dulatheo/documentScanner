@@ -37,7 +37,7 @@ object PptxExportService {
                 zip.writeEntry("ppt/slides/slide$slideNumber.xml", SLIDE_XML)
                 zip.writeEntry("ppt/slides/_rels/slide$slideNumber.xml.rels", slideRelsXml(slideNumber))
 
-                val flat = PageRenderer.flatten(page.imagePath, page.ocrLines, page.signature)
+                val flat = PageRenderer.flatten(page.imagePath, page.ocrLines, page.signature, page.brightness, page.contrast)
                 val bytes = ByteArrayOutputStream().use { out ->
                     flat.compress(Bitmap.CompressFormat.JPEG, 85, out)
                     out.toByteArray()

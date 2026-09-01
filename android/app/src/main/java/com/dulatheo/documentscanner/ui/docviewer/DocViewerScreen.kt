@@ -102,6 +102,8 @@ fun DocViewerScreen(
                     imagePath = page.imagePath,
                     ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
                     signature = JsonCodec.decodeSignature(page.signatureJson),
+                    brightness = page.brightness,
+                    contrast = page.contrast,
                 )
             }
             val files = exportManager.export(current.document.name, pages, ExportFormat.PDF, password)
@@ -130,6 +132,8 @@ fun DocViewerScreen(
                     imagePath = page.imagePath,
                     ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
                     signature = JsonCodec.decodeSignature(page.signatureJson),
+                    brightness = page.brightness,
+                    contrast = page.contrast,
                 )
             }
             val files = exportManager.export(current.document.name, pages, format)
@@ -183,6 +187,8 @@ fun DocViewerScreen(
                         imagePath = page.imagePath,
                         ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
                         signature = JsonCodec.decodeSignature(page.signatureJson),
+                        brightness = page.brightness,
+                        contrast = page.contrast,
                     )
                 }
 
@@ -285,6 +291,8 @@ fun DocViewerScreen(
                                             imagePath = page.imagePath,
                                             ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
                                             signature = JsonCodec.decodeSignature(page.signatureJson),
+                                            brightness = page.brightness,
+                                            contrast = page.contrast,
                                         )
                                     }
                                     val files = exportManager.export(document.document.name, pages, format)

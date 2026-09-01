@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(private val repository: DocumentRepository) : ViewModel() {
 
@@ -23,5 +24,14 @@ class HomeViewModel(private val repository: DocumentRepository) : ViewModel() {
 
     fun onQueryChange(newQuery: String) {
         query.value = newQuery
+    }
+
+    /** Deletes a saved document (DESIGN_SPEC §4.1 "delete a saved
+     * document") — image files and the DB rows alike, via
+     * [DocumentRepository.deleteDocument]. */
+    fun deleteDocument(document: DocumentWithDetails) {
+        viewModelScope.launch {
+            repository.deleteDocument(document.document)
+        }
     }
 }

@@ -14,6 +14,10 @@ data class ExportPage(
     val imagePath: String,
     val ocrLines: List<OcrLine> = emptyList(),
     val signature: Signature? = null,
+    /** Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool") — see
+     * [com.dulatheo.documentscanner.data.model.PageEntity.brightness]. */
+    val brightness: Float = 0f,
+    val contrast: Float = 1f,
 )
 
 /**
@@ -61,7 +65,7 @@ class ExportManager(private val context: Context, private val imageStorage: Imag
 
     private fun exportPdf(documentName: String, pages: List<ExportPage>): File {
         val flattenedInputs = pages.map { page ->
-            val flat = PageRenderer.flatten(page.imagePath, page.ocrLines, page.signature)
+            val flat = PageRenderer.flatten(page.imagePath, page.ocrLines, page.signature, page.brightness, page.contrast)
             val tempPath = imageStorage.saveBitmap(flat)
             flat.recycle()
             PdfExportService.PageInput(imagePath = tempPath, ocrLines = page.ocrLines)
@@ -72,7 +76,7 @@ class ExportManager(private val context: Context, private val imageStorage: Imag
 
     private fun exportJpgs(documentName: String, pages: List<ExportPage>): List<File> =
         pages.mapIndexed { index, page ->
-            val flat = PageRenderer.flatten(page.imagePath, page.ocrLines, page.signature)
+            val flat = PageRenderer.flatten(page.imagePath, page.ocrLines, page.signature, page.brightness, page.contrast)
             val suffix = if (pages.size > 1) "_page${index + 1}" else ""
             val outFile = imageStorage.newExportFile("$documentName$suffix", "jpg")
             java.io.FileOutputStream(outFile).use { out ->
