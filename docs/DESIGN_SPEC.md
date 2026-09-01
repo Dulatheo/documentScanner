@@ -414,14 +414,22 @@ live rather than cached.
   Hand-rolled on both platforms rather than a dependency (see the
   Office-export feasibility note in §9) — DOCX/XLSX/PPTX are all just ZIP
   archives of XML parts:
-  - **DOCX**: one paragraph per OCR'd line, a page break between pages. A
-    page with no recognized text yet still contributes an empty paragraph
-    so the page count matches.
+  - **DOCX**: one paragraph per OCR'd line, a page break between pages.
   - **XLSX**: one worksheet per page, one row per OCR'd line, all in
     column A (using inline strings, so no shared-strings table is needed).
     This is honestly "the recognized text, one line per row," not a real
     table reconstruction — there's no detected row/column structure to
     export, only OCR lines.
+  - **OCR-on-demand**: normal editing only runs OCR when the Text/
+    Highlight tool is opened, so a page nobody visited either tool on has
+    nothing recognized yet — unlike PDF/JPG (which always have the page
+    image to fall back on), DOCX/XLSX have *only* OCR text, so exporting
+    with empty `ocrLines` would silently produce a blank document/sheet.
+    Both formats run OCR live for any page missing it before building
+    (iOS: `OCRService.ensureLines(for:)`, caching the result back onto the
+    page; Android: `OoxmlUtil.ensureOcrLines`), so the export always
+    reflects the page's actual text regardless of what the user did during
+    editing.
   - **PPTX**: one slide per page, each a full-bleed picture of the
     flattened page (same rendering as JPG export) sized to a fixed
     US-Letter-proportioned slide (7.5in × 10in) so the image doesn't need
