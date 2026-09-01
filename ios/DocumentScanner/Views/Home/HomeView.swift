@@ -15,13 +15,16 @@ struct HomeView: View {
     /// animate across.
     let onSelectDocument: (DocumentModel) -> Void
     @ObservedObject var premiumManager: PremiumManager
+    @ObservedObject var toastCenter: ToastCenter
 
     @Environment(\.theme) private var theme
     @Environment(\.appActions) private var actions
+    @State private var showPaywall = false
 
-    /// Surfaces the free-tier document cap (DESIGN_SPEC §5 "unlimited
-    /// scanning") before the user hits it, rather than only ever explaining
+    /// Surfaces the free-tier document cap (DESIGN_SPEC §5 "limited document
+    /// storage") before the user hits it, rather than only ever explaining
     /// itself via the paywall that appears once they're already blocked.
+    /// Tappable (when not premium) as a standing shortcut into the paywall.
     private var subtitle: String {
         if premiumManager.isPremium {
             return documents.isEmpty ? "Nothing saved yet" : (documents.count == 1 ? "1 document" : "\(documents.count) documents")
@@ -65,6 +68,23 @@ struct HomeView: View {
             bottomFade
             scanButton
         }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(premiumManager: premiumManager) { outcome in
+                showPaywall = false
+                switch outcome {
+                case .trialStarted:
+                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
+                case .subscribed:
+                    toastCenter.show("Welcome to Premium!")
+                case .restored:
+                    toastCenter.show("Purchases restored")
+                case .notRestored:
+                    toastCenter.show("No previous purchase found")
+                case .dismissed:
+                    break
+                }
+            }
+        }
     }
 
     private var header: some View {
@@ -76,6 +96,11 @@ struct HomeView: View {
             Text(subtitle)
                 .font(.system(size: 13))
                 .foregroundColor(theme.ink3)
+                .onTapGesture {
+                    if !premiumManager.isPremium {
+                        showPaywall = true
+                    }
+                }
         }
     }
 

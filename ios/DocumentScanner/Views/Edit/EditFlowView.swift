@@ -8,6 +8,11 @@ struct EditFlowView: View {
     @ObservedObject var session: EditSession
     @ObservedObject var toastCenter: ToastCenter
     @ObservedObject var premiumManager: PremiumManager
+    /// Size of the saved-documents library *before* this save — used to
+    /// gate the free-tier save limit (DESIGN_SPEC §5 "limited document
+    /// storage"). Only relevant when saving a brand-new document; re-saving
+    /// an existing one never counts against the cap.
+    let documentCount: Int
     var onCancel: () -> Void
     var onSaved: (DocumentModel) -> Void
 
@@ -20,6 +25,12 @@ struct EditFlowView: View {
     @State private var isDrawingSignature = false
     @State private var placingSignature: Signature?
     @State private var showPaywall = false
+    @State private var showSaveLimitAlert = false
+    @State private var showSaveLimitPaywall = false
+    /// Set by "Export" on the save-limit dialog — a plain PDF of the
+    /// current pages, shared directly without ever being added to the
+    /// library (see `exportWithoutSaving()`).
+    @State private var exportWithoutSavingItem: ShareItem?
 
     var body: some View {
         ZStack {
@@ -123,6 +134,46 @@ struct EditFlowView: View {
                     activeTool = nil
                 }
             }
+        }
+        .sheet(isPresented: $showSaveLimitPaywall) {
+            PaywallView(
+                premiumManager: premiumManager,
+                reason: "You've reached the free plan's \(PremiumManager.freeDocumentLimit)-document limit"
+            ) { outcome in
+                showSaveLimitPaywall = false
+                switch outcome {
+                case .trialStarted:
+                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
+                    performSave()
+                case .subscribed:
+                    toastCenter.show("Welcome to Premium!")
+                    performSave()
+                case .restored:
+                    toastCenter.show("Purchases restored")
+                    if premiumManager.isPremium { performSave() }
+                case .notRestored:
+                    toastCenter.show("No previous purchase found")
+                case .dismissed:
+                    break
+                }
+            }
+        }
+        .sheet(item: $exportWithoutSavingItem) { item in
+            ShareSheet(items: item.urls, onDismiss: {
+                exportWithoutSavingItem = nil
+                onCancel()
+            })
+        }
+        .alert("Document limit reached", isPresented: $showSaveLimitAlert) {
+            Button(premiumManager.hasUsedTrial ? "Upgrade to Premium" : "Start Free Trial") {
+                showSaveLimitPaywall = true
+            }
+            Button("Export") {
+                exportWithoutSaving()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Free plan is limited to \(PremiumManager.freeDocumentLimit) saved documents. Upgrade for unlimited storage, export this one without saving, or cancel.")
         }
     }
 
@@ -345,13 +396,15 @@ struct EditFlowView: View {
         toastCenter.show("Signature added")
     }
 
-    private func save() {
+    /// Builds (or updates, for a re-edit) the `DocumentModel` for the
+    /// current session's pages, writing page images to disk — but never
+    /// touching `modelContext`. Shared by `performSave()` (which then
+    /// inserts/persists it) and `exportWithoutSaving()` (which hands it
+    /// straight to export, unpersisted).
+    private func buildDocument() -> DocumentModel {
         session.current.commitCropIfNeeded()
 
         let document = session.existingDocument ?? DocumentModel(name: session.documentName)
-        if session.existingDocument == nil {
-            modelContext.insert(document)
-        }
 
         for pageState in session.pages {
             let imageFilename = ImageStore.save(pageState.image)
@@ -378,7 +431,45 @@ struct EditFlowView: View {
             pageModel.filter = pageState.filter
         }
 
+        return document
+    }
+
+    /// Entry point for the Save button — gates brand-new documents behind
+    /// the free-tier save limit (DESIGN_SPEC §5 "limited document storage")
+    /// before touching `modelContext`; re-saving an existing document always
+    /// goes straight through.
+    private func save() {
+        if session.existingDocument == nil, !premiumManager.canCreateNewDocument(currentCount: documentCount) {
+            showSaveLimitAlert = true
+            return
+        }
+        performSave()
+    }
+
+    private func performSave() {
+        let document = buildDocument()
+        if session.existingDocument == nil {
+            modelContext.insert(document)
+        }
         try? modelContext.save()
         onSaved(document)
+    }
+
+    /// Builds a plain (unencrypted) PDF from the current pages and hands it
+    /// straight to the share sheet — the document is never inserted into
+    /// `modelContext`, so nothing is added to the library. Since
+    /// `buildDocument()` still needs page images on disk to render the PDF,
+    /// those temporary files are deleted again right after rendering so
+    /// this doesn't leak a JPEG pair into storage on every use.
+    private func exportWithoutSaving() {
+        let document = buildDocument()
+        let tempImagePaths = document.orderedPages.flatMap { [$0.imagePath, $0.originalImagePath].compactMap { $0 } }
+        Task {
+            let url = PDFExportService.makePDF(for: document)
+            for path in tempImagePaths { ImageStore.delete(path) }
+            await MainActor.run {
+                exportWithoutSavingItem = ShareItem(urls: [url])
+            }
+        }
     }
 }

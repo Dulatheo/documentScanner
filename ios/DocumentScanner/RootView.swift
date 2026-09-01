@@ -48,12 +48,6 @@ struct RootView: View {
     @State private var editSession: EditSession?
     @State private var exportTarget: ExportTarget?
     @State private var viewingDocument: DocumentModel?
-    @State private var showDocumentLimitPaywall = false
-    /// The scan/import action deferred while `showDocumentLimitPaywall` is
-    /// up — run once the user actually gets premium, so completing a trial
-    /// or subscription from this paywall proceeds straight into the action
-    /// they were originally blocked from, rather than requiring a second tap.
-    @State private var pendingGatedAction: (() -> Void)?
 
     /// Shared between Home and the two destinations it can zoom into (Camera,
     /// Document Viewer) so `matchedGeometryEffect` can animate across them —
@@ -74,7 +68,8 @@ struct RootView: View {
                         viewingDocument = document
                     }
                 },
-                premiumManager: premiumManager
+                premiumManager: premiumManager,
+                toastCenter: toastCenter
             )
 
             if let viewingDocument {
@@ -107,40 +102,16 @@ struct RootView: View {
         }
         .environment(\.appActions, AppActions(
             startCamera: {
-                gateNewDocument { withAnimation(.zoomTransition) { showCamera = true } }
+                withAnimation(.zoomTransition) { showCamera = true }
             },
             startPhotoImport: {
-                gateNewDocument { showPhotoImport = true }
+                showPhotoImport = true
             },
             openExport: { document, pendingSave in
                 exportTarget = ExportTarget(document: document, pendingSave: pendingSave)
             }
         ))
         .toastOverlay(toastCenter)
-        .sheet(isPresented: $showDocumentLimitPaywall) {
-            PaywallView(
-                premiumManager: premiumManager,
-                reason: "You've reached the free plan's \(PremiumManager.freeDocumentLimit)-document limit"
-            ) { outcome in
-                showDocumentLimitPaywall = false
-                switch outcome {
-                case .trialStarted:
-                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
-                    pendingGatedAction?()
-                case .subscribed:
-                    toastCenter.show("Welcome to Premium!")
-                    pendingGatedAction?()
-                case .restored:
-                    toastCenter.show("Purchases restored")
-                    if premiumManager.isPremium { pendingGatedAction?() }
-                case .notRestored:
-                    toastCenter.show("No previous purchase found")
-                case .dismissed:
-                    break
-                }
-                pendingGatedAction = nil
-            }
-        }
         .sheet(isPresented: $showPhotoImport) {
             PhotoImportPicker(
                 onFinish: { images in
@@ -159,6 +130,7 @@ struct RootView: View {
                 session: session,
                 toastCenter: toastCenter,
                 premiumManager: premiumManager,
+                documentCount: documents.count,
                 onCancel: { editSession = nil },
                 onSaved: { document in
                     editSession = nil
@@ -180,20 +152,6 @@ struct RootView: View {
             // safe area sheets add automatically.
             .presentationDetents([.height(380)])
             .presentationDragIndicator(.visible)
-        }
-    }
-
-    /// Gates creating a brand-new document behind the free document limit
-    /// (DESIGN_SPEC §5/§9 "unlimited scanning") — `action` is either opening
-    /// the camera or the gallery importer, both of which always start a new
-    /// document (never append to an existing one). If blocked, `action` is
-    /// deferred until the paywall reports success.
-    private func gateNewDocument(then action: @escaping () -> Void) {
-        if premiumManager.canCreateNewDocument(currentCount: documents.count) {
-            action()
-        } else {
-            pendingGatedAction = action
-            showDocumentLimitPaywall = true
         }
     }
 
