@@ -57,9 +57,10 @@ import java.util.Locale
 
 private val dateFormatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
 
-/** Surfaces the free-tier document cap (DESIGN_SPEC §5 "unlimited
- * scanning") before the user hits it, rather than only ever explaining
- * itself via the paywall that appears once they're already blocked. */
+/** Surfaces the free-tier saved-document cap (DESIGN_SPEC §5 "limited
+ * document storage") before the user hits it, rather than only ever
+ * explaining itself via the paywall shown when Save is actually blocked.
+ * Tappable (when not premium) as a standing shortcut into the paywall. */
 private fun documentCountLabel(count: Int, premiumManager: PremiumManager): String {
     if (premiumManager.isPremium()) {
         return if (count == 0) "Nothing saved yet" else "$count document${if (count == 1) "" else "s"}"
@@ -83,20 +84,7 @@ fun HomeScreen(
     val documents by viewModel.documents.collectAsState()
     val query by viewModel.searchQuery.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
-    var showLimitPaywall by remember { mutableStateOf(false) }
-
-    // Gates starting a brand-new scan behind the free document limit
-    // (DESIGN_SPEC §5/§9 "unlimited scanning") — every scan creates a new
-    // document (never appends to an existing one), so this is the single
-    // place to enforce it regardless of which entry point (empty-state CTA
-    // or the floating scan button) was tapped.
-    fun gatedScan() {
-        if (premiumManager.canCreateNewDocument(documents.size)) {
-            onScan()
-        } else {
-            showLimitPaywall = true
-        }
-    }
+    var showPaywall by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -121,7 +109,11 @@ fun HomeScreen(
                         text = documentCountLabel(documents.size, premiumManager),
                         style = MaterialTheme.typography.bodySmall,
                         color = tokens.ink3,
-                        modifier = Modifier.padding(top = 5.dp),
+                        modifier = Modifier
+                            .padding(top = 5.dp)
+                            .let { m ->
+                                if (premiumManager.isPremium()) m else m.clickable { showPaywall = true }
+                            },
                     )
                 }
                 if (documents.isNotEmpty() || query.isNotEmpty()) {
@@ -173,7 +165,7 @@ fun HomeScreen(
             }
 
             if (documents.isEmpty() && query.isEmpty()) {
-                EmptyState(onScan = { gatedScan() }, modifier = Modifier.weight(1f))
+                EmptyState(onScan = onScan, modifier = Modifier.weight(1f))
             } else {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
@@ -215,7 +207,7 @@ fun HomeScreen(
                 .size(64.dp)
                 .clip(CircleShape)
                 .background(tokens.accent)
-                .clickable { gatedScan() },
+                .clickable(onClick = onScan),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -226,25 +218,13 @@ fun HomeScreen(
             )
         }
 
-        if (showLimitPaywall) {
-            PaywallScreen(
-                premiumManager = premiumManager,
-                reason = "You've reached the free plan's ${PremiumManager.FREE_DOCUMENT_LIMIT}-document limit",
-            ) { outcome ->
-                showLimitPaywall = false
+        if (showPaywall) {
+            PaywallScreen(premiumManager = premiumManager) { outcome ->
+                showPaywall = false
                 when (outcome) {
-                    PaywallOutcome.TRIAL_STARTED -> {
-                        toast.show("Trial started — enjoy Premium!")
-                        onScan()
-                    }
-                    PaywallOutcome.SUBSCRIBED -> {
-                        toast.show("Welcome to Premium!")
-                        onScan()
-                    }
-                    PaywallOutcome.RESTORED -> {
-                        toast.show("Purchases restored")
-                        if (premiumManager.isPremium()) onScan()
-                    }
+                    PaywallOutcome.TRIAL_STARTED -> toast.show("Trial started — enjoy Premium!")
+                    PaywallOutcome.SUBSCRIBED -> toast.show("Welcome to Premium!")
+                    PaywallOutcome.RESTORED -> toast.show("Purchases restored")
                     PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
                     PaywallOutcome.DISMISSED -> {}
                 }

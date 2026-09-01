@@ -11,6 +11,7 @@ import com.dulatheo.documentscanner.service.ImageStorage
 import com.dulatheo.documentscanner.util.JsonCodec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -38,6 +39,10 @@ class DocumentRepository(context: Context) {
     val imageStorage = ImageStorage(context)
 
     fun observeDocuments(): Flow<List<DocumentWithDetails>> = documentDao.observeAll()
+
+    /** Current size of the saved-documents library — used to gate the
+     * free-tier save limit (DESIGN_SPEC §5 "limited document storage"). */
+    suspend fun documentCount(): Int = withContext(Dispatchers.IO) { documentDao.observeCount().first() }
 
     fun observeDocument(id: String): Flow<DocumentWithDetails?> = documentDao.observeById(id)
 

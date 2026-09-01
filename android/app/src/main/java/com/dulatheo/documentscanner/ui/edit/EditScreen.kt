@@ -19,11 +19,13 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,11 +41,16 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dulatheo.documentscanner.data.model.Signature
 import com.dulatheo.documentscanner.data.model.SignatureStroke
+import com.dulatheo.documentscanner.service.ExportFormat
+import com.dulatheo.documentscanner.service.ExportManager
+import com.dulatheo.documentscanner.service.ExportPage
+import com.dulatheo.documentscanner.service.PremiumManager
 import com.dulatheo.documentscanner.ui.camera.ScanSessionViewModel
 import com.dulatheo.documentscanner.ui.components.PageCard
 import com.dulatheo.documentscanner.ui.components.ToastState
@@ -71,8 +78,10 @@ fun EditScreen(
 ) {
     val tokens = LocalAppColors.current
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pages = scanSession.pages
+    val exportManager = remember { ExportManager(context, editViewModel.imageStorage) }
 
     if (pages.isEmpty()) {
         LaunchedEffect(Unit) { onCancel() }
@@ -98,6 +107,8 @@ fun EditScreen(
 
     var showPaywall by remember { mutableStateOf(false) }
     var isPremium by remember { mutableStateOf(editViewModel.premiumManager.isPremium()) }
+    var showSaveLimitDialog by remember { mutableStateOf(false) }
+    var showSaveLimitPaywall by remember { mutableStateOf(false) }
 
     val currentPage = pages[scanSession.currentIndex]
 
@@ -136,6 +147,29 @@ fun EditScreen(
     fun commitCropIfNeeded() {
         if (cropCorners == null) return
         scope.launch { commitCropSuspend() }
+    }
+
+    suspend fun performSave() {
+        commitCropSuspend()
+        val id = scanSession.save()
+        toast.show("Saved to Documents")
+        onSaved(id)
+    }
+
+    /** "Export" on the save-limit dialog (DESIGN_SPEC §5 "limited document
+     * storage") — a plain PDF of the current pages, shared directly without
+     * ever being added to the library. */
+    fun exportWithoutSaving() {
+        scope.launch {
+            commitCropSuspend()
+            val exportPages = scanSession.pages.map { p ->
+                ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature)
+            }
+            val files = exportManager.export("Scan", exportPages, ExportFormat.PDF)
+            exportManager.shareAndFinish(files, ExportFormat.PDF)
+            scanSession.clear()
+            onCancel()
+        }
     }
 
     fun selectTool(tool: EditTool?) {
@@ -223,10 +257,12 @@ fun EditScreen(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.clickable {
                         scope.launch {
-                            commitCropSuspend()
-                            val id = scanSession.save()
-                            toast.show("Saved to Documents")
-                            onSaved(id)
+                            val count = editViewModel.documentCount()
+                            if (editViewModel.premiumManager.canCreateNewDocument(count)) {
+                                performSave()
+                            } else {
+                                showSaveLimitDialog = true
+                            }
                         }
                     },
                 )
@@ -374,6 +410,66 @@ fun EditScreen(
                     PaywallOutcome.DISMISSED -> {}
                 }
             }
+        }
+
+        if (showSaveLimitPaywall) {
+            PaywallScreen(
+                premiumManager = editViewModel.premiumManager,
+                reason = "You've reached the free plan's ${PremiumManager.FREE_DOCUMENT_LIMIT}-document limit",
+            ) { outcome ->
+                showSaveLimitPaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        isPremium = true
+                        toast.show("Trial started — enjoy Premium!")
+                        scope.launch { performSave() }
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        isPremium = true
+                        toast.show("Welcome to Premium!")
+                        scope.launch { performSave() }
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        isPremium = editViewModel.premiumManager.isPremium()
+                        toast.show("Purchases restored")
+                        if (isPremium) scope.launch { performSave() }
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
+            }
+        }
+
+        if (showSaveLimitDialog) {
+            AlertDialog(
+                onDismissRequest = { showSaveLimitDialog = false },
+                title = { Text("Document limit reached") },
+                text = {
+                    Column {
+                        Text(
+                            "Free plan is limited to ${PremiumManager.FREE_DOCUMENT_LIMIT} saved documents. " +
+                                "Upgrade for unlimited storage, export this one without saving, or cancel.",
+                            color = tokens.ink2,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(onClick = {
+                            showSaveLimitDialog = false
+                            exportWithoutSaving()
+                        }) { Text("Export") }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showSaveLimitDialog = false
+                        showSaveLimitPaywall = true
+                    }) {
+                        Text(if (editViewModel.premiumManager.hasUsedTrial()) "Upgrade to Premium" else "Start Free Trial")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSaveLimitDialog = false }) { Text("Cancel") }
+                },
+            )
         }
 
         if (signMode == SignMode.DRAWING) {

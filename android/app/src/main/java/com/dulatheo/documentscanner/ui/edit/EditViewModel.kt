@@ -23,4 +23,6 @@ class EditViewModel(
 
     suspend fun saveDocument(pages: List<DraftPage>, name: String? = null): String =
         repository.createDocument(name = name, pages = pages)
+
+    suspend fun documentCount(): Int = repository.documentCount()
 }
