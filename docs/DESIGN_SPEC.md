@@ -197,8 +197,31 @@ accumulated rotation either. Fixed by having the getter read
 `placingSignature` directly.
 
 - Top bar: **Cancel** (discard back to camera/prior state), page label +
-  prev/next chevrons (`session.pageCount > 1`), **Save** (commits the
-  document and opens the Export sheet with `pendingSave = true`).
+  prev/next chevrons (`session.pageCount > 1`) + a small trash icon,
+  **Save** (commits the document and opens the Export sheet with
+  `pendingSave = true`).
+  - **Delete this page**: tapping the trash icon prompts "Delete this
+    page? / This can't be undone." (Delete/Cancel). Covers the case where
+    the same page got scanned a few times and one capture came out badly —
+    the user can drop it during review instead of saving it into the
+    document. Deleting the only remaining page closes the whole Edit flow
+    (nothing left to edit); deleting any other page just moves the current
+    index to a neighbor and keeps editing. On Android this "last page"
+    case falls out for free from the `pages.isEmpty()` guard already at
+    the top of `EditScreen` (it exits to the caller on the next
+    recomposition); iOS's `EditFlowView.deleteCurrentPage()` checks
+    `pageCount <= 1` explicitly and calls `onCancel()` itself. When
+    re-editing an already-saved document, a deleted page also needs
+    removing from `DocumentModel.pages` on Save — SwiftData's cascade
+    delete only fires when the *document* is deleted, not when a page is
+    dropped from its relationship array, so `EditFlowView.performSave()`
+    calls `removeDeletedPages(from:)` to explicitly `modelContext.delete()`
+    any persisted page no longer present in `session.pages` (plus its
+    on-disk image files via `ImageStore.delete`). Android has no re-edit
+    flow (`ScanSessionViewModel.save()` always creates a fresh document),
+    so no equivalent cleanup step is needed there — `deletePage()` deletes
+    the in-progress page's image file(s) immediately since capture/crop
+    already wrote them to disk.
 - Center: the page rendered on a `paper` card (drop shadow, hairline
   border).
 - **Tool bar** (4 equal-width buttons, bottom): **Crop**, **Highlight**,
@@ -432,6 +455,15 @@ live rather than cached.
     network connection; failures (missing key, offline, CloudConvert
     error) are caught and surfaced (iOS: an alert on the Export sheet;
     Android: a toast) rather than left to crash.
+  - **Loading overlay**: since a CloudConvert round-trip takes several
+    seconds (upload → convert → poll → download) rather than the near-
+    instant local generation PDF/JPG use, every export path (Export sheet,
+    Doc viewer, and the "export without saving" sheet in Edit) shows a
+    full-screen dimmed overlay with a spinner and a format-specific status
+    line ("Converting to Word…" / "…Excel…" / "…PowerPoint…", vs.
+    "Preparing your PDF…" / "…images…" for the still-instant formats) for
+    the duration of the export, so the UI doesn't look stuck or dismiss
+    silently while the network call is in flight.
   - **Real per-conversion cost**: this breaks the "unlimited Premium
     export costs nothing marginal" reasoning that applied to the
     on-device writers — every CloudConvert call costs real money, so a
