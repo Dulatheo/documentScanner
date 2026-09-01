@@ -24,15 +24,23 @@ struct HomeView: View {
     /// Surfaces the free-tier document cap (DESIGN_SPEC §5 "limited document
     /// storage") before the user hits it, rather than only ever explaining
     /// itself via the paywall that appears once they're already blocked.
-    /// Tappable (when not premium) as a standing shortcut into the paywall.
-    private var subtitle: String {
+    /// Only the "Premium for unlimited" portion (see `header`) is styled
+    /// and tappable — this is the plain lead-in text before it, so it's
+    /// empty once premium (nothing left to show) or when there's nothing
+    /// to attach the link to yet (the empty-library case has no natural
+    /// place for it).
+    private var subtitlePrefix: String {
         if premiumManager.isPremium {
             return documents.isEmpty ? "Nothing saved yet" : (documents.count == 1 ? "1 document" : "\(documents.count) documents")
         }
         if documents.isEmpty {
             return "Nothing saved yet \u{00b7} \(PremiumManager.freeDocumentLimit) free documents"
         }
-        return "\(documents.count) of \(PremiumManager.freeDocumentLimit) free documents \u{2014} Premium for unlimited"
+        return "\(documents.count) of \(PremiumManager.freeDocumentLimit) free documents \u{2014} "
+    }
+
+    private var showPremiumLink: Bool {
+        !premiumManager.isPremium && !documents.isEmpty
     }
 
     var body: some View {
@@ -93,15 +101,18 @@ struct HomeView: View {
                 .font(.system(size: 30, weight: .semibold))
                 .tracking(-0.5)
                 .foregroundColor(theme.ink)
-            Text(subtitle)
-                .font(.system(size: 13, weight: premiumManager.isPremium ? .regular : .medium))
-                .foregroundColor(premiumManager.isPremium ? theme.ink3 : theme.accent)
-                .underline(!premiumManager.isPremium)
-                .onTapGesture {
-                    if !premiumManager.isPremium {
-                        showPaywall = true
-                    }
+            HStack(spacing: 0) {
+                Text(subtitlePrefix)
+                    .font(.system(size: 13))
+                    .foregroundColor(theme.ink3)
+                if showPremiumLink {
+                    Text("Premium for unlimited")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(theme.accent)
+                        .underline()
+                        .onTapGesture { showPaywall = true }
                 }
+            }
         }
     }
 

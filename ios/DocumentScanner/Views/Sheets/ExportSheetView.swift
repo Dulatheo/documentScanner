@@ -296,7 +296,7 @@ struct ExportSheetView: View {
     private func exportDocx() {
         isExporting = true
         Task {
-            let url = DocxExportService.makeDocx(for: document)
+            let url = await DocxExportService.makeDocx(for: document)
             await MainActor.run {
                 isExporting = false
                 activeShare = ShareItem(urls: [url])
@@ -307,7 +307,7 @@ struct ExportSheetView: View {
     private func exportXlsx() {
         isExporting = true
         Task {
-            let url = XlsxExportService.makeXlsx(for: document)
+            let url = await XlsxExportService.makeXlsx(for: document)
             await MainActor.run {
                 isExporting = false
                 activeShare = ShareItem(urls: [url])

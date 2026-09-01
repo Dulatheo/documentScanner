@@ -56,6 +56,22 @@ enum OCRService {
         }
     }
 
+    /// Returns `page.ocrLines`, running OCR live and caching the result on
+    /// `page` first if it hasn't been recognized yet. Normal editing only
+    /// runs OCR when the Text/Highlight tool is opened, so a page that was
+    /// scanned but never had either tool touched otherwise has nothing —
+    /// DOCX/XLSX export (DESIGN_SPEC §5/§9) has no page image to fall back
+    /// on the way PDF/JPG do, so it needs this to avoid exporting a blank
+    /// document/sheet for a page nobody happened to run OCR on yet.
+    static func ensureLines(for page: PageModel) async -> [OCRLine] {
+        if !page.ocrLines.isEmpty { return page.ocrLines }
+        guard let image = ImageStore.load(page.imagePath) else { return [] }
+        let result = await recognize(image)
+        page.ocrText = result.fullText
+        page.ocrLines = result.lines
+        return result.lines
+    }
+
     private static func cgOrientation(from orientation: UIImage.Orientation) -> CGImagePropertyOrientation {
         switch orientation {
         case .up: return .up

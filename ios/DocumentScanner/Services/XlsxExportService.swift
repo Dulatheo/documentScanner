@@ -8,7 +8,7 @@ import Foundation
 /// rather than a real spreadsheet reconstruction; see DESIGN_SPEC §9 for
 /// why real tabular export is a separate, bigger feature.
 enum XlsxExportService {
-    static func makeXlsx(for document: DocumentModel) -> URL {
+    static func makeXlsx(for document: DocumentModel) async -> URL {
         var zip = OOXMLZipWriter()
         let pages = document.orderedPages
 
@@ -17,16 +17,20 @@ enum XlsxExportService {
         zip.add(path: "xl/workbook.xml", string: workbookXML(pageCount: pages.count))
         zip.add(path: "xl/_rels/workbook.xml.rels", string: workbookRelsXML(pageCount: pages.count))
         for (index, page) in pages.enumerated() {
-            zip.add(path: "xl/worksheets/sheet\(index + 1).xml", string: sheetXML(for: page))
+            zip.add(path: "xl/worksheets/sheet\(index + 1).xml", string: await sheetXML(for: page))
         }
 
         let filename = PDFExportService.sanitizedFilename(document.name) + ".xlsx"
         return ImageStore.writeExportFile(data: zip.finalize(), filename: filename)
     }
 
-    private static func sheetXML(for page: PageModel) -> String {
+    private static func sheetXML(for page: PageModel) async -> String {
+        // Normal editing only runs OCR when the Text/Highlight tool is
+        // opened — a page nobody happened to visit either tool on would
+        // otherwise export as a sheet with no rows at all.
+        let lines = await OCRService.ensureLines(for: page)
         var rows = ""
-        for (index, line) in page.ocrLines.enumerated() {
+        for (index, line) in lines.enumerated() {
             let r = index + 1
             rows += "<row r=\"\(r)\"><c r=\"A\(r)\" t=\"inlineStr\"><is><t xml:space=\"preserve\">\(XMLEscape.text(line.text))</t></is></c></row>"
         }

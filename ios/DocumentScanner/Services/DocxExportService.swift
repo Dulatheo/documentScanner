@@ -8,24 +8,27 @@ import Foundation
 /// paragraph rather than being skipped, so the page count in the export
 /// still matches the document.
 enum DocxExportService {
-    static func makeDocx(for document: DocumentModel) -> URL {
+    static func makeDocx(for document: DocumentModel) async -> URL {
         var zip = OOXMLZipWriter()
 
         zip.add(path: "[Content_Types].xml", string: contentTypesXML)
         zip.add(path: "_rels/.rels", string: rootRelsXML)
         zip.add(path: "docProps/core.xml", string: coreXML(title: document.name))
-        zip.add(path: "word/document.xml", string: documentXML(for: document))
+        zip.add(path: "word/document.xml", string: await documentXML(for: document))
         zip.add(path: "word/_rels/document.xml.rels", string: documentRelsXML)
 
         let filename = PDFExportService.sanitizedFilename(document.name) + ".docx"
         return ImageStore.writeExportFile(data: zip.finalize(), filename: filename)
     }
 
-    private static func documentXML(for document: DocumentModel) -> String {
+    private static func documentXML(for document: DocumentModel) async -> String {
         let pages = document.orderedPages
         var body = ""
         for (index, page) in pages.enumerated() {
-            let lines = page.ocrLines
+            // Normal editing only runs OCR when the Text/Highlight tool is
+            // opened — a page nobody happened to visit either tool on
+            // would otherwise export as a blank paragraph here.
+            let lines = await OCRService.ensureLines(for: page)
             if lines.isEmpty {
                 body += "<w:p/>"
             } else {
