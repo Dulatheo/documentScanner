@@ -81,6 +81,8 @@ fun DocViewerScreen(
     var passwordInput by remember { mutableStateOf("") }
     var showProtectPaywall by remember { mutableStateOf(false) }
     var showPasswordSuggestion by remember { mutableStateOf(false) }
+    var showOfficePaywall by remember { mutableStateOf(false) }
+    var pendingOfficeFormat by remember { mutableStateOf<ExportFormat?>(null) }
 
     val exportManager = remember { ExportManager(context, viewModel.imageStorage) }
 
@@ -97,6 +99,26 @@ fun DocViewerScreen(
             }
             val files = exportManager.export(current.document.name, pages, ExportFormat.PDF, password)
             exportManager.shareAndFinish(files, ExportFormat.PDF)
+            if (justSaved) onBack()
+        }
+    }
+
+    /** DOCX/XLSX/PPTX (DESIGN_SPEC §5/§9 "Office format export") — all
+     * Premium, gated the same way as the Sign tool: paywall on tap when
+     * not premium, direct export once premium. */
+    fun exportOfficeFormat(format: ExportFormat) {
+        showExport = false
+        scope.launch {
+            val current = doc ?: return@launch
+            val pages = current.orderedPages.map { page ->
+                ExportPage(
+                    imagePath = page.imagePath,
+                    ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
+                    signature = JsonCodec.decodeSignature(page.signatureJson),
+                )
+            }
+            val files = exportManager.export(current.document.name, pages, format)
+            exportManager.shareAndFinish(files, format)
             if (justSaved) onBack()
         }
     }
@@ -228,26 +250,38 @@ fun DocViewerScreen(
                     subtitle = subtitle,
                     dismissLabel = dismissLabel,
                     onExport = { format ->
-                        if (format == ExportFormat.PDF) {
-                            if (viewModel.premiumManager.isPremium()) {
-                                exportPdf(null)
-                            } else {
-                                showExport = false
-                                showPasswordSuggestion = true
-                            }
-                        } else {
-                            showExport = false
-                            scope.launch {
-                                val pages = document.orderedPages.map { page ->
-                                    ExportPage(
-                                        imagePath = page.imagePath,
-                                        ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
-                                        signature = JsonCodec.decodeSignature(page.signatureJson),
-                                    )
+                        when (format) {
+                            ExportFormat.PDF -> {
+                                if (viewModel.premiumManager.isPremium()) {
+                                    exportPdf(null)
+                                } else {
+                                    showExport = false
+                                    showPasswordSuggestion = true
                                 }
-                                val files = exportManager.export(document.document.name, pages, format)
-                                exportManager.shareAndFinish(files, format)
-                                if (justSaved) onBack()
+                            }
+                            ExportFormat.JPG -> {
+                                showExport = false
+                                scope.launch {
+                                    val pages = document.orderedPages.map { page ->
+                                        ExportPage(
+                                            imagePath = page.imagePath,
+                                            ocrLines = JsonCodec.decodeOcrLines(page.ocrLinesJson),
+                                            signature = JsonCodec.decodeSignature(page.signatureJson),
+                                        )
+                                    }
+                                    val files = exportManager.export(document.document.name, pages, format)
+                                    exportManager.shareAndFinish(files, format)
+                                    if (justSaved) onBack()
+                                }
+                            }
+                            ExportFormat.DOCX, ExportFormat.XLSX, ExportFormat.PPTX -> {
+                                if (viewModel.premiumManager.isPremium()) {
+                                    exportOfficeFormat(format)
+                                } else {
+                                    showExport = false
+                                    pendingOfficeFormat = format
+                                    showOfficePaywall = true
+                                }
                             }
                         }
                     },
@@ -357,6 +391,34 @@ fun DocViewerScreen(
                     PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
                     PaywallOutcome.DISMISSED -> {}
                 }
+            }
+        }
+
+        if (showOfficePaywall) {
+            PaywallScreen(
+                premiumManager = viewModel.premiumManager,
+                reason = "Office format export is a Premium feature",
+            ) { outcome ->
+                showOfficePaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        toast.show("Trial started — enjoy Premium!")
+                        pendingOfficeFormat?.let { exportOfficeFormat(it) }
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        toast.show("Welcome to Premium!")
+                        pendingOfficeFormat?.let { exportOfficeFormat(it) }
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        toast.show("Purchases restored")
+                        if (viewModel.premiumManager.isPremium()) {
+                            pendingOfficeFormat?.let { exportOfficeFormat(it) }
+                        }
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
+                pendingOfficeFormat = null
             }
         }
     }

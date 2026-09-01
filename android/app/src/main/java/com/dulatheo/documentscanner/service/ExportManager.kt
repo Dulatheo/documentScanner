@@ -8,7 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class ExportFormat { PDF, JPG }
+enum class ExportFormat { PDF, JPG, DOCX, XLSX, PPTX }
 
 data class ExportPage(
     val imagePath: String,
@@ -42,6 +42,9 @@ class ExportManager(private val context: Context, private val imageStorage: Imag
                     listOf(file)
                 }
                 ExportFormat.JPG -> exportJpgs(documentName, pages)
+                ExportFormat.DOCX -> listOf(DocxExportService.buildDocx(documentName, pages, imageStorage.newExportFile(documentName, "docx")))
+                ExportFormat.XLSX -> listOf(XlsxExportService.buildXlsx(pages, imageStorage.newExportFile(documentName, "xlsx")))
+                ExportFormat.PPTX -> listOf(PptxExportService.buildPptx(pages, imageStorage.newExportFile(documentName, "pptx")))
             }
         }
 
@@ -49,6 +52,9 @@ class ExportManager(private val context: Context, private val imageStorage: Imag
         val mime = when (format) {
             ExportFormat.PDF -> "application/pdf"
             ExportFormat.JPG -> "image/jpeg"
+            ExportFormat.DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ExportFormat.XLSX -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ExportFormat.PPTX -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         }
         ShareUtil.shareFiles(context, files, mime)
     }

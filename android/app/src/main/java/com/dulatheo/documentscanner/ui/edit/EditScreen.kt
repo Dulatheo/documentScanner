@@ -119,6 +119,8 @@ fun EditScreen(
     var ewsPasswordInput by remember { mutableStateOf("") }
     var ewsProtectPaywall by remember { mutableStateOf(false) }
     var ewsPasswordSuggestion by remember { mutableStateOf(false) }
+    var ewsOfficePaywall by remember { mutableStateOf(false) }
+    var ewsPendingOfficeFormat by remember { mutableStateOf<ExportFormat?>(null) }
 
     val currentPage = pages[scanSession.currentIndex]
 
@@ -498,15 +500,25 @@ fun EditScreen(
                     subtitle = "Choose a format to share",
                     dismissLabel = "Cancel",
                     onExport = { format ->
-                        if (format == ExportFormat.PDF) {
-                            if (editViewModel.premiumManager.isPremium()) {
-                                exportWithoutSavingFormat(ExportFormat.PDF)
-                            } else {
-                                showExportWithoutSavingSheet = false
-                                ewsPasswordSuggestion = true
+                        when (format) {
+                            ExportFormat.PDF -> {
+                                if (editViewModel.premiumManager.isPremium()) {
+                                    exportWithoutSavingFormat(ExportFormat.PDF)
+                                } else {
+                                    showExportWithoutSavingSheet = false
+                                    ewsPasswordSuggestion = true
+                                }
                             }
-                        } else {
-                            exportWithoutSavingFormat(ExportFormat.JPG)
+                            ExportFormat.JPG -> exportWithoutSavingFormat(ExportFormat.JPG)
+                            ExportFormat.DOCX, ExportFormat.XLSX, ExportFormat.PPTX -> {
+                                if (editViewModel.premiumManager.isPremium()) {
+                                    exportWithoutSavingFormat(format)
+                                } else {
+                                    showExportWithoutSavingSheet = false
+                                    ewsPendingOfficeFormat = format
+                                    ewsOfficePaywall = true
+                                }
+                            }
                         }
                     },
                     onProtectPdfClick = {
@@ -619,6 +631,37 @@ fun EditScreen(
                     PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
                     PaywallOutcome.DISMISSED -> {}
                 }
+            }
+        }
+
+        if (ewsOfficePaywall) {
+            PaywallScreen(
+                premiumManager = editViewModel.premiumManager,
+                reason = "Office format export is a Premium feature",
+            ) { outcome ->
+                ewsOfficePaywall = false
+                when (outcome) {
+                    PaywallOutcome.TRIAL_STARTED -> {
+                        isPremium = true
+                        toast.show("Trial started — enjoy Premium!")
+                        ewsPendingOfficeFormat?.let { exportWithoutSavingFormat(it) }
+                    }
+                    PaywallOutcome.SUBSCRIBED -> {
+                        isPremium = true
+                        toast.show("Welcome to Premium!")
+                        ewsPendingOfficeFormat?.let { exportWithoutSavingFormat(it) }
+                    }
+                    PaywallOutcome.RESTORED -> {
+                        isPremium = editViewModel.premiumManager.isPremium()
+                        toast.show("Purchases restored")
+                        if (isPremium) {
+                            ewsPendingOfficeFormat?.let { exportWithoutSavingFormat(it) }
+                        }
+                    }
+                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.DISMISSED -> {}
+                }
+                ewsPendingOfficeFormat = null
             }
         }
 

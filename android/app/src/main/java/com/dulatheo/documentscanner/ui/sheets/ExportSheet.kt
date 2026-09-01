@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,8 +36,11 @@ import com.dulatheo.documentscanner.ui.theme.LocalAppColors
  * carries an extra lock-icon button (Premium "PDF password protection",
  * DESIGN_SPEC §5/§9) that opens a password prompt or the paywall instead of
  * exporting immediately — tapping the rest of the row still exports
- * unprotected, as before. [showProBadge] marks the lock icon as a Premium
- * feature for a free user; hidden once they're premium. */
+ * unprotected, as before. DOCX/XLSX/PPTX are Premium formats in their own
+ * right (whole row gated, like the Sign tool) rather than an add-on to a
+ * free export. [showProBadge] marks all of these as Premium for a free
+ * user; hidden once they're premium — the caller (not this composable)
+ * decides what happens when a Premium row is tapped while not premium. */
 @Composable
 fun ExportSheetContent(
     subtitle: String,
@@ -97,6 +101,30 @@ fun ExportSheetContent(
             subtitle = "One image per page",
             onClick = { onExport(ExportFormat.JPG) },
         )
+        Spacer(Modifier.height(10.dp))
+        ExportOptionRow(
+            badge = "DOC",
+            title = "Word document",
+            subtitle = "Recognized text, all pages",
+            onClick = { onExport(ExportFormat.DOCX) },
+            proBadge = showProBadge,
+        )
+        Spacer(Modifier.height(10.dp))
+        ExportOptionRow(
+            badge = "XLS",
+            title = "Excel spreadsheet",
+            subtitle = "One row per line of text",
+            onClick = { onExport(ExportFormat.XLSX) },
+            proBadge = showProBadge,
+        )
+        Spacer(Modifier.height(10.dp))
+        ExportOptionRow(
+            badge = "PPT",
+            title = "PowerPoint slides",
+            subtitle = "One slide per page",
+            onClick = { onExport(ExportFormat.PPTX) },
+            proBadge = showProBadge,
+        )
 
         Spacer(Modifier.height(14.dp))
         Box(
@@ -119,6 +147,7 @@ private fun ExportOptionRow(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    proBadge: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val tokens = LocalAppColors.current
@@ -132,14 +161,30 @@ private fun ExportOptionRow(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(9.dp))
-                .background(tokens.accentSoft),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(badge, color = tokens.accent, style = MaterialTheme.typography.labelSmall)
+        Box {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(tokens.accentSoft),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(badge, color = tokens.accent, style = MaterialTheme.typography.labelSmall)
+            }
+            if (proBadge) {
+                Text(
+                    "PRO",
+                    color = Color.White,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-4).dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(tokens.accent)
+                        .padding(horizontal = 4.dp, vertical = 1.dp),
+                )
+            }
         }
         Spacer(Modifier.width(13.dp))
         Column(modifier = Modifier.weight(1f)) {
