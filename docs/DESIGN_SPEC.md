@@ -405,6 +405,41 @@ live rather than cached.
     saves it back in place. Requires one-time
     `PDFBoxResourceLoader.init(context)`, called from
     `DocumentScannerApp.onCreate`.
+- **Office format export** (DOCX/XLSX/PPTX — DESIGN_SPEC §9): three new
+  rows in the Export sheet, each **entirely** Premium-gated (whole row, not
+  an add-on like the PDF lock icon) — tapping one while not premium opens
+  the paywall (reason: "Office format export is a Premium feature") and
+  retries the same export on success, exactly like the Sign tool's gating.
+  A **PRO** badge sits on each row's format-icon badge for a free user.
+  Hand-rolled on both platforms rather than a dependency (see the
+  Office-export feasibility note in §9) — DOCX/XLSX/PPTX are all just ZIP
+  archives of XML parts:
+  - **DOCX**: one paragraph per OCR'd line, a page break between pages. A
+    page with no recognized text yet still contributes an empty paragraph
+    so the page count matches.
+  - **XLSX**: one worksheet per page, one row per OCR'd line, all in
+    column A (using inline strings, so no shared-strings table is needed).
+    This is honestly "the recognized text, one line per row," not a real
+    table reconstruction — there's no detected row/column structure to
+    export, only OCR lines.
+  - **PPTX**: one slide per page, each a full-bleed picture of the
+    flattened page (same rendering as JPG export) sized to a fixed
+    US-Letter-proportioned slide (7.5in × 10in) so the image doesn't need
+    aspect-fit math. No real "slide content" beyond the page image itself.
+  - **iOS**: `OOXMLZipWriter` — Foundation has no ZIP writer, and pulling
+    in a compression library just for a few KB of XML wasn't worth it, so
+    every entry is written **stored** (uncompressed), which is fully legal
+    per the ZIP spec and universally supported by Word/Excel/PowerPoint.
+    `DocxExportService`/`XlsxExportService`/`PptxExportService` each build
+    their XML parts and hand them to it.
+  - **Android**: `java.util.zip.ZipOutputStream` (already in the JDK) does
+    the ZIP packaging directly — no custom zip-format code needed there,
+    just the XML generation (`DocxExportService`/`XlsxExportService`/
+    `PptxExportService`) plus a shared `OoxmlUtil` for XML-escaping and
+    entry-writing.
+  - None of this has been opened in real Word/Excel/PowerPoint (no Office
+    suite in the sandbox this was built in) — verify on real documents
+    before relying on it.
 
 ## 6. Data model
 
@@ -488,27 +523,28 @@ should be matched closely.
 
 ## 9. Future premium candidates
 
-Brainstormed; two have since been built (see §5's "Limited document
-storage" and "PDF password protection" — struck through below), the rest
-are still **not built**. Listed here so a future round doesn't have to
-re-derive the list from scratch. Roughly grouped from "small lift, obvious
-value" to "bigger lift, needs its own design pass":
+Brainstormed; three have since been built (see §5's "Limited document
+storage", "PDF password protection", and "Office format export" — struck
+through below), the rest are still **not built**. Listed here so a future
+round doesn't have to re-derive the list from scratch. Roughly grouped
+from "small lift, obvious value" to "bigger lift, needs its own design
+pass":
 
 - ~~**Batch/unlimited scanning**~~ — done, §5, as a **saved-document** cap
   rather than a scanning cap (scanning itself stays unrestricted; see §5's
   "Limited document storage" for why).
-- **More export formats/options** — custom watermarks, higher-resolution
-  export, batch export of multiple documents at once. Also **DOCX
-  (Word) export** of the OCR-recognized text — genuinely cheap: DOCX is
-  just a zip of XML, hand-rollable with a small template writer on both
-  platforms (no heavy dependency needed), runs entirely on-device with no
-  marginal cost, so unlimited Premium use is fine business-wise, the same
-  reasoning that already applies to unrestricted PDF/JPG export today.
-  **XLSX/PPTX export do *not* belong in this bucket** — this app only ever
-  has OCR text (lines + bounding boxes), not detected tables or slide
-  layouts, so "export to Excel/PowerPoint" would need real table/layout
-  detection first; that's `Advanced OCR`/`AI-assisted features`-sized work
-  below, not a simple new export format.
+- ~~**More export formats (DOCX/XLSX/PPTX)**~~ — done, §5, hand-rolled
+  OOXML on both platforms rather than a paid SDK (Aspose/Syncfusion/
+  GroupDocs) or a heavy library like Apache POI — all on-device, so
+  unlimited Premium use costs nothing marginal, the same reasoning that
+  already applied to unrestricted PDF/JPG export. Worth remembering:
+  DOCX carries real content (the OCR'd text); XLSX/PPTX only ever have
+  "OCR lines in column A" / "one full-page image per slide" to work with,
+  since this app has no detected table or slide-layout structure — real
+  tabular/layout reconstruction is `Advanced OCR`/`AI-assisted
+  features`-sized work, below, not a refinement of this feature. Still
+  open: custom watermarks, higher-resolution export, batch export of
+  multiple documents at once.
 - **Cloud backup/sync** — currently everything is local-only; syncing
   across a user's devices is a natural premium tier (also the biggest
   lift, since there's no backend at all today).
