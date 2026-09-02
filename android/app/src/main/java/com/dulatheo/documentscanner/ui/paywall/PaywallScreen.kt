@@ -21,7 +21,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.TextSnippet
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,11 +46,15 @@ import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 enum class PaywallOutcome { TRIAL_STARTED, SUBSCRIBED, RESTORED, NOT_RESTORED, DISMISSED }
 
 /**
- * Paywall shown when a free user taps a premium-only tool (currently just
- * Sign — DESIGN_SPEC §4.3). Two copy variants driven by
- * `premiumManager.hasUsedTrial()`: a first-time visitor is offered the
- * 3-day trial; someone who already used it sees a plain subscribe screen
- * with no trial mention, since a real trial is one-time-per-account.
+ * Paywall shown whenever a free user hits any premium gate (Sign/Text
+ * tools, the free-tier document limit, Office format export, PDF
+ * password — DESIGN_SPEC §5) — same screen everywhere, so the full
+ * feature list below (§5's "premium features, in order") is always
+ * visible regardless of which single gate actually triggered it. Two copy
+ * variants driven by `premiumManager.hasUsedTrial()`: a first-time visitor
+ * is offered the 3-day trial; someone who already used it sees a plain
+ * subscribe screen with no trial mention, since a real trial is
+ * one-time-per-account.
  */
 @Composable
 fun PaywallScreen(
@@ -91,7 +98,7 @@ fun PaywallScreen(
                 modifier = Modifier.size(72.dp).clip(CircleShape).background(tokens.accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Create, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
+                Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
             }
             Spacer(Modifier.height(20.dp))
             if (reason != null) {
@@ -118,16 +125,21 @@ fun PaywallScreen(
                 if (isTrialEligible) {
                     "Cancel anytime during your trial — you won't be charged early."
                 } else {
-                    "Subscribe to unlock signatures and everything else Premium brings."
+                    "Subscribe to unlock everything Premium brings."
                 },
                 color = tokens.ink2,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(24.dp))
+            // Every premium feature, always shown here regardless of which
+            // single gate opened this screen — in the order DESIGN_SPEC §5
+            // lists them.
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                FeatureRow(icon = Icons.Filled.Description, text = "Export to Word, Excel & PowerPoint", tokens = tokens)
+                FeatureRow(icon = Icons.Filled.TextSnippet, text = "Recognize and copy text from any scan", tokens = tokens)
                 FeatureRow(icon = Icons.Filled.Create, text = "Sign documents with your finger", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited document scanning", tokens = tokens)
+                FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited saved documents (3 free)", tokens = tokens)
                 FeatureRow(icon = Icons.Filled.Lock, text = "Password-protect your PDF exports", tokens = tokens)
             }
             Spacer(Modifier.height(16.dp))

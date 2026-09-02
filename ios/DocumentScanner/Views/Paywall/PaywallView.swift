@@ -13,11 +13,15 @@ enum PaywallOutcome {
     case dismissed
 }
 
-/// Paywall shown when a free user taps a premium-only tool (currently just
-/// Sign — DESIGN_SPEC §4.3). Two copy variants driven by
-/// `premiumManager.hasUsedTrial`: a first-time visitor is offered the 3-day
-/// trial; someone who already used it sees a plain subscribe screen with no
-/// trial mention, since a real trial is one-time-per-account.
+/// Paywall shown whenever a free user hits any premium gate (Sign/Text
+/// tools, the free-tier document limit, Office format export, PDF
+/// password — DESIGN_SPEC §5) — same screen everywhere, so the full
+/// feature list below (§5's "premium features, in order") is always
+/// visible regardless of which single gate actually triggered it. Two copy
+/// variants driven by `premiumManager.hasUsedTrial`: a first-time visitor
+/// is offered the 3-day trial; someone who already used it sees a plain
+/// subscribe screen with no trial mention, since a real trial is
+/// one-time-per-account.
 struct PaywallView: View {
     @ObservedObject var premiumManager: PremiumManager
     /// Optional context shown as a small banner above the headline — e.g.
@@ -50,7 +54,7 @@ struct PaywallView: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
-                        Image(systemName: "signature")
+                        Image(systemName: "crown.fill")
                             .font(.system(size: 32, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(width: 72, height: 72)
@@ -75,7 +79,7 @@ struct PaywallView: View {
                             Text(
                                 isTrialEligible
                                     ? "Cancel anytime during your trial \u{2014} you won't be charged early."
-                                    : "Subscribe to unlock signatures and everything else Premium brings."
+                                    : "Subscribe to unlock everything Premium brings."
                             )
                             .font(.system(size: 14))
                             .foregroundColor(theme.ink2)
@@ -83,9 +87,14 @@ struct PaywallView: View {
                         }
                         .padding(.horizontal, 30)
 
+                        // Every premium feature, always shown here regardless
+                        // of which single gate opened this screen — in the
+                        // order DESIGN_SPEC §5 lists them.
                         VStack(alignment: .leading, spacing: 14) {
+                            featureRow(icon: "doc.richtext", text: "Export to Word, Excel & PowerPoint")
+                            featureRow(icon: "text.viewfinder", text: "Recognize and copy text from any scan")
                             featureRow(icon: "signature", text: "Sign documents with your finger")
-                            featureRow(icon: "infinity", text: "Unlimited document scanning")
+                            featureRow(icon: "infinity", text: "Unlimited saved documents (3 free)")
                             featureRow(icon: "lock.fill", text: "Password-protect your PDF exports")
                         }
                         .padding(.horizontal, 30)

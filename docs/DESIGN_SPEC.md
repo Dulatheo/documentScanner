@@ -557,10 +557,20 @@ the gating check and paywall UI shouldn't need to change when that happens.
     Premium" headline, no trial mention, **Subscribe — $4.99/mo** primary
     button. ($4.99/mo is placeholder copy, not a configured real price —
     see the mock-entitlement note above.)
-  - Both variants share: a feature-highlight list (signing, "more premium
-    tools on the way," supporting development), a **Restore Purchases**
-    link, and a dismiss (✕) button that backs out without changing
-    `activeTool`'s premium-gated state.
+  - Both variants share: a crown icon in the header circle (not tied to
+    any one gated tool, since this same screen opens from every gate
+    below), the full **premium feature list**, in this fixed order
+    regardless of which gate opened the screen — so a user who arrived via
+    e.g. the PDF-password lock still sees everything Premium unlocks, not
+    just that one feature:
+    1. Export to Word, Excel & PowerPoint
+    2. Text recognition (the Text/OCR tool)
+    3. Electronic signatures (the Sign tool)
+    4. Unlimited saved documents (3 free)
+    5. PDF password protection
+
+    — plus a **Restore Purchases** link, and a dismiss (✕) button that
+    backs out without changing `activeTool`'s premium-gated state.
 
 Sign is no longer the only gate — **Text (OCR)** (§4.3), **limited document
 storage**, and **PDF password protection** (the latter two drawn from §9's
