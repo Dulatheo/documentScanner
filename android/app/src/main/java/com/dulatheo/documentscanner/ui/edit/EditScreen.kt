@@ -62,6 +62,7 @@ import com.dulatheo.documentscanner.service.ExportPage
 import com.dulatheo.documentscanner.service.PremiumManager
 import com.dulatheo.documentscanner.ui.camera.ScanSessionViewModel
 import com.dulatheo.documentscanner.ui.components.PageCard
+import com.dulatheo.documentscanner.ui.components.ToastHost
 import com.dulatheo.documentscanner.ui.components.ToastState
 import com.dulatheo.documentscanner.ui.paywall.PaywallOutcome
 import com.dulatheo.documentscanner.ui.paywall.PaywallScreen
@@ -258,19 +259,6 @@ fun EditScreen(
                     }
                 }
             }
-            EditTool.HIGHLIGHT -> {
-                if (currentPage.ocrLines.isEmpty()) {
-                    scope.launch {
-                        val bmp = BitmapFactory.decodeFile(currentPage.imagePath)
-                        if (bmp != null) {
-                            val result = editViewModel.runOcr(bmp)
-                            scanSession.replaceCurrentPage {
-                                it.copy(ocrText = result.fullText, ocrLines = result.lines)
-                            }
-                        }
-                    }
-                }
-            }
             EditTool.SIGN -> {
                 pendingStrokes = emptyList()
                 signMode = SignMode.DRAWING
@@ -351,15 +339,6 @@ fun EditScreen(
                     PageCard(
                         imagePath = if (isCurrentPageCropping) cropSourcePath else page.imagePath,
                         ocrLines = if (pageIndex == scanSession.currentIndex) page.ocrLines else emptyList(),
-                        onLineTap = if (pageIndex == scanSession.currentIndex && activeTool == EditTool.HIGHLIGHT) {
-                            { idx ->
-                                scanSession.replaceCurrentPage { p ->
-                                    val updated = p.ocrLines.toMutableList()
-                                    updated[idx] = updated[idx].copy(highlighted = !updated[idx].highlighted)
-                                    p.copy(ocrLines = updated)
-                                }
-                            }
-                        } else null,
                         signature = if (pageIndex == scanSession.currentIndex && signMode != SignMode.PLACING) page.signature else null,
                         brightness = page.brightness,
                         contrast = page.contrast,
@@ -441,25 +420,29 @@ fun EditScreen(
                 onDismissRequest = { ocrSheetOpen = false; activeTool = null },
                 properties = DialogProperties(usePlatformDefaultWidth = false),
             ) {
-                OcrSheetContent(
-                    busy = ocrBusy,
-                    text = currentPage.ocrText,
-                    onCopy = {
-                        currentPage.ocrText?.let { text ->
-                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
-                        }
-                        toast.show("Copied")
-                    },
-                    onKeepSearchable = {
-                        toast.show("Kept as searchable")
-                        ocrSheetOpen = false
-                        activeTool = null
-                    },
-                    onDone = {
-                        ocrSheetOpen = false
-                        activeTool = null
-                    },
-                )
+                // A Dialog opens its own Android Window, layered above the
+                // Activity's — the app-wide ToastHost mounted in
+                // MainActivity lives in that other window, so it's hidden
+                // behind this one. Sharing the same `toast` ToastState with
+                // a second ToastHost here (drawn after — i.e. on top of —
+                // OcrSheetContent) is what actually makes "Copied" visible.
+                Box {
+                    OcrSheetContent(
+                        busy = ocrBusy,
+                        text = currentPage.ocrText,
+                        onCopy = {
+                            currentPage.ocrText?.let { text ->
+                                clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
+                            }
+                            toast.show("Copied")
+                        },
+                        onDone = {
+                            ocrSheetOpen = false
+                            activeTool = null
+                        },
+                    )
+                    ToastHost(state = toast)
+                }
             }
         }
 

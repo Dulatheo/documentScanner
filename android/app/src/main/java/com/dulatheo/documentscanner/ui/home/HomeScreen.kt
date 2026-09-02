@@ -27,8 +27,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -92,7 +95,12 @@ fun HomeScreen(
     val query by viewModel.searchQuery.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
+    // Long-pressing a card opens a small Rename/Delete menu rather than
+    // jumping straight to a destructive confirmation.
+    var actionMenuDocumentId by remember { mutableStateOf<String?>(null) }
     var pendingDeleteDocument by remember { mutableStateOf<DocumentWithDetails?>(null) }
+    var pendingRenameDocument by remember { mutableStateOf<DocumentWithDetails?>(null) }
+    var renameInput by remember { mutableStateOf("") }
 
     Box(
         modifier = Modifier
@@ -193,14 +201,36 @@ fun HomeScreen(
                     modifier = Modifier.weight(1f),
                 ) {
                     items(documents, key = { it.document.id }) { doc: DocumentWithDetails ->
-                        DocumentCard(
-                            name = doc.document.name,
-                            dateLabel = dateFormatter.format(java.util.Date(doc.document.createdAt)),
-                            pageCount = doc.pages.size,
-                            thumbnailPath = doc.orderedPages.firstOrNull()?.imagePath,
-                            onClick = { onOpenDocument(doc.document.id) },
-                            onLongClick = { pendingDeleteDocument = doc },
-                        )
+                        Box {
+                            DocumentCard(
+                                name = doc.document.name,
+                                dateLabel = dateFormatter.format(java.util.Date(doc.document.createdAt)),
+                                pageCount = doc.pages.size,
+                                thumbnailPath = doc.orderedPages.firstOrNull()?.imagePath,
+                                onClick = { onOpenDocument(doc.document.id) },
+                                onLongClick = { actionMenuDocumentId = doc.document.id },
+                            )
+                            DropdownMenu(
+                                expanded = actionMenuDocumentId == doc.document.id,
+                                onDismissRequest = { actionMenuDocumentId = null },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Rename") },
+                                    onClick = {
+                                        actionMenuDocumentId = null
+                                        renameInput = doc.document.name
+                                        pendingRenameDocument = doc
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete") },
+                                    onClick = {
+                                        actionMenuDocumentId = null
+                                        pendingDeleteDocument = doc
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -269,6 +299,32 @@ fun HomeScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingDeleteDocument = null }) { Text("Cancel") }
+                },
+            )
+        }
+
+        pendingRenameDocument?.let { doc ->
+            AlertDialog(
+                onDismissRequest = { pendingRenameDocument = null },
+                title = { Text("Rename document") },
+                text = {
+                    OutlinedTextField(
+                        value = renameInput,
+                        onValueChange = { renameInput = it },
+                        singleLine = true,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val trimmed = renameInput.trim()
+                        if (trimmed.isNotEmpty()) {
+                            viewModel.renameDocument(doc, trimmed)
+                        }
+                        pendingRenameDocument = null
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingRenameDocument = null }) { Text("Cancel") }
                 },
             )
         }

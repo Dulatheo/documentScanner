@@ -3,7 +3,6 @@ package com.dulatheo.documentscanner.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,7 +20,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -36,18 +34,19 @@ import kotlin.math.roundToInt
 
 /**
  * Renders one page image on a `paper`-styled card, with committed
- * highlights and a committed/placed signature drawn live on top (as
- * Compose overlays, not baked into pixels — see util/PageRenderer for the
- * flattened version used at export time). Optionally hosts the interactive
- * Crop overlay, tap-to-highlight, and signature placement drag used by the
- * Edit screen.
+ * highlights (from a document highlighted before the Highlight tool was
+ * removed — still rendered for backward compatibility, just not
+ * creatable anymore) and a committed/placed signature drawn live on top
+ * (as Compose overlays, not baked into pixels — see util/PageRenderer for
+ * the flattened version used at export time). Optionally hosts the
+ * interactive Crop overlay and signature placement drag used by the Edit
+ * screen.
  */
 @Composable
 fun PageCard(
     imagePath: String,
     modifier: Modifier = Modifier,
     ocrLines: List<OcrLine> = emptyList(),
-    onLineTap: ((Int) -> Unit)? = null,
     signature: Signature? = null,
     /** Manual Brightness/Contrast (DESIGN_SPEC §4.3 "Adjust tool") — applied
      * live via a `ColorFilter`, never baked into the file at [imagePath]. */
@@ -74,14 +73,7 @@ fun PageCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .onSizeChanged { displaySize = it }
-                .let { base ->
-                    if (onLineTap != null) {
-                        base.pointerInput(ocrLines) {
-                            detectTapOnLines(ocrLines, { displaySize }) { index -> onLineTap(index) }
-                        }
-                    } else base
-                },
+                .onSizeChanged { displaySize = it },
         ) {
             AsyncImage(
                 model = imagePath,
@@ -146,20 +138,5 @@ fun PageCard(
                 )
             }
         }
-    }
-}
-
-private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.detectTapOnLines(
-    lines: List<OcrLine>,
-    getDisplaySize: () -> IntSize,
-    onTap: (Int) -> Unit,
-) {
-    detectTapGestures { offset ->
-        val displaySize = getDisplaySize()
-        if (displaySize.width == 0 || displaySize.height == 0) return@detectTapGestures
-        val nx = offset.x / displaySize.width
-        val ny = offset.y / displaySize.height
-        val idx = lines.indexOfFirst { nx in it.left..it.right && ny in it.top..it.bottom }
-        if (idx >= 0) onTap(idx)
     }
 }

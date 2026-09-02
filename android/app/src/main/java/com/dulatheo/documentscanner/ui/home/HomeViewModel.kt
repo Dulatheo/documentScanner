@@ -34,4 +34,12 @@ class HomeViewModel(private val repository: DocumentRepository) : ViewModel() {
             repository.deleteDocument(document.document)
         }
     }
+
+    /** Renames a saved document in place (DESIGN_SPEC §4.1 "rename a saved
+     * document"), via [DocumentRepository.renameDocument]. */
+    fun renameDocument(document: DocumentWithDetails, newName: String) {
+        viewModelScope.launch {
+            repository.renameDocument(document.document, newName)
+        }
+    }
 }
