@@ -21,6 +21,7 @@ struct EditFlowView: View {
 
     @State private var activeTool: EditTool?
     @State private var showOCRSheet = false
+    @State private var showCommentsPage = false
     @State private var isDrawingSignature = false
     @State private var placingSignature: Signature?
     @State private var showPaywall = false
@@ -132,6 +133,13 @@ struct EditFlowView: View {
             // own — needs its own toast overlay for the same reason
             // EditFlowView does (see the one at the bottom of this file).
             .toastOverlay(toastCenter)
+        }
+        .fullScreenCover(isPresented: $showCommentsPage) {
+            CommentsPageView(
+                comments: $session.comments,
+                currentPageIndex: session.currentIndex,
+                onDone: { showCommentsPage = false }
+            )
         }
         .fullScreenCover(isPresented: $isDrawingSignature) {
             SignaturePadView(
@@ -278,7 +286,12 @@ struct EditFlowView: View {
 
             Spacer()
 
-            Button("Save", action: save)
+            // Re-editing an already-saved document (DESIGN_SPEC §4.4): this
+            // is the same screen a fresh capture uses, just seeded from an
+            // existing DocumentModel (`EditSession.load(from:)`) — the only
+            // top-bar difference is this button, since there's no unsaved
+            // "document" being created for the first time to announce.
+            Button(session.existingDocument == nil ? "Save" : "Export", action: save)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(theme.accent)
         }
@@ -463,9 +476,7 @@ struct EditFlowView: View {
         // the recognized-text page, and re-check on every tap (rather than
         // trusting a possibly-stale `isPremium`) since a trial started
         // elsewhere in the app could have expired since this screen last
-        // refreshed it. Highlight is unaffected even though it also runs
-        // OCR internally — only the Text tool's own recognized-text page
-        // is the gated feature.
+        // refreshed it. Comment isn't gated — it doesn't touch OCR.
         if tool == .sign || tool == .ocr {
             premiumManager.refresh()
             guard premiumManager.isPremium else {
@@ -480,6 +491,8 @@ struct EditFlowView: View {
             break
         case .adjust:
             loadAdjustPreview()
+        case .comment:
+            showCommentsPage = true
         case .ocr:
             showOCRSheet = true
             runOCRIfNeeded()
@@ -574,6 +587,17 @@ struct EditFlowView: View {
             pageModel.filter = pageState.filter
             pageModel.brightness = pageState.brightness
             pageModel.contrast = pageState.contrast
+        }
+
+        // Comments (DESIGN_SPEC §4.3 "Comment tool") — buffered in
+        // `session.comments` alongside already-loaded ones (see
+        // `EditSession.load(from:)`), written out the same way a fresh
+        // page becomes a `PageModel` above: only the ones without an
+        // `existingCommentID` are genuinely new here, since a loaded
+        // comment's `CommentModel` already exists on `document.comments`.
+        for draft in session.comments where draft.existingCommentID == nil {
+            let comment = CommentModel(text: draft.text, createdAt: draft.createdAt, pageIndex: draft.pageIndex)
+            comment.document = document
         }
 
         return document

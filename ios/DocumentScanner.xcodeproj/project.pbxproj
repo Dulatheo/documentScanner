@@ -35,11 +35,10 @@
 		39232E9234B8898F3497A791 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C0007B619BD4BA6B0345B5 /* Theme.swift */; };
 		7A7C92B76E4B52D4B59B9163 /* DocumentCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C290DA773A8911E0BF1BA0 /* DocumentCameraView.swift */; };
 		0B6B57CD9B2AB7F9AB4154D4 /* PhotoImportPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9A7455448E74DFD366D499 /* PhotoImportPicker.swift */; };
-		F753A8A565CC6B202D067417 /* CommentSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 431A007CFD2E566616703590 /* CommentSheetView.swift */; };
-		CB96AB19C6397FCDE86198D4 /* DocumentViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA77547B439D0C7EB3E933B9 /* DocumentViewerView.swift */; };
 		F47F3D35D16F6D30A0E23085 /* CropOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FAF83E7C2AA4E4D7CC1B04B /* CropOverlayView.swift */; };
 		32E56039384533EBC8731DD3 /* EditFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD005F41CDEC7B7D4D5EA731 /* EditFlowView.swift */; };
 		D67FF4252D5F4352604467FE /* OCRSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D371410CD2A02EEC00EEA00C /* OCRSheetView.swift */; };
+		D9572506412C43719C3FB785 /* CommentsPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E44FE696404D4852B209B33A /* CommentsPageView.swift */; };
 		67ABF01186ED75BAD99BD207 /* PageCompositeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0003E872D77A56D08E7EBBBD /* PageCompositeView.swift */; };
 		97A387DC5E76FB7039CEB2A5 /* PageEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51321755FAAC8E673295828 /* PageEditorView.swift */; };
 		A2AEBA4D3480272EAC955706 /* SignaturePadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434289372402F76EB8F0E74B /* SignaturePadView.swift */; };
@@ -81,11 +80,10 @@
 		12C0007B619BD4BA6B0345B5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D1C290DA773A8911E0BF1BA0 /* DocumentCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCameraView.swift; sourceTree = "<group>"; };
 		7B9A7455448E74DFD366D499 /* PhotoImportPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoImportPicker.swift; sourceTree = "<group>"; };
-		431A007CFD2E566616703590 /* CommentSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentSheetView.swift; sourceTree = "<group>"; };
-		EA77547B439D0C7EB3E933B9 /* DocumentViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewerView.swift; sourceTree = "<group>"; };
 		0FAF83E7C2AA4E4D7CC1B04B /* CropOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropOverlayView.swift; sourceTree = "<group>"; };
 		AD005F41CDEC7B7D4D5EA731 /* EditFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFlowView.swift; sourceTree = "<group>"; };
 		D371410CD2A02EEC00EEA00C /* OCRSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRSheetView.swift; sourceTree = "<group>"; };
+		E44FE696404D4852B209B33A /* CommentsPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsPageView.swift; sourceTree = "<group>"; };
 		0003E872D77A56D08E7EBBBD /* PageCompositeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCompositeView.swift; sourceTree = "<group>"; };
 		D51321755FAAC8E673295828 /* PageEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageEditorView.swift; sourceTree = "<group>"; };
 		434289372402F76EB8F0E74B /* SignaturePadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignaturePadView.swift; sourceTree = "<group>"; };
@@ -164,7 +162,6 @@
 			isa = PBXGroup;
 			children = (
 				C2909CAE39FF2179CD35A716 /* Camera */,
-				EE29C158EC1D92368EB798B1 /* DocumentViewer */,
 				DD4F6EE260818CB601F5A984 /* Edit */,
 				87321DCEED334D04CB0BB10B /* Home */,
 				ADA9C663445F6C92C6CC72D5 /* Sheets */,
@@ -190,21 +187,13 @@
 			path = Camera;
 			sourceTree = "<group>";
 		};
-		EE29C158EC1D92368EB798B1 /* DocumentViewer */ = {
-			isa = PBXGroup;
-			children = (
-				431A007CFD2E566616703590 /* CommentSheetView.swift */,
-				EA77547B439D0C7EB3E933B9 /* DocumentViewerView.swift */,
-			);
-			path = DocumentViewer;
-			sourceTree = "<group>";
-		};
 		DD4F6EE260818CB601F5A984 /* Edit */ = {
 			isa = PBXGroup;
 			children = (
 				0FAF83E7C2AA4E4D7CC1B04B /* CropOverlayView.swift */,
 				AD005F41CDEC7B7D4D5EA731 /* EditFlowView.swift */,
 				D371410CD2A02EEC00EEA00C /* OCRSheetView.swift */,
+				E44FE696404D4852B209B33A /* CommentsPageView.swift */,
 				0003E872D77A56D08E7EBBBD /* PageCompositeView.swift */,
 				D51321755FAAC8E673295828 /* PageEditorView.swift */,
 				434289372402F76EB8F0E74B /* SignaturePadView.swift */,
@@ -309,11 +298,10 @@
 				39232E9234B8898F3497A791 /* Theme.swift in Sources */,
 				7A7C92B76E4B52D4B59B9163 /* DocumentCameraView.swift in Sources */,
 				0B6B57CD9B2AB7F9AB4154D4 /* PhotoImportPicker.swift in Sources */,
-				F753A8A565CC6B202D067417 /* CommentSheetView.swift in Sources */,
-				CB96AB19C6397FCDE86198D4 /* DocumentViewerView.swift in Sources */,
 				F47F3D35D16F6D30A0E23085 /* CropOverlayView.swift in Sources */,
 				32E56039384533EBC8731DD3 /* EditFlowView.swift in Sources */,
 				D67FF4252D5F4352604467FE /* OCRSheetView.swift in Sources */,
+				D9572506412C43719C3FB785 /* CommentsPageView.swift in Sources */,
 				67ABF01186ED75BAD99BD207 /* PageCompositeView.swift in Sources */,
 				97A387DC5E76FB7039CEB2A5 /* PageEditorView.swift in Sources */,
 				A2AEBA4D3480272EAC955706 /* SignaturePadView.swift in Sources */,

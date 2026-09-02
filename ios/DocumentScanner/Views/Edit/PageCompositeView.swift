@@ -1,51 +1,6 @@
 import SwiftUI
 import UIKit
 
-/// Renders a page's base image with its committed highlight bands and
-/// signature overlaid — used read-only by the Document Viewer and as the
-/// backdrop layer under the interactive tool overlays in the Edit flow.
-/// Sizes itself to the image's own aspect ratio so `GeometryReader`-derived
-/// positions line up with `PageRenderer`'s pixel math without letterboxing.
-struct PageCompositeView: View {
-    let image: UIImage
-    var highlightRegions: [HighlightRegion] = []
-    var signature: Signature? = nil
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
-            let scale = image.size.width > 0 ? size.width / image.size.width : 1
-            ZStack(alignment: .topLeading) {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: size.width, height: size.height)
-
-                ForEach(highlightRegions) { region in
-                    let rect = PageRenderer.pixelRect(fromVisionNormalized: region.normalizedBox, imageSize: image.size)
-                    Rectangle()
-                        .fill(theme.highlight)
-                        .frame(width: rect.width * scale, height: rect.height * scale)
-                        .position(x: rect.midX * scale, y: rect.midY * scale)
-                        .blendMode(.multiply)
-                }
-
-                if let signature {
-                    let sigWidth = CGFloat(signature.width) * size.width
-                    let sigHeight = sigWidth * CGFloat(signature.aspectRatio)
-                    SignatureStrokesView(signature: signature)
-                        .frame(width: sigWidth, height: sigHeight)
-                        .rotationEffect(.degrees(signature.rotation))
-                        .position(x: CGFloat(signature.x) * size.width + sigWidth / 2, y: CGFloat(signature.y) * size.height + sigHeight / 2)
-                }
-            }
-        }
-        .aspectRatio(image.size, contentMode: .fit)
-    }
-}
-
 /// Draws a signature's normalized [0,1] strokes into whatever frame it's
 /// given.
 struct SignatureStrokesView: View {
