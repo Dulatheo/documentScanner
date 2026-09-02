@@ -668,26 +668,48 @@ cached.
       any line whose vertical gap from the previous one is notably larger
       (>1.6×) than the page's typical line-to-line gap, approximating a
       paragraph break rather than a mere line wrap.
-    - **Table detection**: a table row is usually recognized by the OCR
-      engine as one line containing several words, so an unusually large
-      gap between two adjacent words (learned per-page: ≥3× the page's
-      typical inter-word gap, floor 2% of page width) is treated as a
-      column break, splitting that line into cells. Consecutive lines that
-      split into the *same number* of cells at matching horizontal
-      positions (within 4% of page width) are grouped into one real OOXML
-      `<w:tbl>`; a lone multi-column line with no matching neighbor above
-      or below stays a plain paragraph (≥2 rows required to call it a
-      table). Requires word-level OCR boxes, which weren't previously
-      captured — `OCRWord`/`OcrWord` added to the `OCRLine`/`OcrLine`
-      model (both decode-safely for documents saved before this field
-      existed). Purely geometric, on both platforms — ML Kit already
-      returns word-level boxes via `Line.elements` (just wasn't read
-      before); Vision computes them per word via
-      `VNRecognizedText.boundingBox(for:)` on word-boundary substring
-      ranges. This is a heuristic on noisy OCR data, not real table
-      recognition — no ground truth to check it against, so it works well
-      on clean, well-spaced tables and can misfire on tight layouts,
-      multi-line cells, or merged cells.
+    - **Table detection** (`DocxTableDetector`): a table row reaches OCR as
+      one of two shapes, and both are handled:
+      - **Same OCR line, several words**: columns cramped close enough
+        together that the OCR engine still grouped them into one line — an
+        unusually large gap between two adjacent words (learned per-page:
+        ≥3× the page's typical inter-word gap, floor 2% of page width) is
+        treated as a column break, splitting that line into cells.
+      - **Separate OCR lines, same row**: a wide-gapped layout — a
+        genuinely tabular scan (e.g. a two-column glossary/translation
+        sheet) where each column's cell is far enough from its neighbor
+        that the OCR engine's own line-grouping already reports them as
+        distinct lines, not one line with an internal gap. `rowBands`
+        groups lines whose vertical extents overlap by more than half the
+        shorter line's height — i.e. they sit side by side — into one row
+        *before* any word-gap analysis runs; each line in a multi-line
+        band becomes one cell directly. **This is the far more common
+        shape in practice**, since OCR line-grouping keys off proximity
+        and real table columns are deliberately spaced apart — a first
+        version of this detector only looked for the same-line-several-
+        words shape, so it never even considered a well-spaced two-column
+        table a candidate, and every line landed in the exported sheet's
+        column A regardless of source layout.
+
+      Either way, consecutive rows that split into the *same number* of
+      cells at matching horizontal positions (within 4% of page width) are
+      grouped into one real OOXML `<w:tbl>` (DOCX) or spread across
+      spreadsheet columns A, B, C… (XLSX, below); a lone multi-column row
+      with no matching neighbor above or below stays a plain paragraph
+      (≥2 rows required to call it a table). Requires word-level OCR
+      boxes for the same-line shape, which weren't previously captured —
+      `OCRWord`/`OcrWord` added to the `OCRLine`/`OcrLine` model (both
+      decode-safely for documents saved before this field existed). Purely
+      geometric, on both platforms — ML Kit already returns word-level
+      boxes via `Line.elements` (just wasn't read before); Vision computes
+      them per word via `VNRecognizedText.boundingBox(for:)` on
+      word-boundary substring ranges. This is a heuristic on noisy OCR
+      data, not real table recognition — no ground truth to check it
+      against, so it works well on clean, well-spaced tables and can
+      misfire on tight layouts, multi-line cells (a cell whose text wraps
+      to a different number of lines than its row neighbor breaks the
+      row-band pairing for those particular lines — the well-behaved rows
+      around it are unaffected), or merged cells.
     - **What this can't do**: neither Vision (iOS) nor ML Kit (Android)
       report actual font weight, italics, or underline — only recognized
       text and a bounding box. Real bold/underline detection would need
