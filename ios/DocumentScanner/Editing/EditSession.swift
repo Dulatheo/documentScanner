@@ -38,7 +38,11 @@ final class EditSession: ObservableObject, Identifiable {
     var current: PageEditState { pages[currentIndex] }
     var pageCount: Int { pages.count }
 
-    var pageLabel: String { "Page \(currentIndex + 1) of \(pageCount)" }
+    // `String(localized:)`, not a plain interpolated literal — `pageLabel`
+    // is displayed via `Text(session.pageLabel)`, a `Text(String)` call
+    // (verbatim, unlocalized) since `pageLabel`'s type is `String`; the
+    // catalog lookup has to happen here, when the value is produced.
+    var pageLabel: String { String(localized: "Page \(currentIndex + 1) of \(pageCount)") }
 
     func goToNext() { goTo(currentIndex + 1) }
     func goToPrevious() { goTo(currentIndex - 1) }

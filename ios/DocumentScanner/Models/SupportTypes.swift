@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 /// Codable mirror of `CGPoint` so stroke data can round-trip through JSON
 /// stored in SwiftData `Data` attributes.
@@ -184,7 +185,14 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
     case crop, adjust, comment, ocr, sign
     var id: String { rawValue }
 
-    var label: String {
+    // `LocalizedStringKey`, not `String` — a literal returned from a
+    // function declared to return `LocalizedStringKey` converts implicitly
+    // (via `ExpressibleByStringLiteral`) with no change to the switches
+    // below, and it's what lets `Text(tool.label)`/`Text(tool.hint)` at the
+    // call sites auto-resolve through the String Catalog; returning `String`
+    // here would make those `Text(String)` calls (verbatim, unlocalized)
+    // instead, since overload resolution is by the expression's static type.
+    var label: LocalizedStringKey {
         switch self {
         case .crop: return "Crop"
         case .adjust: return "Adjust"
@@ -204,7 +212,7 @@ enum EditTool: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    var hint: String {
+    var hint: LocalizedStringKey {
         switch self {
         case .crop: return "Drag the corners to fit the page"
         case .adjust: return "Adjust brightness and contrast"

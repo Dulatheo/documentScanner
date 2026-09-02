@@ -102,7 +102,7 @@ struct RootView: View {
                 onFinish: { images in
                     showPhotoImport = false
                     if !images.isEmpty {
-                        toastCenter.show("Added from gallery")
+                        toastCenter.show(String(localized: "Added from gallery"))
                         beginEditSession(with: images)
                     }
                 },
@@ -125,7 +125,7 @@ struct RootView: View {
                     // §4.4), which decides the toast/export-sheet copy.
                     let wasExistingDocument = session.existingDocument != nil
                     editSession = nil
-                    toastCenter.show(wasExistingDocument ? "Changes saved" : "Saved to Documents")
+                    toastCenter.show(wasExistingDocument ? String(localized: "Changes saved") : String(localized: "Saved to Documents"))
                     exportTarget = ExportTarget(document: document, pendingSave: !wasExistingDocument)
                 }
             )
@@ -156,7 +156,7 @@ struct RootView: View {
         let pages = images.enumerated().map { index, image in
             PageEditState(order: index, image: image, originalImage: image)
         }
-        let name = "Scan \(documents.count + 1)"
+        let name = String(localized: "Scan \(documents.count + 1)")
         editSession = EditSession(pages: pages, existingDocument: nil, documentName: name)
     }
 
@@ -174,7 +174,7 @@ struct RootView: View {
                 committedQuad: capture.quad
             )
         }
-        let name = "Scan \(documents.count + 1)"
+        let name = String(localized: "Scan \(documents.count + 1)")
         editSession = EditSession(pages: pages, existingDocument: nil, documentName: name)
     }
 

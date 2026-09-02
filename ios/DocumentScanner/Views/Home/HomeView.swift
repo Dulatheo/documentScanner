@@ -40,13 +40,20 @@ struct HomeView: View {
     /// to attach the link to yet (the empty-library case has no natural
     /// place for it).
     private var subtitlePrefix: String {
+        // `String(localized:)`, not a plain literal/interpolation — this is
+        // a `Text(subtitlePrefix)` call (verbatim, unlocalized) since
+        // `subtitlePrefix`'s type is `String`; the catalog lookup has to
+        // happen here, when each branch's value is produced.
         if premiumManager.isPremium {
-            return documents.isEmpty ? "Nothing saved yet" : (documents.count == 1 ? "1 document" : "\(documents.count) documents")
+            if documents.isEmpty { return String(localized: "Nothing saved yet") }
+            return documents.count == 1
+                ? String(localized: "1 document")
+                : String(localized: "\(documents.count) documents")
         }
         if documents.isEmpty {
-            return "Nothing saved yet \u{00b7} \(PremiumManager.freeDocumentLimit) free documents"
+            return String(localized: "Nothing saved yet \u{00b7} \(PremiumManager.freeDocumentLimit) free documents")
         }
-        return "\(documents.count) of \(PremiumManager.freeDocumentLimit) free documents \u{2014} "
+        return String(localized: "\(documents.count) of \(PremiumManager.freeDocumentLimit) free documents \u{2014} ")
     }
 
     private var showPremiumLink: Bool {
@@ -104,13 +111,13 @@ struct HomeView: View {
                 showPaywall = false
                 switch outcome {
                 case .trialStarted:
-                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
+                    toastCenter.show(String(localized: "Trial started \u{2014} enjoy Premium!"))
                 case .subscribed:
-                    toastCenter.show("Welcome to Premium!")
+                    toastCenter.show(String(localized: "Welcome to Premium!"))
                 case .restored:
-                    toastCenter.show("Purchases restored")
+                    toastCenter.show(String(localized: "Purchases restored"))
                 case .notRestored:
-                    toastCenter.show("No previous purchase found")
+                    toastCenter.show(String(localized: "No previous purchase found"))
                 case .dismissed:
                     break
                 }
@@ -222,7 +229,12 @@ struct HomeView: View {
                         .background(Circle().fill(theme.surface))
                         .overlay(Circle().stroke(theme.line, lineWidth: 1))
                 }
-                .accessibilityLabel("Import from Photos")
+                // `Text(...)`, not a bare literal — `accessibilityLabel`
+                // has both a `Text`-taking overload (localizes, like
+                // `Text(_:)` does) and a generic `StringProtocol` one
+                // (verbatim); forcing `Text` here is unambiguous, where a
+                // bare literal argument risks Swift picking either.
+                .accessibilityLabel(Text("Import from Photos"))
             }
             Button {
                 actions.startCamera()
@@ -234,7 +246,7 @@ struct HomeView: View {
                     .background(Circle().fill(theme.accent))
                     .shadow(color: .black.opacity(0.22), radius: 20, x: 0, y: 6)
             }
-            .accessibilityLabel("Scan a document")
+            .accessibilityLabel(Text("Scan a document"))
             // Zoom-transition source (DESIGN_SPEC §4.1/§4.2): Camera is
             // presented from `RootView` as a same-hierarchy overlay tagged
             // with this same id, so it animates open from this button's own

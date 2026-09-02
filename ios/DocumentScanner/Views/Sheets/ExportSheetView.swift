@@ -20,8 +20,11 @@ struct ExportSheetView: View {
     @Environment(\.theme) private var theme
     @State private var activeShare: ShareItem?
     @State private var isExporting = false
-    /// Shown in the loading overlay while `isExporting`.
-    @State private var exportingMessage = "Preparing your file\u{2026}"
+    /// Shown in the loading overlay while `isExporting`. `String(localized:)`
+    /// here and at every reassignment below, not a plain literal — this is
+    /// displayed via `Text(exportingMessage)`, a `Text(String)` call
+    /// (verbatim, unlocalized) since `exportingMessage`'s type is `String`.
+    @State private var exportingMessage = String(localized: "Preparing your file\u{2026}")
     @State private var showPasswordPrompt = false
     @State private var passwordInput = ""
     @State private var showPaywall = false
@@ -33,11 +36,16 @@ struct ExportSheetView: View {
     /// tapped, rather than requiring a second tap.
     @State private var pendingOfficeExport: (() -> Void)?
 
+    // `String(localized:)`, not plain literals — displayed via
+    // `Text(subtitle)`/`Button(dismissLabel, ...)`, both verbatim `String`
+    // overloads since these computed properties' type is `String`.
     private var subtitle: String {
-        pendingSave ? "Saved to Documents \u{00b7} choose a format to share" : "Choose a format to share"
+        pendingSave
+            ? String(localized: "Saved to Documents \u{00b7} choose a format to share")
+            : String(localized: "Choose a format to share")
     }
 
-    private var dismissLabel: String { pendingSave ? "Close" : "Cancel" }
+    private var dismissLabel: String { pendingSave ? String(localized: "Close") : String(localized: "Cancel") }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -86,7 +94,7 @@ struct ExportSheetView: View {
         .sheet(isPresented: $showPaywall) {
             PaywallView(
                 premiumManager: premiumManager,
-                reason: "Password-protecting PDFs is a Premium feature"
+                reason: String(localized: "Password-protecting PDFs is a Premium feature")
             ) { outcome in
                 showPaywall = false
                 switch outcome {
@@ -114,7 +122,7 @@ struct ExportSheetView: View {
         .sheet(isPresented: $showOfficePaywall) {
             PaywallView(
                 premiumManager: premiumManager,
-                reason: "Office format export is a Premium feature"
+                reason: String(localized: "Office format export is a Premium feature")
             ) { outcome in
                 showOfficePaywall = false
                 switch outcome {
@@ -212,7 +220,14 @@ struct ExportSheetView: View {
         }
     }
 
-    private func exportOption(badge: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+    // `LocalizedStringKey`, not `String`, for all three — see
+    // `EditTool.label`'s doc comment for why: it's what lets `Text(badge)`/
+    // `Text(title)`/`Text(subtitle)` below auto-resolve through the String
+    // Catalog for the literal call sites, with no need to wrap them
+    // individually. `badge`'s literals ("JPG", "DOC", …) have no matching
+    // catalog entry on purpose — a format code, not language content — so
+    // it just displays verbatim, exactly as before.
+    private func exportOption(badge: LocalizedStringKey, title: LocalizedStringKey, subtitle: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Text(badge)
@@ -242,7 +257,7 @@ struct ExportSheetView: View {
     /// Like `exportOption`, but gated behind Premium with a **PRO** badge
     /// on the icon — used for the Office-format rows. Tapping it while not
     /// premium defers `action` and shows the paywall instead of running it.
-    private func officeExportOption(badge: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+    private func officeExportOption(badge: LocalizedStringKey, title: LocalizedStringKey, subtitle: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button {
             if premiumManager.isPremium {
                 action()
@@ -289,7 +304,7 @@ struct ExportSheetView: View {
 
     private func exportPDF(password: String?) {
         isExporting = true
-        exportingMessage = "Preparing your PDF\u{2026}"
+        exportingMessage = String(localized: "Preparing your PDF\u{2026}")
         let trimmed = password?.trimmingCharacters(in: .whitespacesAndNewlines)
         let effectivePassword = (trimmed?.isEmpty ?? true) ? nil : trimmed
         Task {
@@ -304,7 +319,7 @@ struct ExportSheetView: View {
 
     private func exportJPGs() {
         isExporting = true
-        exportingMessage = "Preparing your images\u{2026}"
+        exportingMessage = String(localized: "Preparing your images\u{2026}")
         Task {
             let urls = JPGExportService.makeJPGs(for: document)
             await MainActor.run {
@@ -316,7 +331,7 @@ struct ExportSheetView: View {
 
     private func exportDocx() {
         isExporting = true
-        exportingMessage = "Preparing your Word document\u{2026}"
+        exportingMessage = String(localized: "Preparing your Word document\u{2026}")
         Task {
             let url = await DocxExportService.makeDocx(for: document)
             await MainActor.run {
@@ -328,7 +343,7 @@ struct ExportSheetView: View {
 
     private func exportXlsx() {
         isExporting = true
-        exportingMessage = "Preparing your Excel spreadsheet\u{2026}"
+        exportingMessage = String(localized: "Preparing your Excel spreadsheet\u{2026}")
         Task {
             let url = await XlsxExportService.makeXlsx(for: document)
             await MainActor.run {
@@ -340,7 +355,7 @@ struct ExportSheetView: View {
 
     private func exportPptx() {
         isExporting = true
-        exportingMessage = "Preparing your PowerPoint slides\u{2026}"
+        exportingMessage = String(localized: "Preparing your PowerPoint slides\u{2026}")
         Task {
             let url = PptxExportService.makePptx(for: document)
             await MainActor.run {

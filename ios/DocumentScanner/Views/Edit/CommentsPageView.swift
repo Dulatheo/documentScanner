@@ -75,10 +75,16 @@ struct CommentsPageView: View {
 
     private func metaLabel(for comment: DraftComment) -> String {
         let relative = Self.relativeFormatter.localizedString(for: comment.createdAt, relativeTo: Date())
+        // `String(localized:)`, not a plain interpolated literal — this
+        // value is displayed via `Text(metaLabel(for:))`, a `Text(String)`
+        // call (verbatim, unlocalized) since this function's return type is
+        // `String`; the catalog lookup has to happen here, when the value
+        // is produced. `relative` is already itself a localized string from
+        // `RelativeDateTimeFormatter`, so it's just interpolated as-is.
         if let pageIndex = comment.pageIndex {
-            return "You \u{00b7} \(relative) \u{00b7} page \(pageIndex + 1)"
+            return String(localized: "You \u{00b7} \(relative) \u{00b7} page \(pageIndex + 1)")
         }
-        return "You \u{00b7} \(relative)"
+        return String(localized: "You \u{00b7} \(relative)")
     }
 
     private var composer: some View {

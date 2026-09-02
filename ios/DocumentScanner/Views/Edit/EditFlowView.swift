@@ -125,7 +125,7 @@ struct EditFlowView: View {
                 page: session.current,
                 onCopy: {
                     UIPasteboard.general.string = session.current.ocrText
-                    toastCenter.show("Copied")
+                    toastCenter.show(String(localized: "Copied"))
                 },
                 onDone: { showOCRSheet = false }
             )
@@ -166,15 +166,15 @@ struct EditFlowView: View {
                 showPaywall = false
                 switch outcome {
                 case .trialStarted:
-                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
+                    toastCenter.show(String(localized: "Trial started \u{2014} enjoy Premium!"))
                     resumePendingPremiumTool()
                 case .subscribed:
-                    toastCenter.show("Welcome to Premium!")
+                    toastCenter.show(String(localized: "Welcome to Premium!"))
                     resumePendingPremiumTool()
                 case .restored:
-                    toastCenter.show("Purchases restored")
+                    toastCenter.show(String(localized: "Purchases restored"))
                 case .notRestored:
-                    toastCenter.show("No previous purchase found")
+                    toastCenter.show(String(localized: "No previous purchase found"))
                 case .dismissed:
                     activeTool = nil
                 }
@@ -184,21 +184,21 @@ struct EditFlowView: View {
         .sheet(isPresented: $showSaveLimitPaywall) {
             PaywallView(
                 premiumManager: premiumManager,
-                reason: "You've reached the free plan's \(PremiumManager.freeDocumentLimit)-document limit"
+                reason: String(localized: "You've reached the free plan's \(PremiumManager.freeDocumentLimit)-document limit")
             ) { outcome in
                 showSaveLimitPaywall = false
                 switch outcome {
                 case .trialStarted:
-                    toastCenter.show("Trial started \u{2014} enjoy Premium!")
+                    toastCenter.show(String(localized: "Trial started \u{2014} enjoy Premium!"))
                     performSave()
                 case .subscribed:
-                    toastCenter.show("Welcome to Premium!")
+                    toastCenter.show(String(localized: "Welcome to Premium!"))
                     performSave()
                 case .restored:
-                    toastCenter.show("Purchases restored")
+                    toastCenter.show(String(localized: "Purchases restored"))
                     if premiumManager.isPremium { performSave() }
                 case .notRestored:
-                    toastCenter.show("No previous purchase found")
+                    toastCenter.show(String(localized: "No previous purchase found"))
                 case .dismissed:
                     break
                 }
@@ -372,7 +372,11 @@ struct EditFlowView: View {
         .padding(.bottom, 4)
     }
 
-    private func adjustSlider(label: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+    // `LocalizedStringKey`, not `String` — see `EditTool.label`'s doc comment
+    // for why: it's what lets `Text(label)` below auto-resolve through the
+    // String Catalog for the two literal call sites above, with no need to
+    // wrap them individually.
+    private func adjustSlider(label: LocalizedStringKey, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
         HStack(spacing: 12) {
             Text(label)
                 .font(.system(size: 12))
@@ -549,7 +553,7 @@ struct EditFlowView: View {
         session.current.signature = signature
         placingSignature = nil
         activeTool = nil
-        toastCenter.show("Signature added")
+        toastCenter.show(String(localized: "Signature added"))
     }
 
     /// Builds (or updates, for a re-edit) the `DocumentModel` for the
