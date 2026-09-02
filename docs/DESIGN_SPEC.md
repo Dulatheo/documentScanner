@@ -97,19 +97,23 @@ a parallel `home → doc viewer (existing document) → (comment | export sheet
   (captures can now be auto-cropped to arbitrary quads, so this genuinely
   varies). Each card: `paper` background, a page-count badge (`accentSoft`
   pill, bottom-right, e.g. "3 pgs"), the document name below the card, and
-  the date below that. Tapping **zoom-transitions** into the Document
-  Viewer (§4.4) from the tapped card's own position/size — see the iOS
-  implementation note in §4.2 for how (same technique as the scan button →
-  Camera transition).
-  - **Delete a saved document**: long-press a card (Android: `combinedClickable`'s
-    `onLongClick`; iOS: `.contextMenu` with a destructive **Delete** entry)
-    to bring up a confirmation ("Delete "\<name\>"? / This can't be
-    undone."). Confirming removes the document's DB/SwiftData record and
-    its page image files from disk (`DocumentRepository.deleteDocument` on
-    Android, `RootView.deleteDocument(_:)` on iOS) — cascade-delete rules
-    handle the page/comment rows themselves, but not the files on disk
-    those rows pointed at, so both platforms clean those up explicitly
-    before dropping the record.
+  the date below that. Tapping opens the document in the Edit flow (§4.3/
+  §4.4) — there's no separate read-only viewer.
+  - **Rename/Delete a saved document**: long-pressing a card (Android:
+    `combinedClickable`'s `onLongClick` opening a `DropdownMenu`; iOS:
+    `.contextMenu`) offers **Rename** and a destructive **Delete**.
+    **Rename** opens a small alert/dialog with a pre-filled text field for
+    the document's current name; confirming calls
+    `DocumentRepository.renameDocument` (Android) /
+    `RootView.renameDocument(_:to:)` (iOS), a plain in-place name update —
+    no other document state changes. **Delete** prompts a confirmation
+    ("Delete "\<name\>"? / This can't be undone."); confirming removes the
+    document's DB/SwiftData record and its page image files from disk
+    (`DocumentRepository.deleteDocument` on Android,
+    `RootView.deleteDocument(_:)` on iOS) — cascade-delete rules handle the
+    page/comment rows themselves, but not the files on disk those rows
+    pointed at, so both platforms clean those up explicitly before dropping
+    the record.
 - **Empty state**: centered icon tile (viewfinder/scan-corners glyph),
   "No documents yet", helper copy ("Scanned documents are saved here. Point
   your camera at a page to begin."), and a primary "Scan a document" button.
@@ -202,26 +206,26 @@ see the platform notes below for why, including a reversal on iOS.
         build/test loop available to verify kernel math is correct before
         shipping it.
 
-**iOS zoom-transition implementation note** (applies to both zoom
-transitions above — scan button → Camera, document card → Document
-Viewer): implemented via `matchedGeometryEffect` with a shared
+**iOS zoom-transition implementation note**: the scan button → Camera
+transition is implemented via `matchedGeometryEffect` with a shared
 `@Namespace`, not a plain `.fullScreenCover`/`NavigationLink` push. A
 `.fullScreenCover`/pushed `NavigationLink` destination is a *separate* view
 hierarchy from the presenting screen, and `matchedGeometryEffect` only
 animates smoothly between two views that are simultaneously part of the
-*same* hierarchy during the transition — so each of these two destinations
-is presented as a plain conditional overlay (`if isShowing { Destination() }`)
-inside the same `ZStack` as its source screen, with the toggle wrapped in
+*same* hierarchy during the transition — so Camera's destination
+(`DocumentCameraView`, a `UIViewControllerRepresentable` wrapping VisionKit)
+is presented as a plain conditional overlay (`if showCamera { ... }`)
+inside the same `ZStack` as `HomeView`, with the toggle wrapped in
 `withAnimation`, rather than through SwiftUI's modal presentation APIs.
-Camera's destination is `DocumentCameraView`, a `UIViewControllerRepresentable`
-wrapping VisionKit with no `body` of its own to attach the modifier to
-internally, so `RootView` chains `.matchedGeometryEffect` onto that call
-site directly rather than inside the view like Document Viewer's does. This
-is the standard, broadly-compatible (iOS 17+, no `#available` branching)
-way to get a source-rect zoom transition; iOS 18 also ships a dedicated
-`NavigationTransition.zoom` API, but building on the namespace/overlay
-approach instead keeps one implementation path for both this iOS version
-and future ones.
+This is the standard, broadly-compatible (iOS 17+, no `#available`
+branching) way to get a source-rect zoom transition; iOS 18 also ships a
+dedicated `NavigationTransition.zoom` API, but building on the
+namespace/overlay approach instead keeps one implementation path for both
+this iOS version and future ones. Tapping a document card has no such
+transition today — Edit (§4.3/§4.4) is presented via `.fullScreenCover`,
+which `matchedGeometryEffect` can't reach into, so `documentZoomID(for:)`
+is currently a harmless no-op id with nothing to animate into (kept in case
+a future card → Edit transition is worth building).
 
 ### 4.3 Edit (per-page editor)
 
@@ -251,10 +255,10 @@ delta` is also a read-modify-write) why the rotate handle never actually
 accumulated rotation either. Fixed by having the getter read
 `placingSignature` directly.
 
-- Top bar: **Cancel** (discard back to camera/prior state), page label +
-  prev/next chevrons (`session.pageCount > 1`) + a small trash icon,
-  **Save** (commits the document and opens the Export sheet with
-  `pendingSave = true`).
+- Top bar: **Cancel** (discard back to camera/prior state, or to Home for a
+  re-edit), page label + prev/next chevrons (`session.pageCount > 1`) + a
+  small trash icon, then **Save** or **Export** — see §4.4 for which and
+  why.
   - **Delete this page**: tapping the trash icon prompts "Delete this
     page? / This can't be undone." (Delete/Cancel). Covers the case where
     the same page got scanned a few times and one capture came out badly —
@@ -265,40 +269,66 @@ accumulated rotation either. Fixed by having the getter read
     case falls out for free from the `pages.isEmpty()` guard already at
     the top of `EditScreen` (it exits to the caller on the next
     recomposition); iOS's `EditFlowView.deleteCurrentPage()` checks
-    `pageCount <= 1` explicitly and calls `onCancel()` itself. When
-    re-editing an already-saved document, a deleted page also needs
-    removing from `DocumentModel.pages` on Save — SwiftData's cascade
-    delete only fires when the *document* is deleted, not when a page is
-    dropped from its relationship array, so `EditFlowView.performSave()`
-    calls `removeDeletedPages(from:)` to explicitly `modelContext.delete()`
-    any persisted page no longer present in `session.pages` (plus its
-    on-disk image files via `ImageStore.delete`). Android has no re-edit
-    flow (`ScanSessionViewModel.save()` always creates a fresh document),
-    so no equivalent cleanup step is needed there — `deletePage()` deletes
-    the in-progress page's image file(s) immediately since capture/crop
-    already wrote them to disk.
+    `pageCount <= 1` explicitly and calls `onCancel()` itself.
+    - **Deleting a page while re-editing an existing document** (§4.4) is
+      deliberately *not* the same as deleting one from a fresh capture — the
+      file on disk is still referenced by that document's persisted row
+      until Save/Export actually commits, so deleting it immediately would
+      corrupt the document if the user backs out instead of saving.
+      **iOS**: SwiftData's cascade delete only fires when the *document*
+      is deleted, not when a page is dropped from its relationship array,
+      so `EditFlowView.performSave()` calls `removeDeletedPages(from:)` to
+      explicitly `modelContext.delete()` any persisted page no longer
+      present in `session.pages` (plus its on-disk image files via
+      `ImageStore.delete`) — this only runs for the re-edit case; a
+      fresh capture's pages were never in `DocumentModel.pages` to begin
+      with. **Android**: `ScanSessionViewModel.deletePage(index)` only
+      deletes the removed page's image file(s) immediately when
+      `existingDocumentId == null` (a fresh capture); for a re-edit, that
+      cleanup is deferred to `DocumentRepository.updateDocument`, which
+      diffs the saved pages against the ones still present in the session
+      and deletes both the dropped `PageEntity` rows and their files
+      together, atomically with the rest of the save.
 - Center: the page rendered on a `paper` card (drop shadow, hairline
   border).
-- **Tool bar** (5 equal-width buttons, bottom): **Crop**, **Highlight**,
-  **Adjust**, **Text** (OCR), **Sign**. Active tool is visually selected
+- **Tool bar** (5 equal-width buttons, bottom): **Crop**, **Adjust**,
+  **Comment**, **Text** (OCR), **Sign**. Active tool is visually selected
   (`accentSoft` background + `accent` icon/label). A one-line contextual
   hint above the tool bar changes per active tool ("Drag the corners to fit
-  the page" / "Tap a line of text to highlight it" / "Adjust brightness and
-  contrast" / "Text recognition" / "Draw your signature"). **Sign** and
-  **Text** both carry a small **PRO** badge (top-right corner of the
-  button) when the user isn't currently premium — see §5 for the gating and
-  paywall behind it. Tapping either while free routes to the paywall
-  instead of opening the tool, same mechanism for both (`pendingPremiumTool`
-  on both platforms remembers which one was tapped, so completing a trial/
-  subscription resumes that tool rather than always reopening Sign).
+  the page" / "Adjust brightness and contrast" / "View and add comments" /
+  "Text recognition" / "Draw your signature"). **Sign** and **Text** both
+  carry a small **PRO** badge (top-right corner of the button) when the
+  user isn't currently premium — see §5 for the gating and paywall behind
+  it. Tapping either while free routes to the paywall instead of opening
+  the tool, same mechanism for both (`pendingPremiumTool` on both platforms
+  remembers which one was tapped, so completing a trial/subscription
+  resumes that tool rather than always reopening Sign). There used to be a
+  sixth tool, **Highlight** (tap an OCR'd line to toggle a translucent color
+  band over it) — removed as redundant now that **Comment** covers
+  "flagging something on a page" more usefully, and to keep the bar at a
+  clean five buttons rather than growing it to six.
   - **Crop**: adjustable quad/rect overlay with draggable corner handles;
     commits a perspective-corrected crop of the page image. (If using
     VisionKit/ML Kit capture, an initial auto-crop is already applied — this
     tool lets the user refine it.)
-  - **Highlight**: on-page OCR text regions become tappable; tapping toggles
-    a translucent `highlight` color band over that line/region. Free — runs
-    its own OCR call independently of the Text tool below, and isn't
-    Premium-gated even though it also depends on OCR.
+  - **Comment**: opens a full-screen page (not a bottom sheet, same
+    reasoning as the Text tool below) listing the document's comments so
+    far (empty state: "No comments yet") plus a composer — a text field
+    (placeholder "Note for this page") and a **Post** button, disabled
+    until there's non-blank text. Free, not Premium-gated. Works
+    identically for a brand-new capture and a re-edit of an already-saved
+    document (§4.4): posting a comment doesn't write to the database
+    immediately — it's buffered (`EditSession.comments` / `DraftComment` on
+    iOS, `ScanSessionViewModel.comments` / `DraftComment` on Android) the
+    same way page edits stay in memory until Save/Export, at which point
+    every buffered comment without an already-persisted counterpart
+    becomes a real `CommentModel`/`CommentEntity` row tagged with the page
+    index it was added from. Re-editing a saved document seeds this buffer
+    from its existing comments (`EditSession.load(from:)` /
+    `ScanSessionViewModel.startExistingSession`) so both old and new
+    comments show in the same list. iOS presents it via `.fullScreenCover`;
+    Android via a `Dialog(properties = DialogProperties(usePlatformDefaultWidth
+    = false))`, same as the Text tool's page.
   - **Adjust**: two sliders, **Brightness** and **Contrast**, each a
     standard platform slider (track + draggable thumb). Applied on top of
     whatever the page currently looks like (crop + the page's other
@@ -336,16 +366,34 @@ accumulated rotation either. Fixed by having the getter read
     (`Vision`/`VNRecognizeTextRequest` on iOS, ML Kit **Text Recognition
     v2** on Android) and opens a **full-screen page** (not a bottom sheet —
     a fixed-height sheet was cramped for reading/copying anything longer
-    than a few lines): "Reading page…" while busy, then the recognized
-    text filling the screen with **Copy All** and **Keep as searchable**
-    (embeds the OCR text layer into the page/PDF) actions. The text itself
-    is also directly selectable (`.textSelection(.enabled)` on iOS,
-    `SelectionContainer` on Android), so a user who only wants part of it
-    can drag out a selection with the system's own UI instead of copying
-    everything. iOS presents it via `.fullScreenCover`; Android via a
+    than a few lines): "Reading page…" while busy, then the recognized text
+    filling the screen with a single **Copy All** action, which copies the
+    full text to the clipboard and shows a **"Copied"** toast so tapping it
+    has visible confirmation. The text itself is also directly selectable
+    (`.textSelection(.enabled)` on iOS, `SelectionContainer` on Android), so
+    a user who only wants part of it can drag out a selection with the
+    system's own UI instead of copying everything. iOS presents it via
+    `.fullScreenCover`; Android via a
     `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false))`
     rather than a plain full-size overlay Box, so the system back
-    button/gesture dismisses it for free.
+    button/gesture dismisses it for free. There used to be a second
+    action, **"Keep as searchable"** — removed after confirming it did
+    nothing a user could actually feel: OCR'd text is embedded into the
+    exported PDF automatically whenever recognition has run, regardless of
+    whether this button was ever tapped, so it was a no-op control that
+    only added confusion.
+    - **Toast-inside-a-modal bug** (surfaced by the "Copied" toast above,
+      but not specific to it): both platforms mount their toast overlay
+      once, at the app root (`RootView`/`MainActivity`), sized to that root
+      view's own hierarchy. A `.fullScreenCover` (iOS) or `Dialog`
+      (Android) opens a genuinely separate presentation layer/window that
+      doesn't composite with an ancestor's overlay, so any toast triggered
+      from *inside* one — "Copied" here, but also e.g. "Signature added"
+      inside the Edit flow's own `.fullScreenCover` on iOS — was silently
+      invisible. Fixed by mounting a second overlay sharing the same
+      underlying toast state (`ToastCenter`/`ToastState`) inside each
+      nested presentation that needed one, rather than trying to route
+      toasts back up to the root layer.
   - **Sign**: opens a full-screen, landscape signature pad — "Sign with your
     finger", a canvas with a baseline guide, a color picker (Ink/Blue/Clay/
     Green), a thickness slider, **Clear**, **Cancel**, **Done**. On Done,
@@ -368,22 +416,64 @@ accumulated rotation either. Fixed by having the getter read
     the same normalized `rotation` (degrees, clockwise) field, so a
     signature's rotation round-trips correctly regardless of which platform
     placed it.
-- Saving moves the (new or edited) document into the library, shows a toast
+- Saving a brand-new capture moves it into the library, shows a toast
   ("Saved to Documents"), and opens the Export sheet.
 
-### 4.4 Document viewer
+### 4.4 Re-editing a saved document (no separate Document Viewer)
 
-- Top bar: **Documents** back button (with chevron, `accent` color) / the
-  document's name, centered.
-- Body: the page(s) rendered as `paper` cards (with any committed
-  highlights/signature baked in), scrollable for multi-page documents.
-  Below the pages, a **Comments** section (label "COMMENTS", each comment a
-  card with the note text and "You · <relative time> · page N" meta).
-- Bottom bar: **Comment** and **Export**, two equal-width icon+label
-  buttons.
-- **Comment sheet**: bottom sheet, title "Add comment", a multiline text
-  field (placeholder "Note for this page"), **Post** button (disabled/no-op
-  on empty text), **Cancel** to dismiss.
+Tapping a document card on Home (§4.1) does **not** open a separate
+read-only viewer — it reopens the exact same Edit flow (§4.3) a fresh
+capture uses, seeded from that document, with every tool
+(Crop/Adjust/Comment/Text/Sign) available and working identically either
+way. An earlier design had a dedicated Document Viewer screen (page list +
+a Comments section below it + a bottom "Comment"/"Export" bar); it was
+retired in favor of full reuse, since a viewer that could only add
+comments and export was duplicating most of Edit's own UI while offering
+strictly less — this way every editing capability just works on a saved
+document too, with no separate screen to keep in sync.
+
+- **Entry point**: iOS's `EditSession.load(from:)` and Android's
+  `ScanSessionViewModel.startExistingSession(document)` reconstruct an
+  editable session from a `DocumentModel`/`DocumentWithDetails` — each
+  page's image (loading `originalImagePath` when present so Crop still has
+  the pristine source to work from), its `filter`/`brightness`/`contrast`,
+  its OCR text/lines, its signature, and the document's comments, all
+  mapped into the same in-memory types (`PageEditState`/`DraftPage`,
+  `DraftComment`) a fresh capture builds directly from the camera. Crop
+  quads are the one thing that don't round-trip — they were never
+  persisted on either platform — so re-opening Crop on a saved page starts
+  from a fresh inset rectangle, same as re-cropping an already-cropped
+  fresh-capture page always has.
+  - **Page identity round-trips for Save**: each reconstructed page keeps
+    a handle back to its real persisted row — `PageEditState.existingPageID`
+    on iOS, `DraftPage.id` (which already doubled as the eventual
+    `PageEntity.id` even for fresh captures) on Android — so Save can
+    match modified/kept/deleted pages against the document's actual rows
+    and upsert or delete them in place instead of creating duplicates. See
+    §4.3's page-delete note above for the deferred-file-deletion half of
+    this.
+- **Top bar**: identical to §4.3's, except the trailing button reads
+  **Export** instead of **Save** (`session.existingDocument == nil` on iOS,
+  `scanSession.existingDocumentId == null` on Android decides which). Both
+  buttons call the same save path — `EditFlowView.performSave()` /
+  `EditScreen`'s `performSaveOrExport()` — which persists the pages/
+  comments (updating the existing document's rows rather than inserting a
+  new document) and then opens the Export sheet exactly like a fresh
+  save's "Save" does, just skipping the "Saved to Documents" toast (nothing
+  new was created) in favor of "Changes saved" on iOS, or no toast at all
+  before the sheet opens on Android — both platforms still land on the
+  same Export sheet either way, so exporting the just-re-edited document
+  is always one tap away. Re-saving an existing document never counts
+  against the free-tier save limit (§5) — only creating a brand-new one
+  does.
+  - Android-specific behavior note: prior to this reuse work, tapping Save
+    on a fresh capture required a follow-up tap on the (separate) viewer's
+    own "Export" button to actually see the Export sheet — an
+    inconsistency with iOS, which already opened it automatically right
+    after saving. Consolidating Save and Export into one
+    `performSaveOrExport()` (used for both cases now) closed that gap by
+    always opening the Export sheet inline after persisting, matching
+    iOS's already-proven flow.
 
 ### 4.5 Export sheet
 
@@ -444,10 +534,8 @@ the gating check and paywall UI shouldn't need to change when that happens.
   the recognized-text page. If not premium, the paywall presents instead
   and the tool never activates; which of the two was tapped is remembered
   (`pendingPremiumTool`) so a successful trial/subscription resumes that
-  same tool rather than always reopening Sign. **Highlight** is not gated
-  even though it also runs OCR internally — only the Text tool's own
-  recognized-text page is a premium feature, not OCR as an implementation
-  detail wherever it's used.
+  same tool rather than always reopening Sign. **Comment** is not gated —
+  it's a plain note field, unrelated to OCR or any other premium feature.
 - **Badge**: the Sign and Text tool buttons each show a small **PRO** pill
   (top-right corner) whenever the user isn't currently premium; it
   disappears once they are (trial or subscribed).
@@ -614,9 +702,9 @@ cached.
     This is honestly "the recognized text, one line per row," not a real
     table reconstruction — there's no detected row/column structure to
     export, only OCR lines.
-  - **OCR-on-demand**: normal editing only runs OCR when the Text/
-    Highlight tool is opened, so a page nobody visited either tool on has
-    nothing recognized yet — unlike PDF/JPG (which always have the page
+  - **OCR-on-demand**: normal editing only runs OCR when the Text tool is
+    opened, so a page nobody visited that tool on has nothing recognized
+    yet — unlike PDF/JPG (which always have the page
     image to fall back on), DOCX/XLSX have *only* OCR text, so exporting
     with empty `ocrLines` would silently produce a blank document/sheet.
     Both formats run OCR live for any page missing it before building
@@ -648,7 +736,7 @@ cached.
 ```
 Document
   id: UUID
-  name: String                 // default "Scan N"; user-renamable (nice-to-have)
+  name: String                 // default "Scan N"; user-renamable from Home's long-press menu (§4.1)
   createdAt: Date
   pages: [Page]                // ordered
   comments: [Comment]
@@ -660,7 +748,11 @@ Page
   originalImagePath: String?   // pre-crop capture, kept for re-crop
   filter: auto | original | grayscale | blackAndWhite   // default auto
   ocrText: String?             // null until OCR has been run
-  highlightedLineIndices/Regions: [...]   // OCR line regions marked highlighted
+  highlightedLineIndices/Regions: [...]   // vestigial — the Highlight tool that
+                                // wrote these was removed (§4.3); kept in the
+                                // schema/rendering/export pipeline only so a
+                                // document saved before that removal still
+                                // renders its highlights, never newly set
   signature: Signature?
 
 Signature
