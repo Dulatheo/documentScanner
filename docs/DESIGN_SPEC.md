@@ -910,14 +910,44 @@ pass":
 
 ## 10. Localization
 
-**Status: English-only infrastructure is in place; no other language has
-been translated yet.** This section covers step one of a two-step plan —
-extracting every hardcoded UI string into each platform's resource system
-— for a planned rollout to es-ES, es-MX, pt-PT, pt-BR, ru, fr, it, ar, zh,
-hi, de, and tr. Translating into those locales is separate, future work;
-nothing here changes what the app displays today (still 100% English,
-regardless of device locale, until translated `.strings`/`values-<locale>`
-resources are actually added).
+**Status: both steps are done.** Step one extracted every hardcoded UI
+string into each platform's resource system (below); step two translated
+all of them into 12 locales — es-ES, es-MX, pt-PT, pt-BR, ru, fr, it, ar,
+zh-Hans, hi, de, and tr. A device set to any of these now sees the app in
+that language; anything else still falls back to English (the
+`sourceLanguage`/`developmentRegion`), which is the correct, automatic
+behavior on both platforms rather than something that needed building.
+
+- **How the translations were produced**: one shared table of every
+  English source string, each with a hand-written translation per locale
+  (not machine-translated at request time) — kept as a single Python data
+  file during this round so both platforms translate the *same* English
+  phrase identically, then applied mechanically to each platform's actual
+  resource format (see below), with an automated check that every
+  translation preserves exactly the source's `%d`/`%s`/`%1$d`/`%@`/`%lld`
+  placeholders — a mismatch there is a crash on Android and a silent
+  wrong-substitution risk on iOS, so this was verified programmatically
+  for all ~1,300 translated strings rather than by eye.
+- **Two platform-only strings, translated directly rather than derived**:
+  iOS's export-sheet subtitle after a successful save
+  ("Saved to Documents · choose a format to share") and its default
+  document name ("Scan %lld", by capture count) have no Android
+  counterpart — Android's export sheet doesn't vary that subtitle by
+  save state (see below), and Android's default name is date-stamped
+  instead of count-stamped. Both were translated on their own for all 12
+  locales rather than mechanically reused from an Android string that
+  doesn't actually match.
+- **Known, carried-over simplifications** (disclosed in step one, still
+  true): the two-way "1 document" / "N documents" split on iOS is not a
+  real CLDR plural system, so Russian and Arabic counts other than exactly
+  1 all get the same "other"-shaped text regardless of whether the
+  grammatically correct form would be "few" or "many" — a real fix needs
+  the String Catalog's plural-variation feature, which needs hand-authoring
+  more JSON structure than a two-key swap; Android's native `<plurals>`
+  *does* implement this properly (see below) since it was no extra work
+  once the mechanism already existed. Arabic RTL layout and the
+  interpolated-key accuracy note from step one are both still open, unverified
+  without a real device/Xcode.
 
 - **Android**: `res/values/strings.xml` holds every UI string (~115 entries,
   plus one `<plurals>` for the document-count subtitle) under
@@ -999,7 +1029,23 @@ resources are actually added).
     app, with no extraction needed.
   - SF Symbol / Material icon names, hex color literals, navigation route
     identifiers ("home", "camera", "edit") — never rendered as text.
-- **Known gaps to close before real translations are added**:
+- **Translations** (step two, done): all 109 iOS catalog keys / 110
+  translatable Android strings now have `es-ES`/`es-MX`/`pt-PT`/`pt-BR`/
+  `ru`/`fr`/`it`/`ar`/`zh-Hans`/`hi`/`de`/`tr` entries — `Localizable.xcstrings`'s
+  `localizations` per key on iOS, a `values-<qualifier>/strings.xml`
+  per locale on Android (`values-es-rES`, `values-pt-rBR`, `values-zh-rCN`,
+  etc. — Android's legacy region-qualifier folder naming, still the most
+  broadly-compatible option). `document_count`'s Android `<plurals>` got
+  the real CLDR category set per language this round, not just `one`/
+  `other` — `one`/`few`/`many`/`other` for Russian, the full `zero`/`one`/
+  `two`/`few`/`many`/`other` for Arabic, `other`-only for Chinese/Turkish
+  (correct per CLDR — neither language has additional plural categories),
+  `one`/`other` for the rest. iOS's equivalent is still the simplified
+  two-way split from step one (see the note above this list) — Android's
+  richer plural support came at no extra cost since `<plurals>` already
+  existed as a mechanism; iOS's would need new String Catalog structure,
+  not just new text, so it's still open.
+- **Still open / unverified without a real device or Xcode**:
   - The interpolated-string catalog keys on iOS (`"Page %1$lld of
     %2$lld"`, `"%lld documents"`, etc.) were hand-derived from Apple's
     documented Int→`%lld`/String→`%@` convention rather than generated by
@@ -1008,16 +1054,14 @@ resources are actually added).
     once this opens in a real Xcode project, since a mismatched key would
     silently fail to pick up a translation for that one string (falling
     back to English) rather than crashing.
-  - Real multi-form plural handling (Russian's 3 categories, Arabic's 6)
-    isn't wired up yet — Android's `document_count` plural currently only
-    defines `one`/`other` (adding `few`/`many`/etc. per locale is
-    straightforward when translating, using Android's native `<plurals>`
-    mechanism); iOS's equivalent (`subtitlePrefix`'s document-count
-    branch) is a plain two-way if/else today, which will need either more
-    branches per locale or a real String Catalog plural variation once
-    translated.
   - Arabic is RTL — SwiftUI/Compose mirror most layouts automatically, but
     anything built from explicit left/right coordinates rather than
     leading/trailing (crop-corner dragging, signature placement/rotation,
-    slider positions) needs a real device/simulator check once Arabic
-    strings exist, not just a string-extraction pass.
+    slider positions) needs a real device/simulator check now that Arabic
+    strings actually exist, not just a string-extraction pass.
+  - None of these translations have had a native-speaker review — they're
+    a single hand-written pass per language, checked programmatically only
+    for placeholder correctness (every `%d`/`%s`/`%@`/`%lld` preserved,
+    verified across all ~1,300 translated strings), not for idiom, tone,
+    or regional register. Worth a real review pass, especially for Arabic,
+    Chinese, and Hindi, before shipping to those markets.
