@@ -882,14 +882,16 @@ pass":
   OOXML on both platforms rather than a paid SDK (Aspose/Syncfusion/
   GroupDocs) or a heavy library like Apache POI — all on-device, so
   unlimited Premium use costs nothing marginal, the same reasoning that
-  already applied to unrestricted PDF/JPG export. Worth remembering:
-  DOCX carries real content (the OCR'd text); XLSX/PPTX only ever have
-  "OCR lines in column A" / "one full-page image per slide" to work with,
-  since this app has no detected table or slide-layout structure — real
-  tabular/layout reconstruction is `Advanced OCR`/`AI-assisted
-  features`-sized work, below, not a refinement of this feature. Still
-  open: custom watermarks, higher-resolution export, batch export of
-  multiple documents at once.
+  already applied to unrestricted PDF/JPG export. Worth remembering: DOCX
+  and XLSX both get real (if heuristic) structure — paragraphs/tables via
+  `DocxLineLayout`/`DocxTableDetector`, spread-across-columns cells in XLSX
+  reusing that same table detector (§5's Office-export section) — while
+  PPTX only ever has "one full-page image per slide," since a slide isn't
+  the kind of thing OCR geometry alone can reconstruct. Real layout
+  reconstruction beyond what geometry already buys DOCX/XLSX is
+  `Advanced OCR`/`AI-assisted features`-sized work, below, not a
+  refinement of this feature. Still open: custom watermarks,
+  higher-resolution export, batch export of multiple documents at once.
 - **Cloud backup/sync** — currently everything is local-only; syncing
   across a user's devices is a natural premium tier (also the biggest
   lift, since there's no backend at all today).
@@ -905,3 +907,117 @@ pass":
 - ~~**Password-protected PDF export**~~ — done, §5. **Custom
   branding/no-watermark** export remains open, if a free tier ever adds a
   watermark.
+
+## 10. Localization
+
+**Status: English-only infrastructure is in place; no other language has
+been translated yet.** This section covers step one of a two-step plan —
+extracting every hardcoded UI string into each platform's resource system
+— for a planned rollout to es-ES, es-MX, pt-PT, pt-BR, ru, fr, it, ar, zh,
+hi, de, and tr. Translating into those locales is separate, future work;
+nothing here changes what the app displays today (still 100% English,
+regardless of device locale, until translated `.strings`/`values-<locale>`
+resources are actually added).
+
+- **Android**: `res/values/strings.xml` holds every UI string (~115 entries,
+  plus one `<plurals>` for the document-count subtitle) under
+  purpose-named keys (`home_title`, `edit_page_of`, `paywall_feature_sign`,
+  …), grouped by screen with XML comments. Every `Text(...)`/
+  `contentDescription`/dialog-title/etc. call site that used to hold a
+  literal now calls `stringResource(R.string.key, ...)` (or
+  `pluralStringResource` for the one pluralized string) instead — Compose
+  has no "literal auto-resolves through a catalog" mechanism the way
+  SwiftUI does, so every call site genuinely needed editing, in the ~13
+  files that had any UI text; that includes retyping `EditTool`'s
+  `label`/`hint` from `String` to `@StringRes Int` (an enum's constructor
+  runs before any `@Composable` context exists to resolve a string
+  resource from, so the resolved value has to be looked up by the caller
+  instead — `Text(stringResource(tool.labelRes))` rather than
+  `Text(tool.label)`). A handful of strings are needed from **non**-composable
+  code (`CameraScreen`'s scanner-failure `Toast.makeText` handler,
+  `DocumentRepository.defaultName()`) — resolved via a captured
+  `Context.getString(...)` there instead, since `stringResource` itself
+  can only be called from composition.
+- **iOS**: `DocumentScanner/Localizable.xcstrings` (a String Catalog,
+  Xcode's modern replacement for `Localizable.strings`/`.lproj` folders) —
+  109 source-English entries, `sourceLanguage: "en"`, added to the Xcode
+  project's Resources build phase. Unlike Android, SwiftUI's
+  `Text(_:)`/`Button(_:)`/`.alert(_:)`/`TextField(_:text:)`/etc. already
+  treat a literal argument as a `LocalizedStringKey` and auto-resolve it
+  through whatever String Catalog is in the target — so the *large
+  majority* of call sites needed **no code change at all** once the
+  catalog existed, including ones with inline interpolation
+  (`Text("Free plan is limited to \(...) saved documents...")`) via the
+  catalog's positional format-specifier support. Two categories of call
+  site don't get this for free, because Swift's overload resolution is by
+  the *expression's static type*, and both needed fixing this round:
+  - **A `String`-typed computed property/stored value later shown via
+    `Text(someStringValue)`** (verbatim, unlocalized, since the argument's
+    static type is `String` not `LocalizedStringKey`) — e.g.
+    `HomeView.subtitlePrefix`, `EditSession.pageLabel`,
+    `ExportSheetView.subtitle`/`.dismissLabel`/`.exportingMessage`,
+    `CommentsPageView.metaLabel(for:)`. Fixed by wrapping the literal in
+    `String(localized: "...")` at the point the value is *produced*
+    (inside the computed property/assignment), not where it's displayed.
+  - **A plain `String` passed to a non-`Text` API**: `ToastCenter.show(_:
+    String)`, and the two `reason: String?` paywall parameters. Same fix —
+    `toastCenter.show(String(localized: "Copied"))` at each call site —
+    plus two places building a default value (`RootView`'s
+    `"Scan \(documents.count + 1)"` document name) that also needed it,
+    since that string is genuinely stored as the document's name, not just
+    displayed once.
+  - A **local helper function's `String`-typed parameter used only to
+    build a `Text(...)`** — `EditFlowView.adjustSlider(label:)`,
+    `ExportSheetView.exportOption`/`officeExportOption`
+    (`badge`/`title`/`subtitle`), `EditTool.label`/`.hint` (a computed
+    property here, not a function parameter, but the same issue) — instead
+    of wrapping every call site, retyping the parameter itself to
+    `LocalizedStringKey` fixes every call site for free, since a string
+    literal converts to `LocalizedStringKey` automatically regardless of
+    where it's headed. Preferred over the `String(localized:)` fix above
+    whenever the value only ever needs to reach a `Text`, since it touches
+    one declaration instead of every call site.
+  - **Format-code badges are deliberately not catalog entries**: the
+    3-letter export-format badges ("PDF", "JPG", "DOC", "XLS", "PPT" — the
+    small colored tiles in the Export sheet) are typed the same
+    (`LocalizedStringKey` on iOS, plain — never routed through
+    `stringResource` — on Android) but intentionally have no translated
+    entry anywhere; a `LocalizedStringKey`/plain string with no catalog
+    match just displays its own text, which is exactly "leave this
+    acronym alone" — these are file-format codes, not language content.
+- **Explicitly out of scope for this pass** (either not user-facing, or a
+  separate concern from string extraction):
+  - Text embedded *inside* an exported DOCX/XLSX/PPTX file's XML (the
+    "Page N" worksheet tab names, OOXML boilerplate) — that's content of a
+    file the user opens in a different app, not this app's own UI. Worth
+    revisiting once real translation work starts, but not part of "extract
+    this app's strings."
+  - Date-format *patterns* (`"d MMM yyyy"` / `SimpleDateFormat`,
+    `DateFormatter`) — these are format specifiers, not language content;
+    both already resolve using the device's current `Locale`, so a card's
+    date already displays in the right convention for whoever's using the
+    app, with no extraction needed.
+  - SF Symbol / Material icon names, hex color literals, navigation route
+    identifiers ("home", "camera", "edit") — never rendered as text.
+- **Known gaps to close before real translations are added**:
+  - The interpolated-string catalog keys on iOS (`"Page %1$lld of
+    %2$lld"`, `"%lld documents"`, etc.) were hand-derived from Apple's
+    documented Int→`%lld`/String→`%@` convention rather than generated by
+    Xcode's own extraction (no Xcode/compiler available in this
+    environment) — worth a spot-check against what Xcode itself generates
+    once this opens in a real Xcode project, since a mismatched key would
+    silently fail to pick up a translation for that one string (falling
+    back to English) rather than crashing.
+  - Real multi-form plural handling (Russian's 3 categories, Arabic's 6)
+    isn't wired up yet — Android's `document_count` plural currently only
+    defines `one`/`other` (adding `few`/`many`/etc. per locale is
+    straightforward when translating, using Android's native `<plurals>`
+    mechanism); iOS's equivalent (`subtitlePrefix`'s document-count
+    branch) is a plain two-way if/else today, which will need either more
+    branches per locale or a real String Catalog plural variation once
+    translated.
+  - Arabic is RTL — SwiftUI/Compose mirror most layouts automatically, but
+    anything built from explicit left/right coordinates rather than
+    leading/trailing (crop-corner dragging, signature placement/rotation,
+    slider positions) needs a real device/simulator check once Arabic
+    strings exist, not just a string-extraction pass.
