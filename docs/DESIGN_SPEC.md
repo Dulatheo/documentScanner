@@ -97,8 +97,10 @@ a parallel `home → doc viewer (existing document) → (comment | export sheet
   at least one saved document). A free user tapping it opens the same
   paywall every other premium gate opens; once subscribed, it switches to
   a softer fill (`accentSoft` instead of a solid `accent` background) and
-  stops being tappable — the paywall screen has no "you're already
-  premium" state to show, so there's nothing useful left to open.
+  stays tappable, but opens **Subscription Info** instead (§5's
+  "Subscription Info" subsection) — the paywall screen has no "you're
+  already premium" state to show, so there's something more useful to open
+  than nothing.
 - **Grid of document cards**, 2 columns, **fixed 3:4 aspect ratio
   regardless of the page's own proportions** — the thumbnail image inside
   is `scaledToFit` (never cropped/zoomed to fill), so every card reads as
@@ -215,26 +217,24 @@ see the platform notes below for why, including a reversal on iOS.
         build/test loop available to verify kernel math is correct before
         shipping it.
 
-**iOS zoom-transition implementation note**: the scan button → Camera
-transition is implemented via `matchedGeometryEffect` with a shared
-`@Namespace`, not a plain `.fullScreenCover`/`NavigationLink` push. A
-`.fullScreenCover`/pushed `NavigationLink` destination is a *separate* view
-hierarchy from the presenting screen, and `matchedGeometryEffect` only
-animates smoothly between two views that are simultaneously part of the
-*same* hierarchy during the transition — so Camera's destination
+**iOS scan-button → Camera transition note**: Camera's destination
 (`DocumentCameraView`, a `UIViewControllerRepresentable` wrapping VisionKit)
 is presented as a plain conditional overlay (`if showCamera { ... }`)
-inside the same `ZStack` as `HomeView`, with the toggle wrapped in
-`withAnimation`, rather than through SwiftUI's modal presentation APIs.
-This is the standard, broadly-compatible (iOS 17+, no `#available`
-branching) way to get a source-rect zoom transition; iOS 18 also ships a
-dedicated `NavigationTransition.zoom` API, but building on the
-namespace/overlay approach instead keeps one implementation path for both
-this iOS version and future ones. Tapping a document card has no such
-transition today — Edit (§4.3/§4.4) is presented via `.fullScreenCover`,
-which `matchedGeometryEffect` can't reach into, so `documentZoomID(for:)`
-is currently a harmless no-op id with nothing to animate into (kept in case
-a future card → Edit transition is worth building).
+inside the same `ZStack` as `HomeView`, rather than through SwiftUI's modal
+presentation APIs — this predates and is unrelated to the note below; it's
+just how the overlay is structured. The transition itself is a plain
+`.transition(.opacity)` + `.animation(...)` fade, **not**
+`matchedGeometryEffect`: an earlier version shared a `@Namespace` between
+the scan button and the camera overlay for a zoom-into-place effect, but
+this made the scan button itself appear to fly off toward Camera's
+destination frame instead of staying put, which read as a bug rather than
+a nice transition — removed in favor of the simple fade, which guarantees
+the button's own frame never animates. `zoomNamespace` and
+`documentZoomID(for:)` are kept as unused hooks in case a future card →
+Edit zoom transition is worth building (Edit, §4.3/§4.4, is presented via
+`.fullScreenCover`, a separate view hierarchy `matchedGeometryEffect`
+can't reach into, so there's currently nothing for either id to animate
+into).
 
 ### 4.3 Edit (per-page editor)
 
@@ -486,13 +486,27 @@ document too, with no separate screen to keep in sync.
 
 ### 4.5 Export sheet
 
-Bottom sheet, **fixed height, not resizable/draggable to a different
-size** — a single `presentationDetents` value, not `.medium`/`.large` or
-the platform default free-form sheet, since its content is a short, fixed
-set of rows with nothing that benefits from more room. Title "Export
-document", subtitle varies ("Saved to Documents · choose a format to
-share" right after saving a new scan, or "Choose a format to share" when
-exporting an existing document). Two options:
+Bottom sheet, **sized to its own content, not resizable/draggable to a
+different size** — a single `presentationDetents` value, not
+`.medium`/`.large` or the platform default free-form sheet, since its
+content is a short, fixed set of rows with nothing that benefits from more
+room. Title "Export document", subtitle varies ("Saved to Documents ·
+choose a format to share" right after saving a new scan, or "Choose a
+format to share" when exporting an existing document). Two options:
+
+**iOS content-height note**: the detent height used to be a fixed `560pt`
+guess, measured against the English copy. Once all 12 languages of
+translations landed (§10), some locales' longer strings pushed the row
+stack past that fixed height, clipping the "Close"/"Cancel" dismiss button
+off the bottom of the sheet — it looked like the button "didn't work" when
+it was actually just unreachable. Fixed by measuring the sheet's own
+content (header + all rows + dismiss button, now all inside one
+`ScrollView`) via a `GeometryReader`-in-`.background` +
+`ContentHeightKey: PreferenceKey`, and feeding that measured height into
+`.presentationDetents([.height(min(measured, screenHeight * 0.9))])` —
+`560` only remains as the pre-measurement fallback for the first frame.
+Android's `ModalBottomSheet` doesn't need this: it already sizes to its
+content by default.
 
 - **PDF document** — "Searchable text, all pages" (multi-page PDF; embeds
   any OCR'd text as an invisible text layer when available).
@@ -617,7 +631,8 @@ cached.
   PDF as before; tapping the lock icon is the dedicated premium gate.
   Premium users get a password prompt (SwiftUI `.alert` + `SecureField` /
   Compose `AlertDialog` + `OutlinedTextField`) instead of expanding the
-  Export sheet itself, preserving its fixed, non-resizable height (§4.5).
+  Export sheet itself, keeping its content (and so its computed height,
+  §4.5) unchanged by the password flow.
   Free users see the paywall (reason: "Password-protecting PDFs is a Premium
   feature") first; success reopens the password prompt. Same password is
   used as both the PDF's "open" and "permissions" password — there's no
@@ -781,6 +796,27 @@ cached.
   - None of this has been opened in real Word/Excel/PowerPoint (no Office
     suite in the sandbox this was built in) — verify on real documents
     before relying on it.
+
+**Subscription Info**: tapping the PRO badge (§4.1) once already premium
+opens this instead of the paywall — a small dialog/sheet (Android:
+`AlertDialog`; iOS: `SubscriptionInfoView`, a `.sheet`) confirming status
+rather than trying to sell anything, since `PaywallView`/`PaywallScreen`
+has nothing to show a subscriber. Content:
+
+- Crown icon in an accent circle, title "You're a PRO user".
+- Status line: "Free trial · N days left" while `isTrialActive()`
+  (`trialDaysRemaining()`), or "Your Premium subscription is active."
+  otherwise. The day-count is **not** a real CLDR plural (always "days",
+  even for 1 remaining) — a deliberate, disclosed simplification for this
+  secondary detail screen, unlike `home_document_count`'s real plural
+  handling; see §10.
+- **Manage Subscription** button, opening the platform's own subscription
+  management (this app's `PremiumManager` is a local mock with no billing
+  detail of its own to show, per this section's opening note) —
+  Android: `https://play.google.com/store/account/subscriptions?package=<applicationId>`
+  via an `ACTION_VIEW` `Intent`; iOS: `https://apps.apple.com/account/subscriptions`
+  via `openURL`.
+- A dismiss button (Android: "Done"; iOS: "Done", via `.dismiss`).
 
 ## 6. Data model
 
@@ -970,8 +1006,10 @@ behavior on both platforms rather than something that needed building.
   can only be called from composition.
 - **iOS**: `DocumentScanner/Localizable.xcstrings` (a String Catalog,
   Xcode's modern replacement for `Localizable.strings`/`.lproj` folders) —
-  109 source-English entries, `sourceLanguage: "en"`, added to the Xcode
-  project's Resources build phase. Unlike Android, SwiftUI's
+  113 source-English entries (109 from the original extraction pass, plus
+  4 added for Subscription Info — see §5's "Subscription Info"
+  subsection), `sourceLanguage: "en"`, added to the Xcode project's
+  Resources build phase. Unlike Android, SwiftUI's
   `Text(_:)`/`Button(_:)`/`.alert(_:)`/`TextField(_:text:)`/etc. already
   treat a literal argument as a `LocalizedStringKey` and auto-resolve it
   through whatever String Catalog is in the target — so the *large
@@ -1029,8 +1067,10 @@ behavior on both platforms rather than something that needed building.
     app, with no extraction needed.
   - SF Symbol / Material icon names, hex color literals, navigation route
     identifiers ("home", "camera", "edit") — never rendered as text.
-- **Translations** (step two, done): all 109 iOS catalog keys / 110
-  translatable Android strings now have `es-ES`/`es-MX`/`pt-PT`/`pt-BR`/
+- **Translations** (step two, done): all 113 iOS catalog keys / 114
+  translatable Android strings (109/110 from the original pass, plus the 4
+  Subscription Info strings added alongside that feature) now have
+  `es-ES`/`es-MX`/`pt-PT`/`pt-BR`/
   `ru`/`fr`/`it`/`ar`/`zh-Hans`/`hi`/`de`/`tr` entries — `Localizable.xcstrings`'s
   `localizations` per key on iOS, a `values-<qualifier>/strings.xml`
   per locale on Android (`values-es-rES`, `values-pt-rBR`, `values-zh-rCN`,
