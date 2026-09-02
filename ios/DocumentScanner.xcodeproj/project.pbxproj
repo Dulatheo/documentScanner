@@ -371,6 +371,18 @@
 			knownRegions = (
 				en,
 				Base,
+				"es-ES",
+				"es-MX",
+				"pt-PT",
+				"pt-BR",
+				ru,
+				fr,
+				it,
+				ar,
+				"zh-Hans",
+				hi,
+				de,
+				tr,
 			);
 			mainGroup = 7C77A872663E888729B302C0;
 			productRefGroup = 2F3A6B1E78F896718625FF06 /* Products */;
