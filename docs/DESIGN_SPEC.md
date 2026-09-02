@@ -90,6 +90,15 @@ a parallel `home → doc viewer (existing document) → (comment | export sheet
 - Large title "Documents" + subtitle: document count (e.g. "3 documents")
   or "Nothing saved yet" when empty. No search affordance — removed after
   user feedback that it wasn't earning its place on a screen this simple.
+- **PRO badge**, top-right of the title row (§5): a small pill — crown icon
+  + "PRO" — always visible on Home, unlike the inline "Premium for
+  unlimited" subtitle link below the title (which only appears once the
+  free-tier document limit is worth mentioning to a non-premium user with
+  at least one saved document). A free user tapping it opens the same
+  paywall every other premium gate opens; once subscribed, it switches to
+  a softer fill (`accentSoft` instead of a solid `accent` background) and
+  stops being tappable — the paywall screen has no "you're already
+  premium" state to show, so there's nothing useful left to open.
 - **Grid of document cards**, 2 columns, **fixed 3:4 aspect ratio
   regardless of the page's own proportions** — the thumbnail image inside
   is `scaledToFit` (never cropped/zoomed to fill), so every card reads as

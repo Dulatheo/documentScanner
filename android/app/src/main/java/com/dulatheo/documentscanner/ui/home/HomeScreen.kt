@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -147,22 +148,31 @@ fun HomeScreen(
                         }
                     }
                 }
-                if (documents.isNotEmpty() || query.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(tokens.surface)
-                            .border(1.dp, tokens.line, CircleShape)
-                            .clickable { searchOpen = !searchOpen },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Search,
-                            contentDescription = "Search documents",
-                            tint = tokens.ink2,
-                            modifier = Modifier.size(17.dp),
-                        )
+                Row(
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ProBadge(
+                        isPremium = premiumManager.isPremium(),
+                        onClick = { showPaywall = true },
+                    )
+                    if (documents.isNotEmpty() || query.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(tokens.surface)
+                                .border(1.dp, tokens.line, CircleShape)
+                                .clickable { searchOpen = !searchOpen },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = "Search documents",
+                                tint = tokens.ink2,
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -333,6 +343,39 @@ fun HomeScreen(
                 },
             )
         }
+    }
+}
+
+/** Top-right entry point into Premium (DESIGN_SPEC §5) — always visible on
+ * Home, unlike the inline "Premium for unlimited" subtitle link, which only
+ * shows once the free-tier document limit is worth mentioning. A free user
+ * taps it to open the paywall (same one that limit/tool gating opens); once
+ * subscribed it becomes a plain, non-interactive status pill — `PaywallView`
+ * has no "already premium" state to show, so tapping it again would have
+ * nothing useful to do. */
+@Composable
+private fun ProBadge(isPremium: Boolean, onClick: () -> Unit) {
+    val tokens = LocalAppColors.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (isPremium) tokens.accentSoft else tokens.accent)
+            .let { if (isPremium) it else it.clickable(onClick = onClick) }
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Icon(
+            Icons.Filled.WorkspacePremium,
+            contentDescription = null,
+            tint = if (isPremium) tokens.accent else Color.White,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            "PRO",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = if (isPremium) tokens.accent else Color.White,
+        )
     }
 }
 

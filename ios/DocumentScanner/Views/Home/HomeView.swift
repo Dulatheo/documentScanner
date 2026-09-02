@@ -155,23 +155,51 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Documents")
-                .font(.system(size: 30, weight: .semibold))
-                .tracking(-0.5)
-                .foregroundColor(theme.ink)
-            HStack(spacing: 0) {
-                Text(subtitlePrefix)
-                    .font(.system(size: 13))
-                    .foregroundColor(theme.ink3)
-                if showPremiumLink {
-                    Text("Premium for unlimited")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(theme.accent)
-                        .underline()
-                        .onTapGesture { showPaywall = true }
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Documents")
+                    .font(.system(size: 30, weight: .semibold))
+                    .tracking(-0.5)
+                    .foregroundColor(theme.ink)
+                HStack(spacing: 0) {
+                    Text(subtitlePrefix)
+                        .font(.system(size: 13))
+                        .foregroundColor(theme.ink3)
+                    if showPremiumLink {
+                        Text("Premium for unlimited")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(theme.accent)
+                            .underline()
+                            .onTapGesture { showPaywall = true }
+                    }
                 }
             }
+            Spacer()
+            proBadge
+                .padding(.top, 4)
+        }
+    }
+
+    /// Top-right entry point into Premium (DESIGN_SPEC §5) — always visible
+    /// on Home, unlike the inline "Premium for unlimited" subtitle link
+    /// above, which only shows once the free-tier document limit is worth
+    /// mentioning. A free user taps it to open the paywall (same one
+    /// limit/tool gating opens); once subscribed it becomes a plain,
+    /// non-interactive status pill — `PaywallView` has no "already premium"
+    /// state to show, so tapping it again would have nothing useful to do.
+    private var proBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "crown.fill")
+                .font(.system(size: 11, weight: .semibold))
+            Text("PRO")
+                .font(.system(size: 12, weight: .bold))
+        }
+        .foregroundColor(premiumManager.isPremium ? theme.accent : .white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(premiumManager.isPremium ? theme.accentSoft : theme.accent))
+        .onTapGesture {
+            if !premiumManager.isPremium { showPaywall = true }
         }
     }
 
