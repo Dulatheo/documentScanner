@@ -27,6 +27,19 @@ internal object OoxmlUtil {
         return page.copy(ocrLines = result.lines)
     }
 
+    /** Spreadsheet column letter for a 0-based column index (0 -> "A",
+     * 25 -> "Z", 26 -> "AA", …) — the base-26 letter part of an OOXML cell
+     * reference like "B7". */
+    fun columnLetter(index: Int): String {
+        var n = index
+        val sb = StringBuilder()
+        do {
+            sb.insert(0, ('A' + n % 26))
+            n = n / 26 - 1
+        } while (n >= 0)
+        return sb.toString()
+    }
+
     fun xmlEscape(s: String): String {
         val sb = StringBuilder(s.length)
         for (c in s) {

@@ -7,11 +7,12 @@ import java.util.zip.ZipOutputStream
 /**
  * Exports a document's recognized text as an Excel (.xlsx) file — a
  * Premium format (DESIGN_SPEC §5/§9 "Office format export"). One worksheet
- * per page, one row per OCR'd line, all in column A — this app only ever
- * has OCR text (lines + bounding boxes), not detected table structure, so
- * this is honestly "the recognized text, one line per row" rather than a
- * real spreadsheet reconstruction; see DESIGN_SPEC §9 for why real tabular
- * export is a separate, bigger feature.
+ * per page. Runs of lines [DocxTableDetector] recognizes as a grid-like
+ * table (e.g. a scanned two-column glossary/translation table) are spread
+ * across columns A, B, C… one detected cell per column, same detector
+ * DOCX export already uses to render a real `<w:tbl>` — everything else
+ * (ordinary paragraph lines) still goes one line per row in column A, since
+ * there's no column structure to split it by.
  */
 object XlsxExportService {
     suspend fun buildXlsx(pages: List<ExportPage>, outFile: File): File {
@@ -33,15 +34,43 @@ object XlsxExportService {
     }
 
     private fun sheetXml(page: ExportPage): String {
+        // Same top-to-bottom sort DocxExportService/DocxLineLayout use —
+        // duplicated here (one line) so table detection agrees with the
+        // rest of the export pipeline on reading order without either
+        // depending on the other's internals.
+        val sorted = page.ocrLines.sortedBy { it.top }
+        val tables = DocxTableDetector.detect(sorted)
+
         val rows = StringBuilder()
-        page.ocrLines.forEachIndexed { index, line ->
-            val r = index + 1
-            rows.append("<row r=\"$r\"><c r=\"A$r\" t=\"inlineStr\"><is><t xml:space=\"preserve\">")
-                .append(OoxmlUtil.xmlEscape(line.text))
-                .append("</t></is></c></row>")
+        var sheetRow = 0
+        var lineIndex = 0
+        var tableIndex = 0
+        while (lineIndex < sorted.size) {
+            if (tableIndex < tables.size && tables[tableIndex].lineRange.first == lineIndex) {
+                val table = tables[tableIndex]
+                for (rowCells in table.rows) {
+                    sheetRow += 1
+                    rows.append("<row r=\"$sheetRow\">")
+                    rowCells.forEachIndexed { column, cellText ->
+                        rows.append(cellXml(column, sheetRow, cellText))
+                    }
+                    rows.append("</row>")
+                }
+                lineIndex = table.lineRange.last + 1
+                tableIndex += 1
+            } else {
+                sheetRow += 1
+                rows.append("<row r=\"$sheetRow\">").append(cellXml(0, sheetRow, sorted[lineIndex].text)).append("</row>")
+                lineIndex += 1
+            }
         }
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
             "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>$rows</sheetData></worksheet>"
+    }
+
+    private fun cellXml(column: Int, row: Int, text: String): String {
+        val ref = OoxmlUtil.columnLetter(column) + row
+        return "<c r=\"$ref\" t=\"inlineStr\"><is><t xml:space=\"preserve\">${OoxmlUtil.xmlEscape(text)}</t></is></c>"
     }
 
     private fun workbookXml(sheetCount: Int): String {

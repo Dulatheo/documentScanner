@@ -2,11 +2,12 @@ import Foundation
 
 /// Exports a document's recognized text as an Excel (.xlsx) file — a
 /// Premium format (DESIGN_SPEC §5/§9 "Office format export"). One
-/// worksheet per page, one row per OCR'd line, all in column A — this app
-/// only ever has OCR text (lines + bounding boxes), not detected table
-/// structure, so this is honestly "the recognized text, one line per row"
-/// rather than a real spreadsheet reconstruction; see DESIGN_SPEC §9 for
-/// why real tabular export is a separate, bigger feature.
+/// worksheet per page. Runs of lines `DocxTableDetector` recognizes as a
+/// grid-like table (e.g. a scanned two-column glossary/translation table)
+/// are spread across columns A, B, C… one detected cell per column, the
+/// same detector DOCX export already uses to render a real Word table;
+/// everything else (ordinary paragraph lines) still goes one line per row
+/// in column A, since there's no column structure to split it by.
 enum XlsxExportService {
     static func makeXlsx(for document: DocumentModel) async -> URL {
         var zip = OOXMLZipWriter()
@@ -25,19 +26,65 @@ enum XlsxExportService {
     }
 
     private static func sheetXML(for page: PageModel) async -> String {
-        // Normal editing only runs OCR when the Text/Highlight tool is
-        // opened — a page nobody happened to visit either tool on would
-        // otherwise export as a sheet with no rows at all.
+        // Normal editing only runs OCR when the Text tool is opened — a
+        // page nobody happened to visit it on would otherwise export as a
+        // sheet with no rows at all.
         let lines = await OCRService.ensureLines(for: page)
+        // Same top-to-bottom sort `DocxExportService.renderPage`/
+        // `DocxLineLayout.analyze` use — duplicated here (one line) so
+        // table detection agrees with the rest of the export pipeline on
+        // reading order without either depending on the other's internals.
+        let sorted = lines.sorted {
+            ($0.normalizedBox.y + $0.normalizedBox.height) > ($1.normalizedBox.y + $1.normalizedBox.height)
+        }
+        let tables = DocxTableDetector.detect(in: sorted)
+
         var rows = ""
-        for (index, line) in lines.enumerated() {
-            let r = index + 1
-            rows += "<row r=\"\(r)\"><c r=\"A\(r)\" t=\"inlineStr\"><is><t xml:space=\"preserve\">\(XMLEscape.text(line.text))</t></is></c></row>"
+        var sheetRow = 0
+        var lineIndex = 0
+        var tableIndex = 0
+        while lineIndex < sorted.count {
+            if tableIndex < tables.count, tables[tableIndex].lineIndices.lowerBound == lineIndex {
+                let table = tables[tableIndex]
+                for rowCells in table.rows {
+                    sheetRow += 1
+                    rows += "<row r=\"\(sheetRow)\">"
+                    for (column, cellText) in rowCells.enumerated() {
+                        rows += cellXML(column: column, row: sheetRow, text: cellText)
+                    }
+                    rows += "</row>"
+                }
+                lineIndex = table.lineIndices.upperBound
+                tableIndex += 1
+            } else {
+                sheetRow += 1
+                rows += "<row r=\"\(sheetRow)\">" + cellXML(column: 0, row: sheetRow, text: sorted[lineIndex].text) + "</row>"
+                lineIndex += 1
+            }
         }
         return """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>\(rows)</sheetData></worksheet>
         """
+    }
+
+    private static func cellXML(column: Int, row: Int, text: String) -> String {
+        let ref = columnLetter(column) + String(row)
+        return "<c r=\"\(ref)\" t=\"inlineStr\"><is><t xml:space=\"preserve\">\(XMLEscape.text(text))</t></is></c>"
+    }
+
+    /// Spreadsheet column letter for a 0-based column index (0 -> "A",
+    /// 25 -> "Z", 26 -> "AA", …) — the base-26 letter part of an OOXML cell
+    /// reference like "B7".
+    private static func columnLetter(_ index: Int) -> String {
+        var n = index
+        var letters: [Character] = []
+        repeat {
+            let scalarValue = Unicode.Scalar("A").value + UInt32(n % 26)
+            letters.insert(Character(Unicode.Scalar(scalarValue)!), at: 0)
+            n = n / 26 - 1
+        } while n >= 0
+        return String(letters)
     }
 
     private static func workbookXML(pageCount: Int) -> String {
