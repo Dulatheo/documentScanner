@@ -66,6 +66,7 @@ import com.dulatheo.documentscanner.ui.components.ToastHost
 import com.dulatheo.documentscanner.ui.components.ToastState
 import com.dulatheo.documentscanner.ui.paywall.PaywallOutcome
 import com.dulatheo.documentscanner.ui.paywall.PaywallScreen
+import com.dulatheo.documentscanner.ui.sheets.CommentsPageContent
 import com.dulatheo.documentscanner.ui.sheets.ExportSheetContent
 import com.dulatheo.documentscanner.ui.sheets.OcrSheetContent
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
@@ -75,8 +76,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 /**
- * Per-page editor (DESIGN_SPEC.md §4.3): Crop / Highlight / Text / Sign tools
- * over the page(s) captured in [scanSession]. Swiping between pages is
+ * Per-page editor (DESIGN_SPEC.md §4.3): Crop / Adjust / Comment / Text / Sign
+ * tools over the page(s) captured in [scanSession]. Swiping between pages is
  * disabled while a tool is actively engaged so drag gestures aren't
  * ambiguous with the pager.
  */
@@ -110,6 +111,8 @@ fun EditScreen(
 
     var ocrBusy by remember { mutableStateOf(false) }
     var ocrSheetOpen by remember { mutableStateOf(false) }
+    var showCommentsPage by remember { mutableStateOf(false) }
+    var commentDraft by remember { mutableStateOf("") }
 
     var signMode by remember { mutableStateOf<SignMode?>(null) }
     var pendingStrokes by remember { mutableStateOf<List<SignatureStroke>>(emptyList()) }
@@ -179,11 +182,23 @@ fun EditScreen(
         scope.launch { commitCropSuspend() }
     }
 
-    suspend fun performSave() {
+    /** Persists the current pages/comments — creating a brand-new
+     * document, or (DESIGN_SPEC §4.4) updating one already-saved when this
+     * session was opened via `ScanSessionViewModel.startExistingSession` —
+     * then opens the same export sheet "export without saving" uses.
+     * There's no separate Document Viewer screen to land on afterward
+     * (re-editing a saved document just reopens this one), so this is
+     * also what happens right after tapping Save on a brand-new capture,
+     * matching the "save, then straight into the export sheet" flow iOS
+     * already used. The top bar's button reads "Save" or "Export"
+     * depending on which case this is, but both paths end up here. */
+    suspend fun performSaveOrExport() {
         commitCropSuspend()
+        val isNewDocument = scanSession.existingDocumentId == null
         val id = scanSession.save()
-        toast.show("Saved to Documents")
+        if (isNewDocument) toast.show("Saved to Documents")
         onSaved(id)
+        showExportWithoutSavingSheet = true
     }
 
     /** Removes the currently-viewed page (DESIGN_SPEC §4.3 "delete a
@@ -230,9 +245,7 @@ fun EditScreen(
         // recognized-text page, and re-check on every tap (rather than
         // trusting a possibly-stale `isPremium`) since a trial started
         // elsewhere in the app could have expired since this screen last
-        // refreshed it. Highlight is unaffected even though it also runs
-        // OCR internally — only the Text tool's own recognized-text page
-        // is the gated feature.
+        // refreshed it. Comment isn't gated — it doesn't touch OCR.
         if (tool == EditTool.SIGN || tool == EditTool.TEXT) {
             isPremium = editViewModel.premiumManager.isPremium()
             if (!isPremium) {
@@ -262,6 +275,9 @@ fun EditScreen(
             EditTool.SIGN -> {
                 pendingStrokes = emptyList()
                 signMode = SignMode.DRAWING
+            }
+            EditTool.COMMENT -> {
+                showCommentsPage = true
             }
             else -> {}
         }
@@ -302,16 +318,23 @@ fun EditScreen(
                     )
                 }
                 Text(
-                    "Save",
+                    if (scanSession.existingDocumentId == null) "Save" else "Export",
                     color = tokens.accent,
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.clickable {
-                        scope.launch {
-                            val count = editViewModel.documentCount()
-                            if (editViewModel.premiumManager.canCreateNewDocument(count)) {
-                                performSave()
-                            } else {
-                                showSaveLimitDialog = true
+                        // Re-saving an existing document never counts
+                        // against the free-tier save limit (DESIGN_SPEC
+                        // §5) — only creating a brand-new one does.
+                        if (scanSession.existingDocumentId != null) {
+                            scope.launch { performSaveOrExport() }
+                        } else {
+                            scope.launch {
+                                val count = editViewModel.documentCount()
+                                if (editViewModel.premiumManager.canCreateNewDocument(count)) {
+                                    performSaveOrExport()
+                                } else {
+                                    showSaveLimitDialog = true
+                                }
                             }
                         }
                     },
@@ -446,6 +469,27 @@ fun EditScreen(
             }
         }
 
+        if (showCommentsPage) {
+            Dialog(
+                onDismissRequest = { showCommentsPage = false; activeTool = null; commentDraft = "" },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+            ) {
+                CommentsPageContent(
+                    comments = scanSession.comments,
+                    draft = commentDraft,
+                    onDraftChange = { commentDraft = it },
+                    onPost = {
+                        val trimmed = commentDraft.trim()
+                        if (trimmed.isNotEmpty()) {
+                            scanSession.addDraftComment(trimmed, scanSession.currentIndex)
+                            commentDraft = ""
+                        }
+                    },
+                    onDone = { showCommentsPage = false; activeTool = null; commentDraft = "" },
+                )
+            }
+        }
+
         if (showPaywall) {
             PaywallScreen(premiumManager = editViewModel.premiumManager) { outcome ->
                 showPaywall = false
@@ -481,17 +525,17 @@ fun EditScreen(
                     PaywallOutcome.TRIAL_STARTED -> {
                         isPremium = true
                         toast.show("Trial started — enjoy Premium!")
-                        scope.launch { performSave() }
+                        scope.launch { performSaveOrExport() }
                     }
                     PaywallOutcome.SUBSCRIBED -> {
                         isPremium = true
                         toast.show("Welcome to Premium!")
-                        scope.launch { performSave() }
+                        scope.launch { performSaveOrExport() }
                     }
                     PaywallOutcome.RESTORED -> {
                         isPremium = editViewModel.premiumManager.isPremium()
                         toast.show("Purchases restored")
-                        if (isPremium) scope.launch { performSave() }
+                        if (isPremium) scope.launch { performSaveOrExport() }
                     }
                     PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
                     PaywallOutcome.DISMISSED -> {}

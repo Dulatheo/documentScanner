@@ -85,7 +85,12 @@ private fun documentCountPrefix(count: Int, premiumManager: PremiumManager): Str
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onOpenDocument: (String) -> Unit,
+    /** Opens a saved document for viewing/editing (DESIGN_SPEC §4.4) — the
+     * full [DocumentWithDetails] is already loaded here (this screen
+     * observes it live), so the caller can seed
+     * [com.dulatheo.documentscanner.ui.camera.ScanSessionViewModel.startExistingSession]
+     * with it directly instead of a second fetch by id. */
+    onOpenDocument: (DocumentWithDetails) -> Unit,
     onScan: () -> Unit,
     premiumManager: PremiumManager,
     toast: ToastState,
@@ -207,7 +212,7 @@ fun HomeScreen(
                                 dateLabel = dateFormatter.format(java.util.Date(doc.document.createdAt)),
                                 pageCount = doc.pages.size,
                                 thumbnailPath = doc.orderedPages.firstOrNull()?.imagePath,
-                                onClick = { onOpenDocument(doc.document.id) },
+                                onClick = { onOpenDocument(doc) },
                                 onLongClick = { actionMenuDocumentId = doc.document.id },
                             )
                             DropdownMenu(

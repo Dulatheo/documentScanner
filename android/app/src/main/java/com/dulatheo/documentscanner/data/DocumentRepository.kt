@@ -18,7 +18,11 @@ import java.util.Locale
 import java.util.UUID
 
 /** A page that has been captured/edited in-memory (Camera → Edit flow) but
- * not yet persisted as part of a saved [DocumentEntity]. */
+ * not yet persisted as part of a saved [DocumentEntity]. [id] doubles as
+ * the eventual [PageEntity.id] — for a page loaded from an already-saved
+ * document (DESIGN_SPEC §4.4 re-edit flow), it's seeded from that page's
+ * real id so saving again updates it in place instead of creating a
+ * duplicate; see [ScanSessionViewModel.startExistingSession]. */
 data class DraftPage(
     val id: String = UUID.randomUUID().toString(),
     val imagePath: String,
@@ -30,6 +34,20 @@ data class DraftPage(
      * [PageEntity.brightness]/[PageEntity.contrast]. */
     val brightness: Float = 0f,
     val contrast: Float = 1f,
+)
+
+/** An in-progress comment (DESIGN_SPEC §4.3 "Comment tool"), buffered in
+ * [ScanSessionViewModel] until Save/Export writes it to a real
+ * [CommentEntity] — works the same whether the document is brand-new or
+ * an existing one being re-edited. [existingCommentId] just tracks which
+ * draft already has a persisted counterpart, in case editing an existing
+ * comment is ever added later (today there's only add, never edit). */
+data class DraftComment(
+    val id: String = UUID.randomUUID().toString(),
+    val text: String,
+    val pageIndex: Int? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val existingCommentId: String? = null,
 )
 
 /** Single entry point the UI layer talks to for persistence — wraps Room DAOs
@@ -48,14 +66,10 @@ class DocumentRepository(context: Context) {
      * free-tier save limit (DESIGN_SPEC §5 "limited document storage"). */
     suspend fun documentCount(): Int = withContext(Dispatchers.IO) { documentDao.observeCount().first() }
 
-    fun observeDocument(id: String): Flow<DocumentWithDetails?> = documentDao.observeById(id)
-
-    suspend fun getDocument(id: String): DocumentWithDetails? =
-        withContext(Dispatchers.IO) { documentDao.getById(id) }
-
-    /** Saves a freshly captured/edited set of pages as a brand-new document
-     * and returns the new document's id. */
-    suspend fun createDocument(name: String? = null, pages: List<DraftPage>): String =
+    /** Saves a freshly captured/edited set of pages (and any comments
+     * added during the session — DESIGN_SPEC §4.3 "Comment tool") as a
+     * brand-new document and returns the new document's id. */
+    suspend fun createDocument(name: String? = null, pages: List<DraftPage>, comments: List<DraftComment> = emptyList()): String =
         withContext(Dispatchers.IO) {
             val docId = UUID.randomUUID().toString()
             val resolvedName = name?.takeIf { it.isNotBlank() } ?: defaultName()
@@ -75,20 +89,55 @@ class DocumentRepository(context: Context) {
                 )
             }
             pageDao.insertAll(entities)
+            for (comment in comments) {
+                commentDao.insert(
+                    CommentEntity(documentId = docId, text = comment.text, createdAt = comment.createdAt, pageIndex = comment.pageIndex)
+                )
+            }
             docId
         }
 
-    /** Persists edits (crop/highlight/OCR/signature) made to a single page
-     * that already belongs to a saved document. */
-    suspend fun updatePage(page: PageEntity) = withContext(Dispatchers.IO) {
-        pageDao.update(page)
-    }
-
-    suspend fun addComment(documentId: String, text: String, pageIndex: Int? = null) =
+    /** Updates an already-saved document's pages/comments in place
+     * (DESIGN_SPEC §4.4 re-edit flow) rather than creating a new document.
+     * [DraftPage.id] doubles as the real [PageEntity.id] (see that type's
+     * doc comment), so any page no longer present in [pages] — dropped
+     * via the Delete-page tool during this session — is deleted here
+     * along with its image files; the rest are upserted. Only comments
+     * without an [DraftComment.existingCommentId] are genuinely new;
+     * anything loaded in from the document already has its own row. */
+    suspend fun updateDocument(documentId: String, pages: List<DraftPage>, comments: List<DraftComment> = emptyList()) =
         withContext(Dispatchers.IO) {
-            commentDao.insert(
-                CommentEntity(documentId = documentId, text = text, pageIndex = pageIndex)
-            )
+            val previousPages = pageDao.forDocument(documentId)
+            val keptIds = pages.map { it.id }.toSet()
+            for (page in previousPages) {
+                if (page.id !in keptIds) {
+                    imageStorage.delete(page.imagePath)
+                    page.originalImagePath?.let { imageStorage.delete(it) }
+                    pageDao.delete(page)
+                }
+            }
+            val entities = pages.mapIndexed { index, draft ->
+                PageEntity(
+                    id = draft.id,
+                    documentId = documentId,
+                    order = index,
+                    imagePath = draft.imagePath,
+                    originalImagePath = draft.originalImagePath,
+                    ocrText = draft.ocrText,
+                    ocrLinesJson = JsonCodec.encodeOcrLines(draft.ocrLines),
+                    signatureJson = draft.signature?.let { JsonCodec.encodeSignature(it) },
+                    brightness = draft.brightness,
+                    contrast = draft.contrast,
+                )
+            }
+            pageDao.insertAll(entities)
+            for (comment in comments) {
+                if (comment.existingCommentId == null) {
+                    commentDao.insert(
+                        CommentEntity(documentId = documentId, text = comment.text, createdAt = comment.createdAt, pageIndex = comment.pageIndex)
+                    )
+                }
+            }
         }
 
     suspend fun deleteDocument(document: DocumentEntity) = withContext(Dispatchers.IO) {
