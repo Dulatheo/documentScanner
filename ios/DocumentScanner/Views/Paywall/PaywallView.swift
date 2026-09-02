@@ -134,7 +134,12 @@ struct PaywallView: View {
         }
     }
 
-    private func featureRow(icon: String, text: String) -> some View {
+    // `text: LocalizedStringKey`, not `String` — see `EditTool.label`'s doc
+    // comment for why: it's what lets `Text(text)` below auto-resolve
+    // through the String Catalog for the five literal call sites, with no
+    // need to wrap them individually. (`icon` stays `String` — it's an SF
+    // Symbol name, not language content.)
+    private func featureRow(icon: String, text: LocalizedStringKey) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
