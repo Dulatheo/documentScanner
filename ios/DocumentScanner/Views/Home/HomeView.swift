@@ -4,15 +4,17 @@ import SwiftUI
 /// state, and floating scan button.
 struct HomeView: View {
     let documents: [DocumentModel]
-    /// Shared with `RootView`, which owns the Camera/Document-Viewer overlay
-    /// state, so `matchedGeometryEffect` can animate the scan button and
-    /// tapped document card into their respective destinations — see the
-    /// iOS zoom-transition implementation note in DESIGN_SPEC §4.2.
+    /// Shared with `RootView` — each document card tags itself with
+    /// `documentZoomID(for:)` in this namespace, a currently-unused hook
+    /// kept in case a future zoom transition into the Edit flow is worth
+    /// building (see that function's doc comment; tapping a card today
+    /// just opens Edit via `.fullScreenCover`, a separate presentation
+    /// `matchedGeometryEffect` can't reach into). The scan button no
+    /// longer participates in this namespace — see `RootView.showCamera`.
     let zoomNamespace: Namespace.ID
-    /// Zoom-transitions into the Document Viewer from the tapped card's own
-    /// frame (DESIGN_SPEC §4.1) — replaces `NavigationLink`, which would
-    /// push into a separate view hierarchy `matchedGeometryEffect` can't
-    /// animate across.
+    /// Opens the tapped document in the Edit flow (DESIGN_SPEC §4.1/§4.4) —
+    /// re-editing an already-saved document reuses the same screen a fresh
+    /// capture uses, rather than a separate read-only viewer.
     let onSelectDocument: (DocumentModel) -> Void
     /// Deletes a saved document (DESIGN_SPEC §4.1 "delete a saved
     /// document") — image files and the SwiftData record alike; `HomeView`
@@ -27,6 +29,7 @@ struct HomeView: View {
     @Environment(\.theme) private var theme
     @Environment(\.appActions) private var actions
     @State private var showPaywall = false
+    @State private var showSubscriptionInfo = false
     @State private var pendingDeleteDocument: DocumentModel?
     @State private var pendingRenameDocument: DocumentModel?
     @State private var renameInput = ""
@@ -191,9 +194,9 @@ struct HomeView: View {
     /// on Home, unlike the inline "Premium for unlimited" subtitle link
     /// above, which only shows once the free-tier document limit is worth
     /// mentioning. A free user taps it to open the paywall (same one
-    /// limit/tool gating opens); once subscribed it becomes a plain,
-    /// non-interactive status pill — `PaywallView` has no "already premium"
-    /// state to show, so tapping it again would have nothing useful to do.
+    /// limit/tool gating opens); once subscribed, tapping it instead opens
+    /// `SubscriptionInfoView` — there's nothing left to sell, but the badge
+    /// stays a useful shortcut to subscription status and management.
     private var proBadge: some View {
         HStack(spacing: 4) {
             Image(systemName: "crown.fill")
@@ -206,7 +209,14 @@ struct HomeView: View {
         .padding(.vertical, 7)
         .background(Capsule().fill(premiumManager.isPremium ? theme.accentSoft : theme.accent))
         .onTapGesture {
-            if !premiumManager.isPremium { showPaywall = true }
+            if premiumManager.isPremium {
+                showSubscriptionInfo = true
+            } else {
+                showPaywall = true
+            }
+        }
+        .sheet(isPresented: $showSubscriptionInfo) {
+            SubscriptionInfoView(premiumManager: premiumManager)
         }
     }
 
@@ -247,11 +257,6 @@ struct HomeView: View {
                     .shadow(color: .black.opacity(0.22), radius: 20, x: 0, y: 6)
             }
             .accessibilityLabel(Text("Scan a document"))
-            // Zoom-transition source (DESIGN_SPEC §4.1/§4.2): Camera is
-            // presented from `RootView` as a same-hierarchy overlay tagged
-            // with this same id, so it animates open from this button's own
-            // frame instead of a plain `.fullScreenCover` slide-up.
-            .matchedGeometryEffect(id: "cameraZoom", in: zoomNamespace)
         }
         .padding(.bottom, 30)
     }

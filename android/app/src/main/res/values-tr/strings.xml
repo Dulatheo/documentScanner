@@ -112,4 +112,8 @@
     <string name="paywall_reason_pdf_password">PDF\'leri parola ile korumak bir Premium özelliğidir</string>
     <string name="paywall_reason_office_export">Office biçimlerine aktarmak bir Premium özelliğidir</string>
     <string name="paywall_reason_document_limit">Ücretsiz planın %1$d belge sınırına ulaştınız</string>
+    <string name="subscription_pro_user_title">PRO kullanıcısısınız</string>
+    <string name="subscription_trial_days_left">Ücretsiz deneme · %1$d gün kaldı</string>
+    <string name="subscription_active">Premium aboneliğiniz aktif.</string>
+    <string name="subscription_manage">Aboneliği yönet</string>
 </resources>

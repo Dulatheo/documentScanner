@@ -32,6 +32,7 @@
 		C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784922103DF14295BDD50EE0 /* XlsxExportService.swift */; };
 		712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */; };
 		AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1893D3B8FB16C2E11551BA /* PaywallView.swift */; };
+		57340A870A088CE52C84CE16 /* SubscriptionInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75C92F082EC007CA4F94373 /* SubscriptionInfoView.swift */; };
 		39232E9234B8898F3497A791 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C0007B619BD4BA6B0345B5 /* Theme.swift */; };
 		7A7C92B76E4B52D4B59B9163 /* DocumentCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C290DA773A8911E0BF1BA0 /* DocumentCameraView.swift */; };
 		0B6B57CD9B2AB7F9AB4154D4 /* PhotoImportPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B9A7455448E74DFD366D499 /* PhotoImportPicker.swift */; };
@@ -78,6 +79,7 @@
 		784922103DF14295BDD50EE0 /* XlsxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XlsxExportService.swift; sourceTree = "<group>"; };
 		4EAB139FFFB6420B92A4F3AD /* PptxExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PptxExportService.swift; sourceTree = "<group>"; };
 		AD1893D3B8FB16C2E11551BA /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		B75C92F082EC007CA4F94373 /* SubscriptionInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionInfoView.swift; sourceTree = "<group>"; };
 		12C0007B619BD4BA6B0345B5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D1C290DA773A8911E0BF1BA0 /* DocumentCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCameraView.swift; sourceTree = "<group>"; };
 		7B9A7455448E74DFD366D499 /* PhotoImportPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoImportPicker.swift; sourceTree = "<group>"; };
@@ -176,6 +178,7 @@
 			isa = PBXGroup;
 			children = (
 				AD1893D3B8FB16C2E11551BA /* PaywallView.swift */,
+				B75C92F082EC007CA4F94373 /* SubscriptionInfoView.swift */,
 			);
 			path = Paywall;
 			sourceTree = "<group>";
@@ -298,6 +301,7 @@
 				C5D4C83638504BB0AA7776EE /* XlsxExportService.swift in Sources */,
 				712926B9AC9840F781467B4D /* PptxExportService.swift in Sources */,
 				AE52D08ED7CF60DC0DBD7FD5 /* PaywallView.swift in Sources */,
+				57340A870A088CE52C84CE16 /* SubscriptionInfoView.swift in Sources */,
 				39232E9234B8898F3497A791 /* Theme.swift in Sources */,
 				7A7C92B76E4B52D4B59B9163 /* DocumentCameraView.swift in Sources */,
 				0B6B57CD9B2AB7F9AB4154D4 /* PhotoImportPicker.swift in Sources */,

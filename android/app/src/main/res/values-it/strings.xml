@@ -113,4 +113,8 @@
     <string name="paywall_reason_pdf_password">La protezione dei PDF con password è una funzione Premium</string>
     <string name="paywall_reason_office_export">L\'esportazione nei formati Office è una funzione Premium</string>
     <string name="paywall_reason_document_limit">Hai raggiunto il limite di %1$d documenti del piano gratuito</string>
+    <string name="subscription_pro_user_title">Sei un utente PRO</string>
+    <string name="subscription_trial_days_left">Prova gratuita · %1$d giorni rimanenti</string>
+    <string name="subscription_active">Il tuo abbonamento Premium è attivo.</string>
+    <string name="subscription_manage">Gestisci abbonamento</string>
 </resources>

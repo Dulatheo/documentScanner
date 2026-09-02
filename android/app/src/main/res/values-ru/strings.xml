@@ -115,4 +115,8 @@
     <string name="paywall_reason_pdf_password">Защита PDF паролем — функция Premium</string>
     <string name="paywall_reason_office_export">Экспорт в форматы Office — функция Premium</string>
     <string name="paywall_reason_document_limit">Вы достигли лимита в %1$d документов бесплатного плана</string>
+    <string name="subscription_pro_user_title">Вы PRO-пользователь</string>
+    <string name="subscription_trial_days_left">Пробный период · осталось %1$d дн.</string>
+    <string name="subscription_active">Ваша подписка Premium активна.</string>
+    <string name="subscription_manage">Управление подпиской</string>
 </resources>

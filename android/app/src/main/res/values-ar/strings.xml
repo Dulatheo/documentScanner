@@ -117,4 +117,8 @@
     <string name="paywall_reason_pdf_password">حماية ملفات PDF بكلمة مرور ميزة من ميزات Premium</string>
     <string name="paywall_reason_office_export">التصدير إلى تنسيقات Office ميزة من ميزات Premium</string>
     <string name="paywall_reason_document_limit">لقد بلغت حد الخطة المجانية البالغ %1$d مستندات</string>
+    <string name="subscription_pro_user_title">أنت مستخدم PRO</string>
+    <string name="subscription_trial_days_left">الفترة التجريبية · تبقّى %1$d يومًا</string>
+    <string name="subscription_active">اشتراكك في Premium نشط.</string>
+    <string name="subscription_manage">إدارة الاشتراك</string>
 </resources>

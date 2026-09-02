@@ -1,5 +1,7 @@
 package com.dulatheo.documentscanner.ui.home
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -109,6 +112,7 @@ fun HomeScreen(
     val query by viewModel.searchQuery.collectAsState()
     var searchOpen by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
+    var showSubscriptionInfo by remember { mutableStateOf(false) }
     // Long-pressing a card opens a small Rename/Delete menu rather than
     // jumping straight to a destructive confirmation.
     var actionMenuDocumentId by remember { mutableStateOf<String?>(null) }
@@ -166,7 +170,13 @@ fun HomeScreen(
                 ) {
                     ProBadge(
                         isPremium = premiumManager.isPremium(),
-                        onClick = { showPaywall = true },
+                        onClick = {
+                            if (premiumManager.isPremium()) {
+                                showSubscriptionInfo = true
+                            } else {
+                                showPaywall = true
+                            }
+                        },
                     )
                     if (documents.isNotEmpty() || query.isNotEmpty()) {
                         Box(
@@ -307,6 +317,13 @@ fun HomeScreen(
             }
         }
 
+        if (showSubscriptionInfo) {
+            SubscriptionInfoDialog(
+                premiumManager = premiumManager,
+                onDismiss = { showSubscriptionInfo = false },
+            )
+        }
+
         pendingDeleteDocument?.let { doc ->
             AlertDialog(
                 onDismissRequest = { pendingDeleteDocument = null },
@@ -362,10 +379,11 @@ fun HomeScreen(
 /** Top-right entry point into Premium (DESIGN_SPEC §5) — always visible on
  * Home, unlike the inline "Premium for unlimited" subtitle link, which only
  * shows once the free-tier document limit is worth mentioning. A free user
- * taps it to open the paywall (same one that limit/tool gating opens); once
- * subscribed it becomes a plain, non-interactive status pill — `PaywallView`
- * has no "already premium" state to show, so tapping it again would have
- * nothing useful to do. */
+ * taps it to open the paywall (same one that limit/tool gating opens);
+ * once subscribed, it switches to a softer fill and tapping it opens
+ * [SubscriptionInfoDialog] instead — confirming their status and handing
+ * off to the platform's own subscription management, rather than the
+ * paywall, which has no "already premium" state to show. */
 @Composable
 private fun ProBadge(isPremium: Boolean, onClick: () -> Unit) {
     val tokens = LocalAppColors.current
@@ -375,7 +393,7 @@ private fun ProBadge(isPremium: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(if (isPremium) tokens.accentSoft else tokens.accent)
-            .let { if (isPremium) it else it.clickable(onClick = onClick) }
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
         Icon(
@@ -390,6 +408,62 @@ private fun ProBadge(isPremium: Boolean, onClick: () -> Unit) {
             color = if (isPremium) tokens.accent else Color.White,
         )
     }
+}
+
+/** Shown when a Premium user taps the PRO badge (see [ProBadge]'s doc
+ * comment) — a free user gets the paywall instead, but there's nothing to
+ * sell someone already subscribed, so this just confirms their status
+ * (trial vs. subscribed, using [PremiumManager]'s mock-entitlement state —
+ * DESIGN_SPEC §5) and hands off to Play Store's own subscription
+ * management, which is where a real cancel/change-plan flow actually
+ * lives. */
+@Composable
+private fun SubscriptionInfoDialog(premiumManager: PremiumManager, onDismiss: () -> Unit) {
+    val tokens = LocalAppColors.current
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Box(
+                modifier = Modifier.size(56.dp).clip(CircleShape).background(tokens.accent),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.WorkspacePremium, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+            }
+        },
+        title = {
+            Text(
+                stringResource(R.string.subscription_pro_user_title),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        text = {
+            Text(
+                if (premiumManager.isTrialActive()) {
+                    stringResource(R.string.subscription_trial_days_left, premiumManager.trialDaysRemaining())
+                } else {
+                    stringResource(R.string.subscription_active)
+                },
+                color = tokens.ink2,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val packageName = context.packageName
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://play.google.com/store/account/subscriptions?package=$packageName"),
+                )
+                context.startActivity(intent)
+            }) { Text(stringResource(R.string.subscription_manage)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) }
+        },
+    )
 }
 
 @Composable

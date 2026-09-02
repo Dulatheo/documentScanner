@@ -113,4 +113,8 @@
     <string name="paywall_reason_pdf_password">Der Passwortschutz für PDFs ist eine Premium-Funktion</string>
     <string name="paywall_reason_office_export">Der Export in Office-Formate ist eine Premium-Funktion</string>
     <string name="paywall_reason_document_limit">Du hast das Limit von %1$d Dokumenten im kostenlosen Plan erreicht</string>
+    <string name="subscription_pro_user_title">Du bist PRO-Nutzer</string>
+    <string name="subscription_trial_days_left">Kostenlose Testphase · noch %1$d Tage</string>
+    <string name="subscription_active">Dein Premium-Abo ist aktiv.</string>
+    <string name="subscription_manage">Abo verwalten</string>
 </resources>

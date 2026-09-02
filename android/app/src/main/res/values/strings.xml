@@ -141,4 +141,18 @@
     <string name="paywall_reason_pdf_password">Password-protecting PDFs is a Premium feature</string>
     <string name="paywall_reason_office_export">Office format export is a Premium feature</string>
     <string name="paywall_reason_document_limit">You\'ve reached the free plan\'s %1$d-document limit</string>
+
+    <!-- Subscription info (DESIGN_SPEC §5): shown when a Premium user taps
+         the PRO badge on Home — a free user gets the paywall instead, but
+         there's nothing to sell someone already subscribed, so this just
+         confirms their status and hands off to the platform's own
+         subscription management (this app's PremiumManager is a local mock
+         with no billing details of its own to show). The day-count isn't a
+         real CLDR plural (always "days", even for 1) — a deliberate,
+         disclosed simplification for this secondary detail screen, not an
+         oversight; see DESIGN_SPEC §10. -->
+    <string name="subscription_pro_user_title">You\'re a PRO user</string>
+    <string name="subscription_trial_days_left">Free trial · %1$d days left</string>
+    <string name="subscription_active">Your Premium subscription is active.</string>
+    <string name="subscription_manage">Manage Subscription</string>
 </resources>

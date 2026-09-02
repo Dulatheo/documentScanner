@@ -112,4 +112,8 @@
     <string name="paywall_reason_pdf_password">为 PDF 设置密码保护是高级版功能</string>
     <string name="paywall_reason_office_export">导出为 Office 格式是高级版功能</string>
     <string name="paywall_reason_document_limit">您已达到免费版 %1$d 个文档的上限</string>
+    <string name="subscription_pro_user_title">您是 PRO 用户</string>
+    <string name="subscription_trial_days_left">免费试用 · 还剩 %1$d 天</string>
+    <string name="subscription_active">您的高级版订阅有效。</string>
+    <string name="subscription_manage">管理订阅</string>
 </resources>
