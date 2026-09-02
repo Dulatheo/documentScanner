@@ -48,19 +48,8 @@ struct PageEditorView: View {
                     .brightness(activeTool == .adjust && adjustPreviewImage != nil ? liveBrightness : 0)
                     .contrast(activeTool == .adjust && adjustPreviewImage != nil ? liveContrast : 1)
 
-                if activeTool != .highlight, activeTool != .crop, !pageState.highlightRegions.isEmpty {
+                if activeTool != .crop, !pageState.highlightRegions.isEmpty {
                     committedHighlights(imageSize: pageState.image.size, size: size)
-                }
-
-                if activeTool == .highlight {
-                    HighlightOverlayView(
-                        lines: pageState.ocrLines,
-                        highlightedIDs: pageState.highlightedLineIDs,
-                        imageSize: pageState.image.size,
-                        size: size
-                    ) { line in
-                        pageState.toggleHighlight(for: line)
-                    }
                 }
 
                 if activeTool == .crop {

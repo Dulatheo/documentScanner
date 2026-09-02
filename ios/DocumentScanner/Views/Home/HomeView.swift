@@ -18,6 +18,9 @@ struct HomeView: View {
     /// document") — image files and the SwiftData record alike; `HomeView`
     /// only drives the confirmation UI.
     let onDeleteDocument: (DocumentModel) -> Void
+    /// Renames a saved document in place (DESIGN_SPEC §4.1 "rename a saved
+    /// document").
+    let onRenameDocument: (DocumentModel, String) -> Void
     @ObservedObject var premiumManager: PremiumManager
     @ObservedObject var toastCenter: ToastCenter
 
@@ -25,6 +28,8 @@ struct HomeView: View {
     @Environment(\.appActions) private var actions
     @State private var showPaywall = false
     @State private var pendingDeleteDocument: DocumentModel?
+    @State private var pendingRenameDocument: DocumentModel?
+    @State private var renameInput = ""
 
     /// Surfaces the free-tier document cap (DESIGN_SPEC §5 "limited document
     /// storage") before the user hits it, rather than only ever explaining
@@ -70,6 +75,12 @@ struct HomeView: View {
                                 .buttonStyle(.plain)
                                 .matchedGeometryEffect(id: documentZoomID(for: document), in: zoomNamespace)
                                 .contextMenu {
+                                    Button {
+                                        renameInput = document.name
+                                        pendingRenameDocument = document
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
                                     Button(role: .destructive) {
                                         pendingDeleteDocument = document
                                     } label: {
@@ -121,6 +132,25 @@ struct HomeView: View {
             Button("Cancel", role: .cancel) { pendingDeleteDocument = nil }
         } message: {
             Text("This can't be undone.")
+        }
+        .alert(
+            "Rename document",
+            isPresented: Binding(
+                get: { pendingRenameDocument != nil },
+                set: { if !$0 { pendingRenameDocument = nil } }
+            )
+        ) {
+            TextField("Document name", text: $renameInput)
+            Button("Save") {
+                if let document = pendingRenameDocument {
+                    let trimmed = renameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        onRenameDocument(document, trimmed)
+                    }
+                }
+                pendingRenameDocument = nil
+            }
+            Button("Cancel", role: .cancel) { pendingRenameDocument = nil }
         }
     }
 

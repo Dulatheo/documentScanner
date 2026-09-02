@@ -69,6 +69,7 @@ struct RootView: View {
                     }
                 },
                 onDeleteDocument: deleteDocument,
+                onRenameDocument: renameDocument,
                 premiumManager: premiumManager,
                 toastCenter: toastCenter
             )
@@ -200,6 +201,13 @@ struct RootView: View {
             ImageStore.delete(page.originalImagePath)
         }
         modelContext.delete(document)
+        try? modelContext.save()
+    }
+
+    /// Renames a saved document in place (DESIGN_SPEC §4.1 "rename a saved
+    /// document").
+    private func renameDocument(_ document: DocumentModel, to newName: String) {
+        document.name = newName
         try? modelContext.save()
     }
 }

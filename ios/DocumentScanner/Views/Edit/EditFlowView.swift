@@ -126,9 +126,12 @@ struct EditFlowView: View {
                     UIPasteboard.general.string = session.current.ocrText
                     toastCenter.show("Copied")
                 },
-                onKeepSearchable: { showOCRSheet = false },
                 onDone: { showOCRSheet = false }
             )
+            // A further-nested `.fullScreenCover` on top of EditFlowView's
+            // own — needs its own toast overlay for the same reason
+            // EditFlowView does (see the one at the bottom of this file).
+            .toastOverlay(toastCenter)
         }
         .fullScreenCover(isPresented: $isDrawingSignature) {
             SignaturePadView(
@@ -220,6 +223,12 @@ struct EditFlowView: View {
         } message: {
             Text("This can't be undone.")
         }
+        // EditFlowView is itself presented via `.fullScreenCover` from
+        // RootView, a separate UIKit-hosted hierarchy that doesn't
+        // composite with RootView's own `.toastOverlay` — so every toast
+        // triggered from in here (Signature added, the premium-paywall
+        // outcomes above) was silently invisible without its own overlay.
+        .toastOverlay(toastCenter)
     }
 
     // MARK: - Top bar
@@ -469,8 +478,6 @@ struct EditFlowView: View {
         switch tool {
         case .crop:
             break
-        case .highlight:
-            runOCRIfNeeded()
         case .adjust:
             loadAdjustPreview()
         case .ocr:

@@ -9,7 +9,6 @@ import SwiftUI
 struct OCRSheetContainer: View {
     @ObservedObject var page: PageEditState
     var onCopy: () -> Void
-    var onKeepSearchable: () -> Void
     var onDone: () -> Void
 
     var body: some View {
@@ -17,23 +16,25 @@ struct OCRSheetContainer: View {
             isBusy: page.isRecognizingText,
             text: page.ocrText,
             onCopy: onCopy,
-            onKeepSearchable: onKeepSearchable,
             onDone: onDone
         )
     }
 }
 
 /// Full-screen page for the Text (OCR) tool (DESIGN_SPEC §4.3, Premium —
-/// see §5/§7): "Reading page…" while busy, then the recognized text with
-/// Copy and "Keep as searchable" actions. A full page rather than a
-/// bottom sheet gives the text room to breathe and makes it selectable —
-/// a cramped, fixed-height sheet was awkward to read and copy from on a
-/// page with more than a few lines.
+/// see §5/§7): "Reading page…" while busy, then the recognized text with a
+/// **Copy All** action. A full page rather than a bottom sheet gives the
+/// text room to breathe and makes it selectable — a cramped, fixed-height
+/// sheet was awkward to read and copy from on a page with more than a few
+/// lines. (No separate "Keep as searchable" action: recognized text is
+/// already embedded as the PDF's invisible text layer automatically
+/// whenever OCR has run on a page, regardless of what happens in this
+/// view — the button used to exist but did nothing but close the screen,
+/// same as Done.)
 struct OCRSheetView: View {
     let isBusy: Bool
     let text: String?
     let onCopy: () -> Void
-    let onKeepSearchable: () -> Void
     let onDone: () -> Void
 
     @Environment(\.theme) private var theme
@@ -76,23 +77,13 @@ struct OCRSheetView: View {
                         .padding(20)
                 }
 
-                HStack(spacing: 10) {
-                    Button(action: onCopy) {
-                        Text("Copy All")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))
-                    }
-                    Button(action: onKeepSearchable) {
-                        Text("Keep as searchable")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(theme.ink)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RoundedRectangle(cornerRadius: 12).stroke(theme.line, lineWidth: 1))
-                    }
+                Button(action: onCopy) {
+                    Text("Copy All")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(theme.accent))
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
