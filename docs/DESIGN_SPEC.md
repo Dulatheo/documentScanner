@@ -697,11 +697,21 @@ cached.
       refinement of this export format. The "bold" above is therefore a
       size-based approximation, not a real style detection; likewise table
       detection is geometric guesswork, not layout recognition.
-  - **XLSX**: one worksheet per page, one row per OCR'd line, all in
-    column A (using inline strings, so no shared-strings table is needed).
-    This is honestly "the recognized text, one line per row," not a real
-    table reconstruction — there's no detected row/column structure to
-    export, only OCR lines.
+  - **XLSX**: one worksheet per page (using inline strings, so no
+    shared-strings table is needed). Reuses the *same* `DocxTableDetector`
+    table detection DOCX's export uses (above) rather than its own separate
+    logic — a run of lines detected as a grid-like table spreads its cells
+    across columns A, B, C… one spreadsheet row per detected table row;
+    everything else (ordinary paragraph lines, or a page where no table was
+    detected at all) still goes one line per row in column A, since there's
+    no column structure to split it by there. Originally this format always
+    put every OCR'd line in column A regardless of layout, so a genuinely
+    tabular scan (e.g. a two-column glossary/translation sheet) exported as
+    a single lopsided column instead of a real two-column sheet — wiring in
+    the existing detector fixed that without inventing a second heuristic.
+    Same caveat as DOCX's table detection applies here too: geometric
+    guesswork on noisy OCR data, works well on clean well-spaced tables,
+    can misfire on tight layouts, multi-line cells, or merged cells.
   - **OCR-on-demand**: normal editing only runs OCR when the Text tool is
     opened, so a page nobody visited that tool on has nothing recognized
     yet — unlike PDF/JPG (which always have the page
