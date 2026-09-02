@@ -25,10 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.service.ExportFormat
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 
@@ -53,7 +55,7 @@ fun ExportSheetContent(
     val tokens = LocalAppColors.current
     Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)) {
         Text(
-            "Export document",
+            stringResource(R.string.export_document_title),
             color = tokens.ink,
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
@@ -69,17 +71,17 @@ fun ExportSheetContent(
 
         ExportOptionRow(
             badge = "PDF",
-            title = "PDF document",
-            subtitle = "Searchable text, all pages",
+            title = stringResource(R.string.export_pdf_title),
+            subtitle = stringResource(R.string.export_pdf_subtitle),
             onClick = { onExport(ExportFormat.PDF) },
             trailing = {
                 Box {
                     IconButton(onClick = onProtectPdfClick) {
-                        Icon(Icons.Filled.Lock, contentDescription = "Password-protect PDF", tint = tokens.ink2)
+                        Icon(Icons.Filled.Lock, contentDescription = stringResource(R.string.export_password_protect_pdf), tint = tokens.ink2)
                     }
                     if (showProBadge) {
                         Text(
-                            "PRO",
+                            stringResource(R.string.pro_badge),
                             color = Color.White,
                             fontSize = 7.sp,
                             fontWeight = FontWeight.Bold,
@@ -97,31 +99,31 @@ fun ExportSheetContent(
         Spacer(Modifier.height(10.dp))
         ExportOptionRow(
             badge = "JPG",
-            title = "JPG images",
-            subtitle = "One image per page",
+            title = stringResource(R.string.export_jpg_title),
+            subtitle = stringResource(R.string.export_jpg_subtitle),
             onClick = { onExport(ExportFormat.JPG) },
         )
         Spacer(Modifier.height(10.dp))
         ExportOptionRow(
             badge = "DOC",
-            title = "Word document",
-            subtitle = "Recognized text, all pages",
+            title = stringResource(R.string.export_docx_title),
+            subtitle = stringResource(R.string.export_docx_subtitle),
             onClick = { onExport(ExportFormat.DOCX) },
             proBadge = showProBadge,
         )
         Spacer(Modifier.height(10.dp))
         ExportOptionRow(
             badge = "XLS",
-            title = "Excel spreadsheet",
-            subtitle = "One row per line of text",
+            title = stringResource(R.string.export_xlsx_title),
+            subtitle = stringResource(R.string.export_xlsx_subtitle),
             onClick = { onExport(ExportFormat.XLSX) },
             proBadge = showProBadge,
         )
         Spacer(Modifier.height(10.dp))
         ExportOptionRow(
             badge = "PPT",
-            title = "PowerPoint slides",
-            subtitle = "One slide per page",
+            title = stringResource(R.string.export_pptx_title),
+            subtitle = stringResource(R.string.export_pptx_subtitle),
             onClick = { onExport(ExportFormat.PPTX) },
             proBadge = showProBadge,
         )
@@ -173,7 +175,7 @@ private fun ExportOptionRow(
             }
             if (proBadge) {
                 Text(
-                    "PRO",
+                    stringResource(R.string.pro_badge),
                     color = Color.White,
                     fontSize = 7.sp,
                     fontWeight = FontWeight.Bold,

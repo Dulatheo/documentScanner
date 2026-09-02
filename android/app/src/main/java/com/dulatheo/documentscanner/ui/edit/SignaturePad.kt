@@ -28,6 +28,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.dulatheo.documentscanner.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -83,12 +85,12 @@ fun SignaturePad(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Cancel",
+                    stringResource(R.string.action_cancel),
                     color = tokens.ink2,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.clickable(onClick = onCancel),
                 )
-                Text("Sign with your finger", color = tokens.ink, style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.sign_title), color = tokens.ink, style = MaterialTheme.typography.titleSmall)
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(11.dp))
@@ -98,7 +100,7 @@ fun SignaturePad(
                         }
                         .padding(horizontal = 22.dp, vertical = 9.dp),
                 ) {
-                    Text("Done", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.action_done), color = Color.White, style = MaterialTheme.typography.labelLarge)
                 }
             }
 
@@ -162,7 +164,7 @@ fun SignaturePad(
                     }
                 }
                 Text(
-                    "Sign above the line",
+                    stringResource(R.string.sign_above_the_line),
                     color = tokens.ink3,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier
@@ -192,7 +194,7 @@ fun SignaturePad(
                     }
                 }
                 Spacer(Modifier.width(20.dp))
-                Text("Thickness", color = tokens.ink3, style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.sign_thickness), color = tokens.ink3, style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.width(10.dp))
                 androidx.compose.material3.Slider(
                     value = thickness,
@@ -224,7 +226,7 @@ fun SignaturePad(
                         }
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                 ) {
-                    Text("Clear", color = tokens.ink2, style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.sign_clear), color = tokens.ink2, style = MaterialTheme.typography.labelLarge)
                 }
             }
         }

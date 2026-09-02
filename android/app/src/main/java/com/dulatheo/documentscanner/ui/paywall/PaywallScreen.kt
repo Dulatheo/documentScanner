@@ -34,8 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.service.PremiumManager
 import com.dulatheo.documentscanner.ui.theme.AppColorTokens
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
@@ -80,7 +82,7 @@ fun PaywallScreen(
             ) {
                 Icon(
                     Icons.Filled.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.paywall_close),
                     tint = tokens.ink2,
                     modifier = Modifier.size(16.dp),
                 )
@@ -115,7 +117,7 @@ fun PaywallScreen(
                 Spacer(Modifier.height(16.dp))
             }
             Text(
-                if (isTrialEligible) "Try Premium free for 3 days" else "Unlock Premium",
+                if (isTrialEligible) stringResource(R.string.paywall_trial_headline) else stringResource(R.string.paywall_unlock_headline),
                 color = tokens.ink,
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
@@ -123,9 +125,9 @@ fun PaywallScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 if (isTrialEligible) {
-                    "Cancel anytime during your trial — you won't be charged early."
+                    stringResource(R.string.paywall_trial_subtitle)
                 } else {
-                    "Subscribe to unlock everything Premium brings."
+                    stringResource(R.string.paywall_unlock_subtitle)
                 },
                 color = tokens.ink2,
                 style = MaterialTheme.typography.bodyMedium,
@@ -136,11 +138,11 @@ fun PaywallScreen(
             // single gate opened this screen — in the order DESIGN_SPEC §5
             // lists them.
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                FeatureRow(icon = Icons.Filled.Description, text = "Export to Word, Excel & PowerPoint", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.TextSnippet, text = "Recognize and copy text from any scan", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.Create, text = "Sign documents with your finger", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.AllInclusive, text = "Unlimited saved documents (3 free)", tokens = tokens)
-                FeatureRow(icon = Icons.Filled.Lock, text = "Password-protect your PDF exports", tokens = tokens)
+                FeatureRow(icon = Icons.Filled.Description, text = stringResource(R.string.paywall_feature_export), tokens = tokens)
+                FeatureRow(icon = Icons.Filled.TextSnippet, text = stringResource(R.string.paywall_feature_ocr), tokens = tokens)
+                FeatureRow(icon = Icons.Filled.Create, text = stringResource(R.string.paywall_feature_sign), tokens = tokens)
+                FeatureRow(icon = Icons.Filled.AllInclusive, text = stringResource(R.string.paywall_feature_unlimited), tokens = tokens)
+                FeatureRow(icon = Icons.Filled.Lock, text = stringResource(R.string.paywall_feature_password), tokens = tokens)
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -169,14 +171,14 @@ fun PaywallScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (isTrialEligible) "Start Free Trial" else "Subscribe — \$4.99/mo",
+                    if (isTrialEligible) stringResource(R.string.edit_start_free_trial) else stringResource(R.string.paywall_subscribe_price),
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                if (isTrialEligible) "3 days free, then \$4.99/month. Cancel anytime." else "\$4.99/month. Cancel anytime.",
+                if (isTrialEligible) stringResource(R.string.paywall_trial_fine_print) else stringResource(R.string.paywall_subscribe_fine_print),
                 color = tokens.ink3,
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
@@ -184,7 +186,7 @@ fun PaywallScreen(
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                "Restore Purchases",
+                stringResource(R.string.paywall_restore_purchases),
                 color = tokens.ink2,
                 style = MaterialTheme.typography.labelMedium,
                 textAlign = TextAlign.Center,

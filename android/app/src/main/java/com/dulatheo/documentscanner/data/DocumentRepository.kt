@@ -1,6 +1,7 @@
 package com.dulatheo.documentscanner.data
 
 import android.content.Context
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.data.model.CommentEntity
 import com.dulatheo.documentscanner.data.model.DocumentEntity
 import com.dulatheo.documentscanner.data.model.DocumentWithDetails
@@ -52,7 +53,7 @@ data class DraftComment(
 
 /** Single entry point the UI layer talks to for persistence — wraps Room DAOs
  * and on-disk image storage so ViewModels never touch either directly. */
-class DocumentRepository(context: Context) {
+class DocumentRepository(private val context: Context) {
 
     private val db = AppDatabase.get(context)
     private val documentDao = db.documentDao()
@@ -158,6 +159,6 @@ class DocumentRepository(context: Context) {
 
     private fun defaultName(): String {
         val stamp = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()).format(java.util.Date())
-        return "Scan $stamp"
+        return context.getString(R.string.default_scan_name_stamped, stamp)
     }
 }

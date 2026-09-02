@@ -24,9 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.data.DraftComment
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 import com.dulatheo.documentscanner.util.relativeTime
@@ -59,9 +61,9 @@ fun CommentsPageContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Comments", color = tokens.ink, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.comments_title), color = tokens.ink, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Done",
+                stringResource(R.string.action_done),
                 color = tokens.ink2,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.clickable(onClick = onDone),
@@ -73,7 +75,7 @@ fun CommentsPageContent(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("No comments yet", color = tokens.ink2, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.comments_empty), color = tokens.ink2, style = MaterialTheme.typography.bodyMedium)
             }
         } else {
             Column(
@@ -93,9 +95,12 @@ fun CommentsPageContent(
                             .padding(14.dp),
                     ) {
                         Text(comment.text, color = tokens.ink, style = MaterialTheme.typography.bodyMedium)
-                        val pageLabel = comment.pageIndex?.let { " · page ${it + 1}" } ?: ""
+                        val relative = relativeTime(comment.createdAt)
+                        val meta = comment.pageIndex?.let { pageIndex ->
+                            stringResource(R.string.comments_meta_with_page, relative, pageIndex + 1)
+                        } ?: stringResource(R.string.comments_meta_no_page, relative)
                         Text(
-                            "You · ${relativeTime(comment.createdAt)}$pageLabel",
+                            meta,
                             color = tokens.ink3,
                             style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(top = 5.dp),
@@ -120,7 +125,7 @@ fun CommentsPageContent(
                     .padding(12.dp),
             ) {
                 if (draft.isEmpty()) {
-                    Text("Note for this page", color = tokens.ink3, fontSize = 14.sp)
+                    Text(stringResource(R.string.comments_composer_placeholder), color = tokens.ink3, fontSize = 14.sp)
                 }
                 BasicTextField(
                     value = draft,
@@ -137,7 +142,7 @@ fun CommentsPageContent(
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = Color.White),
             ) {
-                Text("Post", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.comments_post), style = MaterialTheme.typography.labelLarge)
             }
         }
     }

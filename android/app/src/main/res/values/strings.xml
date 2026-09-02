@@ -1,4 +1,144 @@
 <resources>
     <string name="app_name">Document Scanner</string>
     <string name="file_provider_authority_suffix">.fileprovider</string>
+
+    <!-- Shared across multiple screens -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_export">Export</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_done">Done</string>
+    <string name="pro_badge">PRO</string>
+    <string name="cant_be_undone">This can\'t be undone.</string>
+    <string name="toast_trial_started">Trial started — enjoy Premium!</string>
+    <string name="toast_welcome_premium">Welcome to Premium!</string>
+    <string name="toast_purchases_restored">Purchases restored</string>
+    <string name="toast_no_purchase_found">No previous purchase found</string>
+
+    <!-- Home (DESIGN_SPEC §4.1) -->
+    <string name="home_title">Documents</string>
+    <string name="home_nothing_saved_yet">Nothing saved yet</string>
+    <plurals name="home_document_count">
+        <item quantity="one">%d document</item>
+        <item quantity="other">%d documents</item>
+    </plurals>
+    <string name="home_empty_with_limit">Nothing saved yet · %1$d free documents</string>
+    <string name="home_free_documents_progress">%1$d of %2$d free documents — </string>
+    <string name="home_premium_for_unlimited">Premium for unlimited</string>
+    <string name="home_search_documents">Search documents</string>
+    <string name="home_search_by_name">Search by name</string>
+    <string name="home_rename">Rename</string>
+    <string name="home_delete_document_confirm_title">Delete “%1$s”?</string>
+    <string name="home_rename_document_title">Rename document</string>
+    <string name="home_document_name_label">Document name</string>
+    <string name="home_scan_a_document">Scan a document</string>
+    <string name="home_empty_state_title">No documents yet</string>
+    <string name="home_empty_state_body">Scanned documents are saved here. Point your camera at a page to begin.</string>
+
+    <!-- Camera (DESIGN_SPEC §4.2) -->
+    <string name="camera_opening">Opening camera…</string>
+    <string name="camera_preparing_pages">Preparing pages…</string>
+    <string name="camera_scanner_unavailable">Document scanner unavailable (%1$d)</string>
+    <string name="camera_scanner_error">Couldn\'t open the scanner: %1$s</string>
+
+    <!-- Edit (DESIGN_SPEC §4.3) -->
+    <string name="edit_page_of">Page %1$d of %2$d</string>
+    <string name="edit_delete_this_page">Delete this page</string>
+    <string name="edit_delete_page_confirm_title">Delete this page?</string>
+    <string name="edit_document_limit_title">Document limit reached</string>
+    <string name="edit_document_limit_body">Free plan is limited to %1$d saved documents. Upgrade for unlimited storage, export this one without saving, or cancel.</string>
+    <string name="edit_upgrade_to_premium">Upgrade to Premium</string>
+    <string name="edit_start_free_trial">Start Free Trial</string>
+    <string name="edit_signature_added">Signature added</string>
+    <string name="edit_saved_to_documents">Saved to Documents</string>
+
+    <!-- Edit tool bar (EditTool labels + contextual hints, DESIGN_SPEC §4.3) -->
+    <string name="edit_tool_crop_label">Crop</string>
+    <string name="edit_tool_crop_hint">Drag the corners to fit the page</string>
+    <string name="edit_tool_adjust_label">Adjust</string>
+    <string name="edit_tool_adjust_hint">Adjust brightness and contrast</string>
+    <string name="edit_tool_comment_label">Comment</string>
+    <string name="edit_tool_comment_hint">View and add comments</string>
+    <string name="edit_tool_text_label">Text</string>
+    <string name="edit_tool_text_hint">Text recognition</string>
+    <string name="edit_tool_sign_label">Sign</string>
+    <string name="edit_tool_sign_hint">Draw your signature</string>
+
+    <!-- Adjust tool -->
+    <string name="adjust_brightness">Brightness</string>
+    <string name="adjust_contrast">Contrast</string>
+
+    <!-- Sign tool -->
+    <string name="sign_title">Sign with your finger</string>
+    <string name="sign_above_the_line">Sign above the line</string>
+    <string name="sign_thickness">Thickness</string>
+    <string name="sign_clear">Clear</string>
+    <string name="sign_redraw">Redraw</string>
+    <string name="sign_drag_hint">Drag to position · pull the corner to resize</string>
+
+    <!-- Comment tool -->
+    <string name="comments_title">Comments</string>
+    <string name="comments_empty">No comments yet</string>
+    <string name="comments_composer_placeholder">Note for this page</string>
+    <string name="comments_post">Post</string>
+    <string name="comments_meta_no_page">You · %1$s</string>
+    <string name="comments_meta_with_page">You · %1$s · page %2$d</string>
+
+    <!-- Text (OCR) tool -->
+    <string name="ocr_title">Recognized text</string>
+    <string name="ocr_reading">Reading page…</string>
+    <string name="ocr_copy_all">Copy All</string>
+    <string name="ocr_copied">Copied</string>
+
+    <!-- Export sheet (DESIGN_SPEC §4.5) -->
+    <string name="export_document_title">Export document</string>
+    <string name="export_subtitle_share">Choose a format to share</string>
+    <string name="export_pdf_title">PDF document</string>
+    <string name="export_pdf_subtitle">Searchable text, all pages</string>
+    <string name="export_jpg_title">JPG images</string>
+    <string name="export_jpg_subtitle">One image per page</string>
+    <string name="export_docx_title">Word document</string>
+    <string name="export_docx_subtitle">Recognized text, all pages</string>
+    <string name="export_xlsx_title">Excel spreadsheet</string>
+    <string name="export_xlsx_subtitle">One row per line of text</string>
+    <string name="export_pptx_title">PowerPoint slides</string>
+    <string name="export_pptx_subtitle">One slide per page</string>
+    <string name="export_preparing_pdf">Preparing your PDF…</string>
+    <string name="export_preparing_jpg">Preparing your images…</string>
+    <string name="export_preparing_docx">Preparing your Word document…</string>
+    <string name="export_preparing_xlsx">Preparing your Excel spreadsheet…</string>
+    <string name="export_preparing_pptx">Preparing your PowerPoint slides…</string>
+    <string name="export_password_protect_pdf">Password-protect PDF</string>
+    <string name="export_protect_pdf_title">Protect PDF</string>
+    <string name="export_protect_pdf_body">Anyone opening this PDF will need this password.</string>
+    <string name="export_password_label">Password</string>
+    <string name="export_protect_suggest_title">Protect this PDF?</string>
+    <string name="export_protect_suggest_body">Add a password so only people who have it can open this file. Available with Premium.</string>
+    <string name="export_add_password">Add Password</string>
+    <string name="export_without_password">Export Without Password</string>
+
+    <!-- Default document name (DocumentRepository.defaultName / the export-
+         without-saving flow's base filename) — a bare word, %1$s takes a
+         date/time stamp where used with one. -->
+    <string name="default_scan_name">Scan</string>
+    <string name="default_scan_name_stamped">Scan %1$s</string>
+
+    <!-- Paywall (DESIGN_SPEC §5) -->
+    <string name="paywall_trial_headline">Try Premium free for 3 days</string>
+    <string name="paywall_unlock_headline">Unlock Premium</string>
+    <string name="paywall_trial_subtitle">Cancel anytime during your trial — you won\'t be charged early.</string>
+    <string name="paywall_unlock_subtitle">Subscribe to unlock everything Premium brings.</string>
+    <string name="paywall_feature_export">Export to Word, Excel &amp; PowerPoint</string>
+    <string name="paywall_feature_ocr">Recognize and copy text from any scan</string>
+    <string name="paywall_feature_sign">Sign documents with your finger</string>
+    <string name="paywall_feature_unlimited">Unlimited saved documents (3 free)</string>
+    <string name="paywall_feature_password">Password-protect your PDF exports</string>
+    <string name="paywall_subscribe_price">Subscribe — $4.99/mo</string>
+    <string name="paywall_trial_fine_print">3 days free, then $4.99/month. Cancel anytime.</string>
+    <string name="paywall_subscribe_fine_print">$4.99/month. Cancel anytime.</string>
+    <string name="paywall_restore_purchases">Restore Purchases</string>
+    <string name="paywall_close">Close</string>
+    <string name="paywall_reason_pdf_password">Password-protecting PDFs is a Premium feature</string>
+    <string name="paywall_reason_office_export">Office format export is a Premium feature</string>
+    <string name="paywall_reason_document_limit">You\'ve reached the free plan\'s %1$d-document limit</string>
 </resources>

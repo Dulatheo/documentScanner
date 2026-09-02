@@ -46,12 +46,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.data.model.DocumentWithDetails
 import com.dulatheo.documentscanner.service.PremiumManager
 import com.dulatheo.documentscanner.ui.components.DocumentCard
@@ -72,14 +75,19 @@ private val dateFormatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
  * and tappable — this is the plain lead-in text before it, so it's empty
  * once premium (nothing left to show) or when there's nothing to attach
  * the link to yet (the empty-library case has no natural place for it). */
+@Composable
 private fun documentCountPrefix(count: Int, premiumManager: PremiumManager): String {
     if (premiumManager.isPremium()) {
-        return if (count == 0) "Nothing saved yet" else "$count document${if (count == 1) "" else "s"}"
+        return if (count == 0) {
+            stringResource(R.string.home_nothing_saved_yet)
+        } else {
+            pluralStringResource(R.plurals.home_document_count, count, count)
+        }
     }
     return if (count == 0) {
-        "Nothing saved yet · ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents"
+        stringResource(R.string.home_empty_with_limit, PremiumManager.FREE_DOCUMENT_LIMIT)
     } else {
-        "$count of ${PremiumManager.FREE_DOCUMENT_LIMIT} free documents — "
+        stringResource(R.string.home_free_documents_progress, count, PremiumManager.FREE_DOCUMENT_LIMIT)
     }
 }
 
@@ -107,6 +115,10 @@ fun HomeScreen(
     var pendingDeleteDocument by remember { mutableStateOf<DocumentWithDetails?>(null) }
     var pendingRenameDocument by remember { mutableStateOf<DocumentWithDetails?>(null) }
     var renameInput by remember { mutableStateOf("") }
+    val trialStartedToast = stringResource(R.string.toast_trial_started)
+    val welcomePremiumToast = stringResource(R.string.toast_welcome_premium)
+    val purchasesRestoredToast = stringResource(R.string.toast_purchases_restored)
+    val noPurchaseFoundToast = stringResource(R.string.toast_no_purchase_found)
 
     Box(
         modifier = Modifier
@@ -123,7 +135,7 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Documents",
+                        text = stringResource(R.string.home_title),
                         style = MaterialTheme.typography.headlineMedium,
                         color = tokens.ink,
                     )
@@ -137,7 +149,7 @@ fun HomeScreen(
                         )
                         if (showPremiumLink) {
                             Text(
-                                text = "Premium for unlimited",
+                                text = stringResource(R.string.home_premium_for_unlimited),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontWeight = FontWeight.Medium,
                                     textDecoration = TextDecoration.Underline,
@@ -168,7 +180,7 @@ fun HomeScreen(
                         ) {
                             Icon(
                                 Icons.Filled.Search,
-                                contentDescription = "Search documents",
+                                contentDescription = stringResource(R.string.home_search_documents),
                                 tint = tokens.ink2,
                                 modifier = Modifier.size(17.dp),
                             )
@@ -196,7 +208,7 @@ fun HomeScreen(
                         decorationBox = { inner ->
                             Box {
                                 if (query.isEmpty()) {
-                                    Text("Search by name", color = tokens.ink3, fontSize = 14.sp)
+                                    Text(stringResource(R.string.home_search_by_name), color = tokens.ink3, fontSize = 14.sp)
                                 }
                                 inner()
                             }
@@ -230,7 +242,7 @@ fun HomeScreen(
                                 onDismissRequest = { actionMenuDocumentId = null },
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Rename") },
+                                    text = { Text(stringResource(R.string.home_rename)) },
                                     onClick = {
                                         actionMenuDocumentId = null
                                         renameInput = doc.document.name
@@ -238,7 +250,7 @@ fun HomeScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Delete") },
+                                    text = { Text(stringResource(R.string.action_delete)) },
                                     onClick = {
                                         actionMenuDocumentId = null
                                         pendingDeleteDocument = doc
@@ -276,7 +288,7 @@ fun HomeScreen(
         ) {
             Icon(
                 Icons.Filled.CameraAlt,
-                contentDescription = "Scan a document",
+                contentDescription = stringResource(R.string.home_scan_a_document),
                 tint = Color.White,
                 modifier = Modifier.size(27.dp),
             )
@@ -286,10 +298,10 @@ fun HomeScreen(
             PaywallScreen(premiumManager = premiumManager) { outcome ->
                 showPaywall = false
                 when (outcome) {
-                    PaywallOutcome.TRIAL_STARTED -> toast.show("Trial started — enjoy Premium!")
-                    PaywallOutcome.SUBSCRIBED -> toast.show("Welcome to Premium!")
-                    PaywallOutcome.RESTORED -> toast.show("Purchases restored")
-                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.TRIAL_STARTED -> toast.show(trialStartedToast)
+                    PaywallOutcome.SUBSCRIBED -> toast.show(welcomePremiumToast)
+                    PaywallOutcome.RESTORED -> toast.show(purchasesRestoredToast)
+                    PaywallOutcome.NOT_RESTORED -> toast.show(noPurchaseFoundToast)
                     PaywallOutcome.DISMISSED -> {}
                 }
             }
@@ -298,10 +310,10 @@ fun HomeScreen(
         pendingDeleteDocument?.let { doc ->
             AlertDialog(
                 onDismissRequest = { pendingDeleteDocument = null },
-                title = { Text("Delete “${doc.document.name}”?") },
+                title = { Text(stringResource(R.string.home_delete_document_confirm_title, doc.document.name)) },
                 text = {
                     Text(
-                        "This can't be undone.",
+                        stringResource(R.string.cant_be_undone),
                         color = tokens.ink2,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -310,10 +322,10 @@ fun HomeScreen(
                     TextButton(onClick = {
                         viewModel.deleteDocument(doc)
                         pendingDeleteDocument = null
-                    }) { Text("Delete") }
+                    }) { Text(stringResource(R.string.action_delete)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingDeleteDocument = null }) { Text("Cancel") }
+                    TextButton(onClick = { pendingDeleteDocument = null }) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -321,11 +333,12 @@ fun HomeScreen(
         pendingRenameDocument?.let { doc ->
             AlertDialog(
                 onDismissRequest = { pendingRenameDocument = null },
-                title = { Text("Rename document") },
+                title = { Text(stringResource(R.string.home_rename_document_title)) },
                 text = {
                     OutlinedTextField(
                         value = renameInput,
                         onValueChange = { renameInput = it },
+                        label = { Text(stringResource(R.string.home_document_name_label)) },
                         singleLine = true,
                     )
                 },
@@ -336,10 +349,10 @@ fun HomeScreen(
                             viewModel.renameDocument(doc, trimmed)
                         }
                         pendingRenameDocument = null
-                    }) { Text("Save") }
+                    }) { Text(stringResource(R.string.action_save)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingRenameDocument = null }) { Text("Cancel") }
+                    TextButton(onClick = { pendingRenameDocument = null }) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -372,7 +385,7 @@ private fun ProBadge(isPremium: Boolean, onClick: () -> Unit) {
             modifier = Modifier.size(14.dp),
         )
         Text(
-            "PRO",
+            stringResource(R.string.pro_badge),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             color = if (isPremium) tokens.accent else Color.White,
         )
@@ -401,13 +414,13 @@ private fun EmptyState(onScan: () -> Unit, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            "No documents yet",
+            stringResource(R.string.home_empty_state_title),
             style = MaterialTheme.typography.titleMedium,
             color = tokens.ink,
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "Scanned documents are saved here. Point your camera at a page to begin.",
+            stringResource(R.string.home_empty_state_body),
             style = MaterialTheme.typography.bodyMedium,
             color = tokens.ink2,
             textAlign = TextAlign.Center,
@@ -421,7 +434,7 @@ private fun EmptyState(onScan: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(9.dp))
-            Text("Scan a document", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.home_scan_a_document), style = MaterialTheme.typography.labelLarge)
         }
     }
 }

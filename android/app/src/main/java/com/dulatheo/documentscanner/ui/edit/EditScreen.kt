@@ -49,11 +49,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.data.model.Signature
 import com.dulatheo.documentscanner.data.model.SignatureStroke
 import com.dulatheo.documentscanner.service.ExportFormat
@@ -101,6 +103,26 @@ fun EditScreen(
         LaunchedEffect(Unit) { onCancel() }
         return
     }
+
+    // Hoisted here (rather than inline at each toast.show()/exportingMessage
+    // assignment) because `stringResource` is @Composable — it can't be
+    // called from the non-composable local functions/callback lambdas below
+    // (performSaveOrExport, exportWithoutSavingFormat, the paywalls'
+    // onFinished, the Sign tool's onClick) the way it can from Text(...)
+    // calls made directly in this function's own body.
+    val trialStartedToast = stringResource(R.string.toast_trial_started)
+    val welcomePremiumToast = stringResource(R.string.toast_welcome_premium)
+    val purchasesRestoredToast = stringResource(R.string.toast_purchases_restored)
+    val noPurchaseFoundToast = stringResource(R.string.toast_no_purchase_found)
+    val savedToDocumentsToast = stringResource(R.string.edit_saved_to_documents)
+    val signatureAddedToast = stringResource(R.string.edit_signature_added)
+    val ocrCopiedToast = stringResource(R.string.ocr_copied)
+    val preparingPdfMessage = stringResource(R.string.export_preparing_pdf)
+    val preparingJpgMessage = stringResource(R.string.export_preparing_jpg)
+    val preparingDocxMessage = stringResource(R.string.export_preparing_docx)
+    val preparingXlsxMessage = stringResource(R.string.export_preparing_xlsx)
+    val preparingPptxMessage = stringResource(R.string.export_preparing_pptx)
+    val scanBaseName = stringResource(R.string.default_scan_name)
 
     val pagerState = rememberPagerState(initialPage = scanSession.currentIndex) { pages.size }
     LaunchedEffect(pagerState.currentPage) { scanSession.goTo(pagerState.currentPage) }
@@ -196,7 +218,7 @@ fun EditScreen(
         commitCropSuspend()
         val isNewDocument = scanSession.existingDocumentId == null
         val id = scanSession.save()
-        if (isNewDocument) toast.show("Saved to Documents")
+        if (isNewDocument) toast.show(savedToDocumentsToast)
         onSaved(id)
         showExportWithoutSavingSheet = true
     }
@@ -217,18 +239,18 @@ fun EditScreen(
     fun exportWithoutSavingFormat(format: ExportFormat, password: String? = null) {
         isExporting = true
         exportingMessage = when (format) {
-            ExportFormat.PDF -> "Preparing your PDF…"
-            ExportFormat.JPG -> "Preparing your images…"
-            ExportFormat.DOCX -> "Preparing your Word document…"
-            ExportFormat.XLSX -> "Preparing your Excel spreadsheet…"
-            ExportFormat.PPTX -> "Preparing your PowerPoint slides…"
+            ExportFormat.PDF -> preparingPdfMessage
+            ExportFormat.JPG -> preparingJpgMessage
+            ExportFormat.DOCX -> preparingDocxMessage
+            ExportFormat.XLSX -> preparingXlsxMessage
+            ExportFormat.PPTX -> preparingPptxMessage
         }
         scope.launch {
             commitCropSuspend()
             val exportPages = scanSession.pages.map { p ->
                 ExportPage(imagePath = p.imagePath, ocrLines = p.ocrLines, signature = p.signature, brightness = p.brightness, contrast = p.contrast)
             }
-            val files = exportManager.export("Scan", exportPages, format, password)
+            val files = exportManager.export(scanBaseName, exportPages, format, password)
             exportManager.shareAndFinish(files, format)
             showExportWithoutSavingSheet = false
             scanSession.clear()
@@ -294,7 +316,7 @@ fun EditScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Cancel",
+                    stringResource(R.string.action_cancel),
                     color = tokens.ink2,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.clickable {
@@ -304,13 +326,13 @@ fun EditScreen(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Page ${scanSession.currentIndex + 1} of ${pages.size}",
+                        stringResource(R.string.edit_page_of, scanSession.currentIndex + 1, pages.size),
                         color = tokens.ink,
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Icon(
                         Icons.Filled.Delete,
-                        contentDescription = "Delete this page",
+                        contentDescription = stringResource(R.string.edit_delete_this_page),
                         tint = tokens.ink2,
                         modifier = Modifier
                             .size(18.dp)
@@ -318,7 +340,7 @@ fun EditScreen(
                     )
                 }
                 Text(
-                    if (scanSession.existingDocumentId == null) "Save" else "Export",
+                    if (scanSession.existingDocumentId == null) stringResource(R.string.action_save) else stringResource(R.string.action_export),
                     color = tokens.accent,
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.clickable {
@@ -401,7 +423,7 @@ fun EditScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        activeTool?.hint ?: "",
+                        activeTool?.let { stringResource(it.hintRes) } ?: "",
                         color = tokens.ink2,
                         style = MaterialTheme.typography.labelMedium,
                     )
@@ -457,7 +479,7 @@ fun EditScreen(
                             currentPage.ocrText?.let { text ->
                                 clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
                             }
-                            toast.show("Copied")
+                            toast.show(ocrCopiedToast)
                         },
                         onDone = {
                             ocrSheetOpen = false
@@ -496,19 +518,19 @@ fun EditScreen(
                 when (outcome) {
                     PaywallOutcome.TRIAL_STARTED -> {
                         isPremium = true
-                        toast.show("Trial started — enjoy Premium!")
+                        toast.show(trialStartedToast)
                         selectTool(pendingPremiumTool ?: EditTool.SIGN)
                     }
                     PaywallOutcome.SUBSCRIBED -> {
                         isPremium = true
-                        toast.show("Welcome to Premium!")
+                        toast.show(welcomePremiumToast)
                         selectTool(pendingPremiumTool ?: EditTool.SIGN)
                     }
                     PaywallOutcome.RESTORED -> {
                         isPremium = editViewModel.premiumManager.isPremium()
-                        toast.show("Purchases restored")
+                        toast.show(purchasesRestoredToast)
                     }
-                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.NOT_RESTORED -> toast.show(noPurchaseFoundToast)
                     PaywallOutcome.DISMISSED -> {}
                 }
                 pendingPremiumTool = null
@@ -518,26 +540,26 @@ fun EditScreen(
         if (showSaveLimitPaywall) {
             PaywallScreen(
                 premiumManager = editViewModel.premiumManager,
-                reason = "You've reached the free plan's ${PremiumManager.FREE_DOCUMENT_LIMIT}-document limit",
+                reason = stringResource(R.string.paywall_reason_document_limit, PremiumManager.FREE_DOCUMENT_LIMIT),
             ) { outcome ->
                 showSaveLimitPaywall = false
                 when (outcome) {
                     PaywallOutcome.TRIAL_STARTED -> {
                         isPremium = true
-                        toast.show("Trial started — enjoy Premium!")
+                        toast.show(trialStartedToast)
                         scope.launch { performSaveOrExport() }
                     }
                     PaywallOutcome.SUBSCRIBED -> {
                         isPremium = true
-                        toast.show("Welcome to Premium!")
+                        toast.show(welcomePremiumToast)
                         scope.launch { performSaveOrExport() }
                     }
                     PaywallOutcome.RESTORED -> {
                         isPremium = editViewModel.premiumManager.isPremium()
-                        toast.show("Purchases restored")
+                        toast.show(purchasesRestoredToast)
                         if (isPremium) scope.launch { performSaveOrExport() }
                     }
-                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.NOT_RESTORED -> toast.show(noPurchaseFoundToast)
                     PaywallOutcome.DISMISSED -> {}
                 }
             }
@@ -546,10 +568,10 @@ fun EditScreen(
         if (showDeletePageConfirm) {
             AlertDialog(
                 onDismissRequest = { showDeletePageConfirm = false },
-                title = { Text("Delete this page?") },
+                title = { Text(stringResource(R.string.edit_delete_page_confirm_title)) },
                 text = {
                     Text(
-                        "This can't be undone.",
+                        stringResource(R.string.cant_be_undone),
                         color = tokens.ink2,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -558,10 +580,10 @@ fun EditScreen(
                     TextButton(onClick = {
                         showDeletePageConfirm = false
                         deleteCurrentPage()
-                    }) { Text("Delete") }
+                    }) { Text(stringResource(R.string.action_delete)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeletePageConfirm = false }) { Text("Cancel") }
+                    TextButton(onClick = { showDeletePageConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -569,19 +591,18 @@ fun EditScreen(
         if (showSaveLimitDialog) {
             AlertDialog(
                 onDismissRequest = { showSaveLimitDialog = false },
-                title = { Text("Document limit reached") },
+                title = { Text(stringResource(R.string.edit_document_limit_title)) },
                 text = {
                     Column {
                         Text(
-                            "Free plan is limited to ${PremiumManager.FREE_DOCUMENT_LIMIT} saved documents. " +
-                                "Upgrade for unlimited storage, export this one without saving, or cancel.",
+                            stringResource(R.string.edit_document_limit_body, PremiumManager.FREE_DOCUMENT_LIMIT),
                             color = tokens.ink2,
                             style = MaterialTheme.typography.bodySmall,
                         )
                         TextButton(onClick = {
                             showSaveLimitDialog = false
                             showExportWithoutSavingSheet = true
-                        }) { Text("Export") }
+                        }) { Text(stringResource(R.string.action_export)) }
                     }
                 },
                 confirmButton = {
@@ -589,11 +610,11 @@ fun EditScreen(
                         showSaveLimitDialog = false
                         showSaveLimitPaywall = true
                     }) {
-                        Text(if (editViewModel.premiumManager.hasUsedTrial()) "Upgrade to Premium" else "Start Free Trial")
+                        Text(if (editViewModel.premiumManager.hasUsedTrial()) stringResource(R.string.edit_upgrade_to_premium) else stringResource(R.string.edit_start_free_trial))
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showSaveLimitDialog = false }) { Text("Cancel") }
+                    TextButton(onClick = { showSaveLimitDialog = false }) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -608,8 +629,8 @@ fun EditScreen(
                 containerColor = tokens.surface,
             ) {
                 ExportSheetContent(
-                    subtitle = "Choose a format to share",
-                    dismissLabel = "Cancel",
+                    subtitle = stringResource(R.string.export_subtitle_share),
+                    dismissLabel = stringResource(R.string.action_cancel),
                     onExport = { format ->
                         when (format) {
                             ExportFormat.PDF -> {
@@ -654,10 +675,10 @@ fun EditScreen(
         if (ewsPasswordSuggestion) {
             AlertDialog(
                 onDismissRequest = { ewsPasswordSuggestion = false },
-                title = { Text("Protect this PDF?") },
+                title = { Text(stringResource(R.string.export_protect_suggest_title)) },
                 text = {
                     Text(
-                        "Add a password so only people who have it can open this file. Available with Premium.",
+                        stringResource(R.string.export_protect_suggest_body),
                         color = tokens.ink2,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -666,13 +687,13 @@ fun EditScreen(
                     TextButton(onClick = {
                         ewsPasswordSuggestion = false
                         ewsProtectPaywall = true
-                    }) { Text("Add Password") }
+                    }) { Text(stringResource(R.string.export_add_password)) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
                         ewsPasswordSuggestion = false
                         exportWithoutSavingFormat(ExportFormat.PDF)
-                    }) { Text("Export Without Password") }
+                    }) { Text(stringResource(R.string.export_without_password)) }
                 },
             )
         }
@@ -680,11 +701,11 @@ fun EditScreen(
         if (ewsPasswordPrompt) {
             AlertDialog(
                 onDismissRequest = { ewsPasswordPrompt = false; ewsPasswordInput = "" },
-                title = { Text("Protect PDF") },
+                title = { Text(stringResource(R.string.export_protect_pdf_title)) },
                 text = {
                     Column {
                         Text(
-                            "Anyone opening this PDF will need this password.",
+                            stringResource(R.string.export_protect_pdf_body),
                             color = tokens.ink2,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -692,7 +713,7 @@ fun EditScreen(
                         OutlinedTextField(
                             value = ewsPasswordInput,
                             onValueChange = { ewsPasswordInput = it },
-                            label = { Text("Password") },
+                            label = { Text(stringResource(R.string.export_password_label)) },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -704,10 +725,10 @@ fun EditScreen(
                         ewsPasswordPrompt = false
                         exportWithoutSavingFormat(ExportFormat.PDF, ewsPasswordInput.trim().ifEmpty { null })
                         ewsPasswordInput = ""
-                    }) { Text("Export") }
+                    }) { Text(stringResource(R.string.action_export)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { ewsPasswordPrompt = false; ewsPasswordInput = "" }) { Text("Cancel") }
+                    TextButton(onClick = { ewsPasswordPrompt = false; ewsPasswordInput = "" }) { Text(stringResource(R.string.action_cancel)) }
                 },
             )
         }
@@ -715,31 +736,31 @@ fun EditScreen(
         if (ewsProtectPaywall) {
             PaywallScreen(
                 premiumManager = editViewModel.premiumManager,
-                reason = "Password-protecting PDFs is a Premium feature",
+                reason = stringResource(R.string.paywall_reason_pdf_password),
             ) { outcome ->
                 ewsProtectPaywall = false
                 when (outcome) {
                     PaywallOutcome.TRIAL_STARTED -> {
                         isPremium = true
-                        toast.show("Trial started — enjoy Premium!")
+                        toast.show(trialStartedToast)
                         ewsPasswordInput = ""
                         ewsPasswordPrompt = true
                     }
                     PaywallOutcome.SUBSCRIBED -> {
                         isPremium = true
-                        toast.show("Welcome to Premium!")
+                        toast.show(welcomePremiumToast)
                         ewsPasswordInput = ""
                         ewsPasswordPrompt = true
                     }
                     PaywallOutcome.RESTORED -> {
                         isPremium = editViewModel.premiumManager.isPremium()
-                        toast.show("Purchases restored")
+                        toast.show(purchasesRestoredToast)
                         if (isPremium) {
                             ewsPasswordInput = ""
                             ewsPasswordPrompt = true
                         }
                     }
-                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.NOT_RESTORED -> toast.show(noPurchaseFoundToast)
                     PaywallOutcome.DISMISSED -> {}
                 }
             }
@@ -748,28 +769,28 @@ fun EditScreen(
         if (ewsOfficePaywall) {
             PaywallScreen(
                 premiumManager = editViewModel.premiumManager,
-                reason = "Office format export is a Premium feature",
+                reason = stringResource(R.string.paywall_reason_office_export),
             ) { outcome ->
                 ewsOfficePaywall = false
                 when (outcome) {
                     PaywallOutcome.TRIAL_STARTED -> {
                         isPremium = true
-                        toast.show("Trial started — enjoy Premium!")
+                        toast.show(trialStartedToast)
                         ewsPendingOfficeFormat?.let { exportWithoutSavingFormat(it) }
                     }
                     PaywallOutcome.SUBSCRIBED -> {
                         isPremium = true
-                        toast.show("Welcome to Premium!")
+                        toast.show(welcomePremiumToast)
                         ewsPendingOfficeFormat?.let { exportWithoutSavingFormat(it) }
                     }
                     PaywallOutcome.RESTORED -> {
                         isPremium = editViewModel.premiumManager.isPremium()
-                        toast.show("Purchases restored")
+                        toast.show(purchasesRestoredToast)
                         if (isPremium) {
                             ewsPendingOfficeFormat?.let { exportWithoutSavingFormat(it) }
                         }
                     }
-                    PaywallOutcome.NOT_RESTORED -> toast.show("No previous purchase found")
+                    PaywallOutcome.NOT_RESTORED -> toast.show(noPurchaseFoundToast)
                     PaywallOutcome.DISMISSED -> {}
                 }
                 ewsPendingOfficeFormat = null
@@ -811,7 +832,7 @@ fun EditScreen(
                     .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 40.dp),
             ) {
                 Text(
-                    "Drag to position · pull the corner to resize",
+                    stringResource(R.string.sign_drag_hint),
                     color = tokens.ink2,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -840,7 +861,7 @@ fun EditScreen(
                     }
                     Spacer(Modifier.weight(1f))
                     Text(
-                        "Redraw",
+                        stringResource(R.string.sign_redraw),
                         color = tokens.ink2,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.clickable { signMode = SignMode.DRAWING },
@@ -865,7 +886,7 @@ fun EditScreen(
                                         rotation = placementRotation,
                                     )
                                     scanSession.replaceCurrentPage { it.copy(signature = signature) }
-                                    toast.show("Signature added")
+                                    toast.show(signatureAddedToast)
                                 }
                                 signMode = null
                                 activeTool = null
@@ -873,7 +894,7 @@ fun EditScreen(
                             }
                             .padding(horizontal = 24.dp, vertical = 11.dp),
                     ) {
-                        Text("Done", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.action_done), color = Color.White, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -920,8 +941,8 @@ private fun AdjustSliders(
             .fillMaxWidth()
             .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
-        AdjustSlider(label = "Brightness", value = brightness, range = -0.3f..0.3f, onValueChange = onBrightnessChange)
-        AdjustSlider(label = "Contrast", value = contrast, range = 0.7f..1.5f, onValueChange = onContrastChange)
+        AdjustSlider(label = stringResource(R.string.adjust_brightness), value = brightness, range = -0.3f..0.3f, onValueChange = onBrightnessChange)
+        AdjustSlider(label = stringResource(R.string.adjust_contrast), value = contrast, range = 0.7f..1.5f, onValueChange = onContrastChange)
     }
 }
 
@@ -973,11 +994,11 @@ private fun ToolButton(
                 .padding(vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(tool.label, color = fg, style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(tool.labelRes), color = fg, style = MaterialTheme.typography.labelMedium)
         }
         if (showsProBadge) {
             Text(
-                "PRO",
+                stringResource(R.string.pro_badge),
                 color = Color.White,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                 modifier = Modifier

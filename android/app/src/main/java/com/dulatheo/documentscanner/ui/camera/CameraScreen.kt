@@ -24,7 +24,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.data.DraftPage
 import com.google.android.gms.common.api.ApiException
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanner
@@ -52,7 +54,8 @@ fun CameraScreen(
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
     var launched by remember { mutableStateOf(false) }
-    var statusText by remember { mutableStateOf("Opening camera…") }
+    val preparingPagesText = stringResource(R.string.camera_preparing_pages)
+    var statusText by remember { mutableStateOf(context.getString(R.string.camera_opening)) }
 
     val scanner: GmsDocumentScanner = remember {
         val options = GmsDocumentScannerOptions.Builder()
@@ -74,7 +77,7 @@ fun CameraScreen(
                 onCancelled()
                 return@rememberLauncherForActivityResult
             }
-            statusText = "Preparing pages…"
+            statusText = preparingPagesText
             scope.launch {
                 val storage = scanSession.imageStorage
                 val draftPages = uris.map { uri ->
@@ -103,9 +106,9 @@ fun CameraScreen(
             }
             .addOnFailureListener { e ->
                 val message = if (e is ApiException) {
-                    "Document scanner unavailable (${e.statusCode})"
+                    context.getString(R.string.camera_scanner_unavailable, e.statusCode)
                 } else {
-                    "Couldn't open the scanner: ${e.message}"
+                    context.getString(R.string.camera_scanner_error, e.message)
                 }
                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 onCancelled()

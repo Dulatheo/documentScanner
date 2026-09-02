@@ -21,8 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.ui.theme.LocalAppColors
 
 /** Full-screen "Recognized text" page for the Text (OCR) tool (DESIGN_SPEC
@@ -55,9 +57,9 @@ fun OcrSheetContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Recognized text", color = tokens.ink, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.ocr_title), color = tokens.ink, style = MaterialTheme.typography.titleLarge)
             Text(
-                "Done",
+                stringResource(R.string.action_done),
                 color = tokens.ink2,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.clickable(onClick = onDone),
@@ -69,7 +71,7 @@ fun OcrSheetContent(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Reading page…", color = tokens.ink2, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.ocr_reading), color = tokens.ink2, style = MaterialTheme.typography.bodyMedium)
             }
         } else if (text != null) {
             // SelectionContainer lets the user drag out and copy just part
@@ -96,7 +98,7 @@ fun OcrSheetContent(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = tokens.accent, contentColor = Color.White),
-            ) { Text("Copy All", style = MaterialTheme.typography.labelLarge) }
+            ) { Text(stringResource(R.string.ocr_copy_all), style = MaterialTheme.typography.labelLarge) }
         }
     }
 }
