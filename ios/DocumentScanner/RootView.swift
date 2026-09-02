@@ -53,10 +53,14 @@ struct RootView: View {
     @State private var editSession: EditSession?
     @State private var exportTarget: ExportTarget?
 
-    /// Shared with `HomeView` for the scan button's zoom transition into
-    /// Camera (DESIGN_SPEC §4.2) — Camera is presented as a plain
-    /// conditional overlay in the `ZStack` below, not `.fullScreenCover`,
-    /// so `matchedGeometryEffect` can reach across.
+    /// Shared with `HomeView`, whose document cards each tag themselves
+    /// with `documentZoomID(for:)` in this namespace — a currently-unused
+    /// hook (see that function's doc comment) kept in case a future zoom
+    /// transition into the Edit flow is worth building. The scan button →
+    /// Camera transition no longer uses `matchedGeometryEffect` (see
+    /// `showCamera`'s `.transition(.opacity)` below) — it made the button
+    /// itself appear to animate away toward Camera's frame instead of
+    /// staying in place.
     @Namespace private var zoomNamespace
 
     var body: some View {
@@ -76,21 +80,28 @@ struct RootView: View {
             if showCamera {
                 DocumentCameraView(
                     onFinish: { captures in
-                        withAnimation(.zoomTransition) { showCamera = false }
+                        showCamera = false
                         beginEditSession(with: captures)
                     },
                     onCancel: {
-                        withAnimation(.zoomTransition) { showCamera = false }
+                        showCamera = false
                     }
                 )
-                .matchedGeometryEffect(id: "cameraZoom", in: zoomNamespace)
+                // Fades in place rather than zooming out of the scan
+                // button's frame — the zoom transition made the button
+                // itself appear to fly off toward the camera view's frame
+                // (bottom-right-ish, following where `matchedGeometryEffect`
+                // interpolated the shared geometry to) instead of staying
+                // put, which read as a bug rather than a nice transition.
+                .transition(.opacity)
                 .ignoresSafeArea()
                 .zIndex(2)
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: showCamera)
         .environment(\.appActions, AppActions(
             startCamera: {
-                withAnimation(.zoomTransition) { showCamera = true }
+                showCamera = true
             },
             startPhotoImport: {
                 showPhotoImport = true
@@ -131,20 +142,12 @@ struct RootView: View {
             )
         }
         .sheet(item: $exportTarget) { target in
+            // Sizes itself to its own content (DESIGN_SPEC §4.5) — see
+            // `ExportSheetView.contentHeight`/`ContentHeightKey` — rather
+            // than a fixed guess set from here.
             ExportSheetView(document: target.document, pendingSave: target.pendingSave, premiumManager: premiumManager) {
                 exportTarget = nil
             }
-            // Single, fixed-height detent (not `.medium`/`.large`, and not
-            // left as the default free-form sheet) — this sheet's content
-            // is a short, fixed set of rows, so it should present at
-            // exactly that height and never be draggable to a different
-            // size. 560 comfortably fits the title/subtitle, all five
-            // export rows (PDF/JPG/DOCX/XLSX/PPTX), and the dismiss button,
-            // including the home-indicator safe area sheets add
-            // automatically — the rows themselves also scroll as a safety
-            // net on shorter screens.
-            .presentationDetents([.height(560)])
-            .presentationDragIndicator(.visible)
         }
     }
 

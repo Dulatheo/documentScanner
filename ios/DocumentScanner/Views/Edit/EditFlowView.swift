@@ -205,14 +205,15 @@ struct EditFlowView: View {
             }
         }
         .sheet(item: $saveLimitExportTarget) { target in
+            // Sizes itself to its own content (DESIGN_SPEC §4.5) — see
+            // `ExportSheetView.contentHeight`/`ContentHeightKey` — rather
+            // than a fixed guess set from here.
             ExportSheetView(document: target.document, pendingSave: target.pendingSave, premiumManager: premiumManager) {
                 let tempImagePaths = target.document.orderedPages.flatMap { [$0.imagePath, $0.originalImagePath].compactMap { $0 } }
                 for path in tempImagePaths { ImageStore.delete(path) }
                 saveLimitExportTarget = nil
                 onCancel()
             }
-            .presentationDetents([.height(560)])
-            .presentationDragIndicator(.visible)
         }
         .alert("Document limit reached", isPresented: $showSaveLimitAlert) {
             Button(premiumManager.hasUsedTrial ? "Upgrade to Premium" : "Start Free Trial") {

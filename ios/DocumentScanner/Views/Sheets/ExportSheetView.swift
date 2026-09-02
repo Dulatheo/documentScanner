@@ -5,6 +5,19 @@ private struct ShareItem: Identifiable {
     let urls: [URL]
 }
 
+/// Reports the natural height of whatever it's attached to as a
+/// `.background`, via the standard `GeometryReader`-in-a-`.background` +
+/// `PreferenceKey` measuring technique — used by `ExportSheetView` to size
+/// its own presentation `.height(_:)` detent to its actual content instead
+/// of a fixed guess (DESIGN_SPEC §4.5). `reduce` takes the max in case this
+/// ever ends up applied at more than one level of a view tree.
+private struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// Export sheet (DESIGN_SPEC §4.5): choose PDF (multi-page, searchable
 /// text layer when OCR has run), JPG (one file per page), or one of three
 /// Premium Office formats — DOCX/XLSX/PPTX (§5/§9) — then hand off to the
@@ -35,6 +48,16 @@ struct ExportSheetView: View {
     /// subscription proceeds straight into the export they originally
     /// tapped, rather than requiring a second tap.
     @State private var pendingOfficeExport: (() -> Void)?
+    /// Measured natural height of this sheet's content (title/subtitle,
+    /// all five format rows, and the dismiss button together) via
+    /// `ContentHeightKey` below — drives `.presentationDetents` so the
+    /// sheet is always exactly tall enough to show everything without
+    /// clipping, rather than a fixed guess that a longer localized string
+    /// (or a row added later) could overflow. 560 is just the pre-measurement
+    /// fallback for the first frame, matching this sheet's old fixed height
+    /// so there's no visible jump on the common case where that guess
+    /// happened to be close.
+    @State private var contentHeight: CGFloat = 560
 
     // `String(localized:)`, not plain literals — displayed via
     // `Text(subtitle)`/`Button(dismissLabel, ...)`, both verbatim `String`
@@ -47,20 +70,35 @@ struct ExportSheetView: View {
 
     private var dismissLabel: String { pendingSave ? String(localized: "Close") : String(localized: "Cancel") }
 
-    var body: some View {
-        VStack(spacing: 18) {
-            VStack(spacing: 4) {
-                Text("Export document")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(theme.ink)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundColor(theme.ink3)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 6)
+    /// Cap on the computed detent height, so a device with unusually large
+    /// Dynamic Type (or, in principle, more rows than fit any screen)
+    /// still gets a valid on-screen sheet — the `ScrollView` wrapping
+    /// everything below (not just the rows) is what makes the overflow
+    /// past this cap still reachable rather than clipped.
+    private var maxSheetHeight: CGFloat {
+        UIScreen.main.bounds.height * 0.9
+    }
 
-            ScrollView {
+    var body: some View {
+        // The whole sheet's content — header, all five rows, and the
+        // dismiss button — is one ScrollView so `contentHeight` (measured
+        // below) reflects everything that needs to fit, and so the rare
+        // case where it doesn't (see `maxSheetHeight`) still scrolls
+        // instead of clipping off the bottom, the dismiss button included.
+        ScrollView {
+            VStack(spacing: 18) {
+                VStack(spacing: 4) {
+                    Text("Export document")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(theme.ink)
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(theme.ink3)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 6)
+
                 VStack(spacing: 10) {
                     pdfOption
                     exportOption(badge: "JPG", title: "JPG images", subtitle: "One image per page") {
@@ -76,18 +114,26 @@ struct ExportSheetView: View {
                         exportPptx()
                     }
                 }
-            }
 
-            Button(dismissLabel, action: onFinish)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundColor(theme.ink)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(RoundedRectangle(cornerRadius: 14).stroke(theme.line, lineWidth: 1))
+                Button(dismissLabel, action: onFinish)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(theme.ink)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(RoundedRectangle(cornerRadius: 14).stroke(theme.line, lineWidth: 1))
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 6)
+            .padding(.bottom, 10)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
+                }
+            )
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 6)
-        .padding(.bottom, 10)
+        .onPreferenceChange(ContentHeightKey.self) { contentHeight = $0 }
+        .presentationDetents([.height(min(contentHeight, maxSheetHeight))])
+        .presentationDragIndicator(.visible)
         .sheet(item: $activeShare) { item in
             ShareSheet(items: item.urls, onDismiss: onFinish)
         }
