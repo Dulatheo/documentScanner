@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import com.dulatheo.documentscanner.R
 import com.dulatheo.documentscanner.data.model.DocumentWithDetails
 import com.dulatheo.documentscanner.service.PremiumManager
+import com.dulatheo.documentscanner.service.PremiumProducts
 import com.dulatheo.documentscanner.ui.components.DocumentCard
 import com.dulatheo.documentscanner.ui.components.ScanCornersIcon
 import com.dulatheo.documentscanner.ui.components.ToastState
@@ -79,8 +80,8 @@ private val dateFormatter = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
  * once premium (nothing left to show) or when there's nothing to attach
  * the link to yet (the empty-library case has no natural place for it). */
 @Composable
-private fun documentCountPrefix(count: Int, premiumManager: PremiumManager): String {
-    if (premiumManager.isPremium()) {
+private fun documentCountPrefix(count: Int, isPremium: Boolean): String {
+    if (isPremium) {
         return if (count == 0) {
             stringResource(R.string.home_nothing_saved_yet)
         } else {
@@ -113,6 +114,9 @@ fun HomeScreen(
     var searchOpen by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
     var showSubscriptionInfo by remember { mutableStateOf(false) }
+    // Observed (not just read) so Home recomposes when a purchase, restore
+    // or refresh on resume changes entitlement.
+    val isPremium by premiumManager.premiumState.collectAsState()
     // Long-pressing a card opens a small Rename/Delete menu rather than
     // jumping straight to a destructive confirmation.
     var actionMenuDocumentId by remember { mutableStateOf<String?>(null) }
@@ -143,11 +147,11 @@ fun HomeScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         color = tokens.ink,
                     )
-                    val isPremiumNow = premiumManager.isPremium()
+                    val isPremiumNow = isPremium
                     val showPremiumLink = !isPremiumNow && documents.isNotEmpty()
                     Row(modifier = Modifier.padding(top = 5.dp)) {
                         Text(
-                            text = documentCountPrefix(documents.size, premiumManager),
+                            text = documentCountPrefix(documents.size, isPremium),
                             style = MaterialTheme.typography.bodySmall,
                             color = tokens.ink3,
                         )
@@ -169,9 +173,9 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ProBadge(
-                        isPremium = premiumManager.isPremium(),
+                        isPremium = isPremium,
                         onClick = {
-                            if (premiumManager.isPremium()) {
+                            if (isPremium) {
                                 showSubscriptionInfo = true
                             } else {
                                 showPaywall = true
@@ -413,7 +417,7 @@ private fun ProBadge(isPremium: Boolean, onClick: () -> Unit) {
 /** Shown when a Premium user taps the PRO badge (see [ProBadge]'s doc
  * comment) — a free user gets the paywall instead, but there's nothing to
  * sell someone already subscribed, so this just confirms their status
- * (trial vs. subscribed, using [PremiumManager]'s mock-entitlement state —
+ * (trial vs. plan, from [PremiumManager]'s Play Billing state —
  * DESIGN_SPEC §5) and hands off to Play Store's own subscription
  * management, which is where a real cancel/change-plan flow actually
  * lives. */
@@ -439,11 +443,18 @@ private fun SubscriptionInfoDialog(premiumManager: PremiumManager, onDismiss: ()
             )
         },
         text = {
+            val planId = premiumManager.activePlanId()
             Text(
-                if (premiumManager.isTrialActive()) {
-                    stringResource(R.string.subscription_trial_days_left, premiumManager.trialDaysRemaining())
-                } else {
-                    stringResource(R.string.subscription_active)
+                when {
+                    premiumManager.isTrialActive() ->
+                        stringResource(R.string.subscription_trial_days_left, premiumManager.trialDaysRemaining())
+                    planId != null -> {
+                        val plan = stringResource(
+                            if (planId == PremiumProducts.BASE_PLAN_YEARLY) R.string.subscription_plan_yearly else R.string.subscription_plan_monthly
+                        )
+                        if (premiumManager.isAutoRenewing()) plan else stringResource(R.string.subscription_wont_renew, plan)
+                    }
+                    else -> stringResource(R.string.subscription_active)
                 },
                 color = tokens.ink2,
                 textAlign = TextAlign.Center,
@@ -455,7 +466,9 @@ private fun SubscriptionInfoDialog(premiumManager: PremiumManager, onDismiss: ()
                 val packageName = context.packageName
                 val intent = Intent(
                     Intent.ACTION_VIEW,
-                    Uri.parse("https://play.google.com/store/account/subscriptions?package=$packageName"),
+                    Uri.parse(
+                        "https://play.google.com/store/account/subscriptions?sku=${PremiumProducts.SUBSCRIPTION_ID}&package=$packageName"
+                    ),
                 )
                 context.startActivity(intent)
             }) { Text(stringResource(R.string.subscription_manage)) }

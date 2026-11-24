@@ -110,6 +110,10 @@ dependencies {
     // PDFBox's actively-maintained Android port (Apache 2.0 licensed).
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
+    // Google Play Billing — Premium subscriptions (monthly/yearly base
+    // plans with a 3-day trial offer; see PremiumManager).
+    implementation("com.android.billingclient:billing:8.0.0")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

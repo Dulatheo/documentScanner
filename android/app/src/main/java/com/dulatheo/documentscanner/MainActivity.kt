@@ -39,4 +39,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Picks up renewals, cancellations and purchases made elsewhere.
+        (application as DocumentScannerApp).premiumManager.refresh()
+    }
 }
