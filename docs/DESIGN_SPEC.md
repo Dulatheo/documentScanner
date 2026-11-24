@@ -684,41 +684,35 @@ cached.
   - **DOCX**: a page break between pages. Page structure is approximated
     purely from each line's (and, for tables, each word's) OCR bounding box
     (`DocxLineLayout` / `DocxTableDetector`).
-    - **iOS (2026-11) — columns + reflowable paragraphs** (`DocxLineLayout
-      .segments` / `.paragraphs`). Exporting a scanned bilingual
-      (Kazakh | Russian) two-column contract interleaved the two columns
-      line by line and produced one hard paragraph per scanned line, so iOS
-      now: (1) finds a vertical gutter in the middle half of the page that
-      (almost) no line crosses by more than 3.5% of page width — slack
-      because a slightly rotated photo makes neighboring columns overlap by
-      ~1–2% in x — and, when both sides read as prose, renders the columns
-      as a borderless two-cell table (full-width lines such as a shared
-      title stay outside it; table detection is skipped inside columns);
-      (2) re-joins Vision's fragments of one justified line (side-by-side
-      boxes on the same row); (3) merges rows into one paragraph unless a
-      first-line indent, a short previous line, a larger gap, a list marker
-      or a height jump signals a break — measured against *local* margins
-      from nearby rows, since a tilted photo's margin drifts down the page;
-      line-end hyphens join without a space. Multi-line paragraphs are
-      justified; A4 (US/CA: Letter) with 2cm margins. **Android still uses
-      the older one-paragraph-per-line logic below** — port pending.
-    - Older logic (still Android's), one paragraph per OCR'd line:
-    - **Alignment**: a line's left/right edges are compared against the
-      page's overall left margin and right edge (from all its lines) to
-      classify it left/center/right — e.g. a line whose midpoint sits near
-      the page's horizontal center and that's meaningfully narrower than
-      the page's content width reads as centered.
-    - **Font size is intentionally fixed** (11pt for every line) — an
-      earlier version scaled it by each line's box-height ratio, but OCR
-      box heights turned out too noisy a signal: the result looked
-      inconsistent with the actual scan rather than matching it, so this
-      was reverted. A line much taller than the page's median line height
-      (≥1.4×) is still marked **bold**, as a plausible stand-in for real
-      emphasis, since size is the only signal available.
-    - **Paragraph spacing**: an extra blank paragraph is inserted before
-      any line whose vertical gap from the previous one is notably larger
-      (>1.6×) than the page's typical line-to-line gap, approximating a
-      paragraph break rather than a mere line wrap.
+    - **Columns + reflowable paragraphs (2026-11, iOS and Android)**
+      (`DocxLineLayout.segments` / `.paragraphs`; the Android Kotlin file
+      is a direct port of the iOS one, same tuning constants — keep them in
+      step). Exporting a scanned bilingual (Kazakh | Russian) two-column
+      contract interleaved the two columns line by line and produced one
+      hard paragraph per scanned line, so the export now: (1) finds a
+      vertical gutter in the middle half of the page that (almost) no line
+      crosses by more than 3.5% of page width — slack because a slightly
+      rotated photo makes neighboring columns overlap by ~1–2% in x — and,
+      when both sides read as prose, renders the columns as a borderless
+      two-cell table (full-width lines such as a shared title stay outside
+      it; table detection is skipped inside columns); (2) re-joins the OCR
+      engine's fragments of one justified line (side-by-side boxes on the
+      same row); (3) merges rows into one paragraph unless a first-line
+      indent, a short previous line, a larger gap, a list marker or a
+      height jump signals a break — measured against *local* margins from
+      nearby rows, since a tilted photo's margin drifts down the page;
+      line-end hyphens join without a space and a stray leading "|" (a
+      column rule read as text) is dropped. Multi-line paragraphs are
+      justified; a paragraph much taller than the median row (≥1.4×) is
+      marked **bold** as a stand-in for heading emphasis. Font size is
+      fixed at 11pt (OCR box heights are too noisy to infer sizes from —
+      scaling by box height was tried and reverted). A4 (US/CA: Letter)
+      with 2cm margins. Coordinates: Vision boxes are normalized with a
+      bottom-left origin (iOS flips them); ML Kit boxes are stored
+      normalized with a top-left origin (`OcrLine`), so Android uses them
+      as-is. This replaced an older one-paragraph-per-line logic (per-line
+      left/center/right against the page-wide margins, a blank paragraph
+      before big gaps) on both platforms.
     - **Table detection** (`DocxTableDetector`): a table row reaches OCR as
       one of two shapes, and both are handled:
       - **Same OCR line, several words**: columns cramped close enough

@@ -74,7 +74,7 @@ object DocxTableDetector {
     private const val ROW_OVERLAP_FACTOR = 0.5f
 
     /** [sortedLines] must already be in top-to-bottom reading order (see
-     * [DocxLineLayout.analyze]'s sort, which callers should apply first). */
+     * the top-to-bottom sort DocxExportService.renderFlow applies first). */
     fun detect(sortedLines: List<OcrLine>): List<DetectedTable> {
         if (sortedLines.size < MIN_TABLE_ROWS) return emptyList()
 

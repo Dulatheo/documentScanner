@@ -34,7 +34,7 @@ object XlsxExportService {
     }
 
     private fun sheetXml(page: ExportPage): String {
-        // Same top-to-bottom sort DocxExportService/DocxLineLayout use —
+        // Same top-to-bottom sort DocxExportService.renderFlow uses —
         // duplicated here (one line) so table detection agrees with the
         // rest of the export pipeline on reading order without either
         // depending on the other's internals.
