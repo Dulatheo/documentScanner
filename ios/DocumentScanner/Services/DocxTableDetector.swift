@@ -70,7 +70,7 @@ enum DocxTableDetector {
     private static let rowOverlapFactor: Double = 0.5
 
     /// `sortedLines` must already be in top-to-bottom reading order (see
-    /// `DocxLineLayout.analyze`'s sort, which callers should apply first).
+    /// the top-to-bottom sort `DocxExportService.renderFlow` applies first).
     static func detect(in sortedLines: [OCRLine]) -> [DetectedTable] {
         guard sortedLines.count >= minTableRows else { return [] }
 

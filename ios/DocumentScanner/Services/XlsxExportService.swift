@@ -31,7 +31,7 @@ enum XlsxExportService {
         // sheet with no rows at all.
         let lines = await OCRService.ensureLines(for: page)
         // Same top-to-bottom sort `DocxExportService.renderPage`/
-        // `DocxLineLayout.analyze` use — duplicated here (one line) so
+        // `DocxLineLayout` use — duplicated here (one line) so
         // table detection agrees with the rest of the export pipeline on
         // reading order without either depending on the other's internals.
         let sorted = lines.sorted {

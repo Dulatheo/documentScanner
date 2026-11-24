@@ -681,11 +681,28 @@ cached.
   Hand-rolled OOXML on both platforms rather than a dependency (see the
   Office-export feasibility note in §9) — DOCX/XLSX/PPTX are all just ZIP
   archives of XML parts:
-  - **DOCX**: one paragraph per OCR'd line, a page break between pages.
-    Alignment, relative emphasis, paragraph spacing, and simple tables are
-    approximated purely from each line's (and, for tables, each word's)
-    OCR bounding box (`DocxLineLayout.analyze` / `DocxTableDetector`, same
-    logic hand-ported on both platforms):
+  - **DOCX**: a page break between pages. Page structure is approximated
+    purely from each line's (and, for tables, each word's) OCR bounding box
+    (`DocxLineLayout` / `DocxTableDetector`).
+    - **iOS (2026-11) — columns + reflowable paragraphs** (`DocxLineLayout
+      .segments` / `.paragraphs`). Exporting a scanned bilingual
+      (Kazakh | Russian) two-column contract interleaved the two columns
+      line by line and produced one hard paragraph per scanned line, so iOS
+      now: (1) finds a vertical gutter in the middle half of the page that
+      (almost) no line crosses by more than 3.5% of page width — slack
+      because a slightly rotated photo makes neighboring columns overlap by
+      ~1–2% in x — and, when both sides read as prose, renders the columns
+      as a borderless two-cell table (full-width lines such as a shared
+      title stay outside it; table detection is skipped inside columns);
+      (2) re-joins Vision's fragments of one justified line (side-by-side
+      boxes on the same row); (3) merges rows into one paragraph unless a
+      first-line indent, a short previous line, a larger gap, a list marker
+      or a height jump signals a break — measured against *local* margins
+      from nearby rows, since a tilted photo's margin drifts down the page;
+      line-end hyphens join without a space. Multi-line paragraphs are
+      justified; A4 (US/CA: Letter) with 2cm margins. **Android still uses
+      the older one-paragraph-per-line logic below** — port pending.
+    - Older logic (still Android's), one paragraph per OCR'd line:
     - **Alignment**: a line's left/right edges are compared against the
       page's overall left margin and right edge (from all its lines) to
       classify it left/center/right — e.g. a line whose midpoint sits near
