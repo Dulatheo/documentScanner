@@ -539,17 +539,35 @@ Documents", "Signature added", "Copied", "Added from gallery", etc.
 ## 5. Premium & Paywall
 
 Sign is the first premium-gated tool (§4.3); more may follow (see §9's
-notes on future premium candidates). Entitlement is a **local mock** on
-both platforms right now — a `PremiumManager` (iOS: `UserDefaults`-backed
-`ObservableObject`; Android: `SharedPreferences`-backed plain class) that
-tracks `hasUsedTrial`/trial-end-date/`isSubscribed` and exposes
-`isPremium()`. Tapping the paywall's CTA grants entitlement immediately —
-there is no real payment processing yet, so the whole trial/subscribe UX
-can be built and tested without App Store Connect / Play Console
-subscription products existing. Wiring `startTrial`/`subscribe`/
-`restorePurchases` to real StoreKit 2 (iOS) / Play Billing Library
-(Android) calls is a separate, later step once those products are created;
-the gating check and paywall UI shouldn't need to change when that happens.
+notes on future premium candidates). Entitlement comes from **real store
+subscriptions**: StoreKit 2 on iOS, Google Play Billing Library on Android.
+`PremiumManager` is the single entry point on both platforms and exposes
+`isPremium`, `hasUsedTrial` (= not eligible for the intro trial),
+`isTrialActive`, `trialDaysRemaining` and `canCreateNewDocument`.
+
+**Products** (two auto-renewable plans, each with a 3-day free trial for
+new subscribers; the paywall preselects Yearly):
+
+| Plan | Price | App Store product ID | Google Play |
+|---|---|---|---|
+| Monthly | $0.99 / month | `com.documents.scanner.app.premium.monthly` | subscription `premium`, base plan `monthly`, offer `trial-3d` |
+| Yearly | $4.99 / year | `com.documents.scanner.app.premium.yearly` | subscription `premium`, base plan `yearly`, offer `trial-3d` |
+
+- iOS: both products live in one subscription group "Premium", each with
+  an introductory offer "Free trial, 3 days". Entitlement =
+  `Transaction.currentEntitlements` (verified, not revoked, not expired);
+  a `Transaction.updates` listener handles renewals, Ask to Buy, refunds.
+  Trial eligibility = `Product.SubscriptionInfo.isEligibleForIntroOffer`.
+  `ios/DocumentScanner/Products.storekit` mirrors the products for local
+  testing and is set on the shared scheme (Run → Options → StoreKit
+  Configuration).
+- Android: one subscription with two base plans; the `trial-3d` offer's
+  eligibility is "new customer acquisition — never had this
+  subscription", so Play only returns it to eligible users. Purchases are
+  acknowledged on receipt; `PENDING` purchases don't unlock Premium.
+- Prices shown on the paywall always come from the store (localized), never
+  hardcoded. The Yearly card shows a "Save N%" badge computed against
+  12 × the monthly price.
 
 - **Gating**: tapping **Sign** or **Text** in the Edit tool bar calls
   `premiumManager.isPremium()` (re-checked on every tap, not cached, so an
@@ -562,15 +580,20 @@ the gating check and paywall UI shouldn't need to change when that happens.
 - **Badge**: the Sign and Text tool buttons each show a small **PRO** pill
   (top-right corner) whenever the user isn't currently premium; it
   disappears once they are (trial or subscribed).
-- **Trial**: 3 days, one-time-per-device (`hasUsedTrial` never resets).
+- **Trial**: 3 days, once per store account (enforced by the store).
   Two paywall copy variants:
-  - **Never used the trial**: "Try Premium free for 3 days" headline,
-    **Start Free Trial** primary button, fine print noting the paid rate
-    it converts to after 3 days.
-  - **Already used the trial** (including an expired one): plain "Unlock
-    Premium" headline, no trial mention, **Subscribe — $4.99/mo** primary
-    button. ($4.99/mo is placeholder copy, not a configured real price —
-    see the mock-entitlement note above.)
+  - **Eligible for the trial**: "Try Premium free for 3 days" headline,
+    **Start Free Trial** primary button, "3 days free" under each plan, fine
+    print "3 days free, then {price}/{period}. Cancel anytime."
+  - **Not eligible** (already used it): plain "Unlock Premium" headline,
+    no trial mention, **Subscribe** primary button, fine print
+    "{price}/{period}. Renews automatically. Cancel anytime."
+  - Both variants show two selectable plan cards (Yearly first and
+    preselected, Monthly), Restore Purchases and Terms of Use / Privacy
+    Policy links (required by App Review for auto-renewables). If the store
+    products can't be loaded the cards are replaced by a "Try Again" state.
+    A pending purchase (Ask to Buy) or a failed one is reported in an alert
+    and the paywall stays open.
   - Both variants share: a crown icon in the header circle (not tied to
     any one gated tool, since this same screen opens from every gate
     below), the full **premium feature list**, in this fixed order
@@ -816,17 +839,18 @@ has nothing to show a subscriber. Content:
 
 - Crown icon in an accent circle, title "You're a PRO user".
 - Status line: "Free trial · N days left" while `isTrialActive()`
-  (`trialDaysRemaining()`), or "Your Premium subscription is active."
-  otherwise. The day-count is **not** a real CLDR plural (always "days",
-  even for 1 remaining) — a deliberate, disclosed simplification for this
-  secondary detail screen, unlike `home_document_count`'s real plural
-  handling; see §10.
+  (`trialDaysRemaining()`), otherwise "{Monthly|Yearly} plan · renews on
+  {date}" (or "expires on {date}" once auto-renew is off) on iOS; Android
+  shows "{Monthly|Yearly} plan" (or "· won't renew" once cancelled), since
+  Play Billing exposes no renewal date on the client. The day-count is
+  **not** a real CLDR plural (always "days", even for 1 remaining) — a
+  deliberate, disclosed simplification for this secondary detail screen,
+  unlike `home_document_count`'s real plural handling; see §10.
 - **Manage Subscription** button, opening the platform's own subscription
-  management (this app's `PremiumManager` is a local mock with no billing
-  detail of its own to show, per this section's opening note) —
-  Android: `https://play.google.com/store/account/subscriptions?package=<applicationId>`
-  via an `ACTION_VIEW` `Intent`; iOS: `https://apps.apple.com/account/subscriptions`
-  via `openURL`.
+  management — Android:
+  `https://play.google.com/store/account/subscriptions?sku=premium&package=<applicationId>`
+  via an `ACTION_VIEW` `Intent`; iOS: StoreKit's `.manageSubscriptionsSheet`
+  (entitlements are re-read when it closes).
 - A dismiss button (Android: "Done"; iOS: "Done", via `.dismiss`).
 
 ## 6. Data model

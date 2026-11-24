@@ -34,3 +34,31 @@ screen spec (colors, typography, flows, data model) both apps follow.
   present) in Xcode 16+, and run on iOS 17+.
 - **Android**: open `android/` in Android Studio (or `./gradlew assembleDebug`
   from the `android/` directory), min SDK per `android/app/build.gradle.kts`.
+
+## Subscriptions (Premium)
+
+Two auto-renewable plans, both with a 3-day free trial for new subscribers
+(details: `docs/DESIGN_SPEC.md` §5).
+
+**App Store Connect** — create a subscription group `Premium` with:
+
+| Product ID | Duration | Price | Introductory offer |
+|---|---|---|---|
+| `com.documents.scanner.app.premium.monthly` | 1 month | $0.99 | Free trial, 3 days |
+| `com.documents.scanner.app.premium.yearly` | 1 year | $4.99 | Free trial, 3 days |
+
+Also fill in the Privacy Policy URL (App Store Connect + `LegalLinks.privacyPolicy`
+in `PaywallView.swift`). Local testing: run from Xcode — the shared scheme uses
+`ios/DocumentScanner/Products.storekit`, and Debug → StoreKit → Manage
+Transactions lets you expire/refund/reset purchases.
+
+**Google Play Console** (package `com.dulatheo.documentscanner`) — create one
+subscription `premium` with:
+
+| Base plan | Billing period | Price | Offer |
+|---|---|---|---|
+| `monthly` | 1 month, auto-renewing | $0.99 | `trial-3d`: free trial 3 days, eligibility "new customer acquisition — never had this subscription" |
+| `yearly` | 1 year, auto-renewing | $4.99 | `trial-3d`: same |
+
+Testing billing on Android requires an upload to an internal testing track and
+a license-tester account on the device.
