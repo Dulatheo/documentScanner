@@ -16,10 +16,9 @@ enum PaywallOutcome {
 /// Legal links shown on the paywall (required by App Review for
 /// auto-renewable subscriptions).
 enum LegalLinks {
-    /// Apple's standard EULA; replace if the app ships its own terms.
-    static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
-    /// TODO: set the app's privacy policy URL (also required in App Store Connect).
-    static let privacyPolicy: URL? = nil
+    static let termsOfUse = URL(string: "https://dulatheo.github.io/documentscanner/terms")!
+    static let privacyPolicy: URL? = URL(string: "https://dulatheo.github.io/documentscanner/privacy")
+    static let support = URL(string: "https://dulatheo.github.io/documentscanner/support")!
 }
 
 /// Paywall shown whenever a free user hits any premium gate (Sign/Text

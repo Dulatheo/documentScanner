@@ -47,8 +47,11 @@ Two auto-renewable plans, both with a 3-day free trial for new subscribers
 | `com.documents.scanner.app.premium.monthly` | 1 month | $0.99 | Free trial, 3 days |
 | `com.documents.scanner.app.premium.yearly` | 1 year | $4.99 | Free trial, 3 days |
 
-Also fill in the Privacy Policy URL (App Store Connect + `LegalLinks.privacyPolicy`
-in `PaywallView.swift`). Local testing: run from Xcode — the shared scheme uses
+Legal pages are hosted on GitHub Pages (repo `Dulatheo/Dulatheo.github.io`):
+[privacy](https://dulatheo.github.io/documentscanner/privacy),
+[terms](https://dulatheo.github.io/documentscanner/terms),
+[support](https://dulatheo.github.io/documentscanner/support) — use these in
+App Store Connect / Play Console; the app references them via `LegalLinks`. Local testing: run from Xcode — the shared scheme uses
 `ios/DocumentScanner/Products.storekit`, and Debug → StoreKit → Manage
 Transactions lets you expire/refund/reset purchases.
 

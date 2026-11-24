@@ -71,10 +71,11 @@ import com.dulatheo.documentscanner.ui.theme.LocalAppColors
  * inside the paywall, which stays open. */
 enum class PaywallOutcome { TRIAL_STARTED, SUBSCRIBED, RESTORED, NOT_RESTORED, DISMISSED }
 
-/** Legal links shown on the paywall. TODO: set the app's real URLs. */
+/** Legal links shown on the paywall (hosted on GitHub Pages). */
 object LegalLinks {
-    const val TERMS_OF_USE: String = ""
-    const val PRIVACY_POLICY: String = ""
+    const val TERMS_OF_USE: String = "https://dulatheo.github.io/documentscanner/terms"
+    const val PRIVACY_POLICY: String = "https://dulatheo.github.io/documentscanner/privacy"
+    const val SUPPORT: String = "https://dulatheo.github.io/documentscanner/support"
 }
 
 /**
