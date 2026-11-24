@@ -1,10 +1,10 @@
+import StoreKit
 import SwiftUI
 
 /// How the user left the paywall — lets the presenter (`EditFlowView`)
 /// dismiss and show an appropriate toast without `PaywallView` needing its
-/// own reference to `ToastCenter` (matching how other sheets in this app,
-/// e.g. the OCR sheet, hand results back via callback rather than showing
-/// toasts themselves).
+/// own reference to `ToastCenter`. Purchase failures and pending (Ask to
+/// Buy) purchases are reported inside the paywall itself, which stays open.
 enum PaywallOutcome {
     case trialStarted
     case subscribed
@@ -13,15 +13,20 @@ enum PaywallOutcome {
     case dismissed
 }
 
+/// Legal links shown on the paywall (required by App Review for
+/// auto-renewable subscriptions).
+enum LegalLinks {
+    /// Apple's standard EULA; replace if the app ships its own terms.
+    static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+    /// TODO: set the app's privacy policy URL (also required in App Store Connect).
+    static let privacyPolicy: URL? = nil
+}
+
 /// Paywall shown whenever a free user hits any premium gate (Sign/Text
 /// tools, the free-tier document limit, Office format export, PDF
-/// password — DESIGN_SPEC §5) — same screen everywhere, so the full
-/// feature list below (§5's "premium features, in order") is always
-/// visible regardless of which single gate actually triggered it. Two copy
-/// variants driven by `premiumManager.hasUsedTrial`: a first-time visitor
-/// is offered the 3-day trial; someone who already used it sees a plain
-/// subscribe screen with no trial mention, since a real trial is
-/// one-time-per-account.
+/// password — DESIGN_SPEC §5). Offers two plans (yearly preselected,
+/// monthly), both with a 3-day free trial for eligible users; prices come
+/// from StoreKit so they're localized to the user's storefront.
 struct PaywallView: View {
     @ObservedObject var premiumManager: PremiumManager
     /// Optional context shown as a small banner above the headline — e.g.
@@ -31,8 +36,20 @@ struct PaywallView: View {
     var onFinished: (PaywallOutcome) -> Void
 
     @Environment(\.theme) private var theme
+    @Environment(\.openURL) private var openURL
 
-    private var isTrialEligible: Bool { !premiumManager.hasUsedTrial }
+    @State private var selectedProductID = PremiumProducts.yearly
+    @State private var isPurchasing = false
+    @State private var isRestoring = false
+    @State private var alertMessage: String?
+
+    private var isTrialEligible: Bool {
+        premiumManager.isTrialEligible && (selectedProduct?.hasFreeTrialOffer ?? true)
+    }
+
+    private var selectedProduct: Product? {
+        premiumManager.products.first { $0.id == selectedProductID }
+    }
 
     var body: some View {
         ZStack {
@@ -72,12 +89,12 @@ struct PaywallView: View {
                         }
 
                         VStack(spacing: 8) {
-                            Text(isTrialEligible ? "Try Premium free for 3 days" : "Unlock Premium")
+                            Text(premiumManager.isTrialEligible ? "Try Premium free for 3 days" : "Unlock Premium")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(theme.ink)
                                 .multilineTextAlignment(.center)
                             Text(
-                                isTrialEligible
+                                premiumManager.isTrialEligible
                                     ? "Cancel anytime during your trial \u{2014} you won't be charged early."
                                     : "Subscribe to unlock everything Premium brings."
                             )
@@ -103,35 +120,189 @@ struct PaywallView: View {
                     .padding(.bottom, 16)
                 }
 
-                VStack(spacing: 14) {
-                    Button(action: primaryAction) {
-                        Text(isTrialEligible ? "Start Free Trial" : "Subscribe \u{2014} $4.99/mo")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(theme.accent))
-                    }
-
-                    Text(isTrialEligible ? "3 days free, then $4.99/month. Cancel anytime." : "$4.99/month. Cancel anytime.")
-                        .font(.system(size: 11))
-                        .foregroundColor(theme.ink3)
-                        .multilineTextAlignment(.center)
-
-                    Button(action: { onFinished(premiumManager.restorePurchases() ? .restored : .notRestored) }) {
-                        Text("Restore Purchases")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(theme.ink2)
-                    }
-                    .padding(.top, 2)
-                }
-                .padding(.horizontal, 22)
-                .padding(.bottom, 24)
-                .padding(.top, 12)
-                .background(theme.surface)
-                .overlay(Divider().overlay(theme.line), alignment: .top)
+                bottomPanel
             }
         }
+        .task {
+            if premiumManager.products.isEmpty {
+                await premiumManager.loadProducts()
+            }
+        }
+        .alert(
+            "Purchase",
+            isPresented: Binding(get: { alertMessage != nil }, set: { if !$0 { alertMessage = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertMessage ?? "")
+        }
+        .interactiveDismissDisabled(isPurchasing)
+    }
+
+    @ViewBuilder
+    private var bottomPanel: some View {
+        VStack(spacing: 12) {
+            if premiumManager.products.isEmpty {
+                productsPlaceholder
+            } else {
+                VStack(spacing: 10) {
+                    if let yearly = premiumManager.yearlyProduct {
+                        planCard(yearly, title: "Yearly", periodLabel: String(localized: "per year"), badge: savingsBadge)
+                    }
+                    if let monthly = premiumManager.monthlyProduct {
+                        planCard(monthly, title: "Monthly", periodLabel: String(localized: "per month"), badge: nil)
+                    }
+                }
+
+                Button(action: purchase) {
+                    ZStack {
+                        Text(isTrialEligible ? "Start Free Trial" : "Subscribe")
+                            .opacity(isPurchasing ? 0 : 1)
+                        if isPurchasing {
+                            ProgressView().tint(.white)
+                        }
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(RoundedRectangle(cornerRadius: 14).fill(theme.accent))
+                }
+                .disabled(isPurchasing || isRestoring || selectedProduct == nil)
+
+                Text(finePrint)
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.ink3)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 16) {
+                Button(action: restore) {
+                    if isRestoring {
+                        ProgressView()
+                    } else {
+                        Text("Restore Purchases")
+                    }
+                }
+                .disabled(isPurchasing || isRestoring)
+                Button("Terms of Use") { openURL(LegalLinks.termsOfUse) }
+                if let privacy = LegalLinks.privacyPolicy {
+                    Button("Privacy Policy") { openURL(privacy) }
+                }
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(theme.ink2)
+            .padding(.top, 2)
+        }
+        .padding(.horizontal, 22)
+        .padding(.bottom, 20)
+        .padding(.top, 12)
+        .background(theme.surface)
+        .overlay(Divider().overlay(theme.line), alignment: .top)
+    }
+
+    @ViewBuilder
+    private var productsPlaceholder: some View {
+        if premiumManager.isLoadingProducts {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+        } else {
+            VStack(spacing: 10) {
+                Text("Couldn't load subscription options.")
+                    .font(.system(size: 14))
+                    .foregroundColor(theme.ink2)
+                Button("Try Again") {
+                    Task { await premiumManager.loadProducts() }
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(theme.accent)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+        }
+    }
+
+    private func planCard(_ product: Product, title: LocalizedStringKey, periodLabel: String, badge: String?) -> some View {
+        let isSelected = product.id == selectedProductID
+        return Button {
+            selectedProductID = product.id
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? theme.accent : theme.ink3)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Text(title)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(theme.ink)
+                        if let badge {
+                            Text(badge)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(theme.accent))
+                        }
+                    }
+                    if premiumManager.isTrialEligible && product.hasFreeTrialOffer {
+                        Text("3 days free")
+                            .font(.system(size: 12))
+                            .foregroundColor(theme.ink2)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(product.displayPrice)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(theme.ink)
+                    Text(periodLabel)
+                        .font(.system(size: 11))
+                        .foregroundColor(theme.ink3)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ? theme.accentSoft : theme.bg)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? theme.accent : theme.line, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isPurchasing)
+    }
+
+    /// "Save 58%" — yearly vs. 12× monthly, from the storefront's prices.
+    private var savingsBadge: String? {
+        guard let monthly = premiumManager.monthlyProduct?.monthlyEquivalentPrice,
+              let yearly = premiumManager.yearlyProduct?.monthlyEquivalentPrice,
+              monthly > 0 else { return nil }
+        let ratio = NSDecimalNumber(decimal: 1 - yearly / monthly).doubleValue
+        let percent = Int((ratio * 100).rounded(.down))
+        guard percent > 0 else { return nil }
+        let format = String(localized: "Save %lld%%")
+        return String(format: format, percent)
+    }
+
+    private var finePrint: String {
+        guard let product = selectedProduct else { return "" }
+        let isYearly = product.id == PremiumProducts.yearly
+        if isTrialEligible {
+            let format = isYearly
+                ? String(localized: "3 days free, then %@/year. Cancel anytime.")
+                : String(localized: "3 days free, then %@/month. Cancel anytime.")
+            return String(format: format, product.displayPrice)
+        }
+        let format = isYearly
+            ? String(localized: "%@/year. Renews automatically. Cancel anytime.")
+            : String(localized: "%@/month. Renews automatically. Cancel anytime.")
+        return String(format: format, product.displayPrice)
     }
 
     // `text: LocalizedStringKey`, not `String` — see `EditTool.label`'s doc
@@ -151,13 +322,31 @@ struct PaywallView: View {
         }
     }
 
-    private func primaryAction() {
-        if isTrialEligible {
-            premiumManager.startTrial()
-            onFinished(.trialStarted)
-        } else {
-            premiumManager.subscribe()
-            onFinished(.subscribed)
+    private func purchase() {
+        guard let product = selectedProduct else { return }
+        isPurchasing = true
+        Task {
+            let result = await premiumManager.purchase(product)
+            isPurchasing = false
+            switch result {
+            case .success(let isTrial):
+                onFinished(isTrial ? .trialStarted : .subscribed)
+            case .pending:
+                alertMessage = String(localized: "Your purchase is pending approval. Premium will unlock once it's approved.")
+            case .cancelled:
+                break
+            case .failed(let message):
+                alertMessage = message
+            }
+        }
+    }
+
+    private func restore() {
+        isRestoring = true
+        Task {
+            let restored = await premiumManager.restorePurchases()
+            isRestoring = false
+            onFinished(restored ? .restored : .notRestored)
         }
     }
 }

@@ -57,6 +57,7 @@
 		0003E872D77A56D08E7EBBBD /* PageCompositeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCompositeView.swift; sourceTree = "<group>"; };
 		0FAF83E7C2AA4E4D7CC1B04B /* CropOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropOverlayView.swift; sourceTree = "<group>"; };
 		12C0007B619BD4BA6B0345B5 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		5C0FFEE0A1B2C3D4E5F60718 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
 		12F1C9823B7D241C34392D7F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1689B5ECB0D36E955C29AD8B /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		177C39555EF152A03DF7AF74 /* ToastView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastView.swift; sourceTree = "<group>"; };
@@ -186,6 +187,7 @@
 				EAC95B5FAD9B75A8E42EE855 /* DocumentScannerApp.swift */,
 				1689B5ECB0D36E955C29AD8B /* RootView.swift */,
 				12F1C9823B7D241C34392D7F /* Info.plist */,
+				5C0FFEE0A1B2C3D4E5F60718 /* Products.storekit */,
 				83ABFDA35A8AC3E4F58B2406 /* Localizable.xcstrings */,
 			);
 			path = DocumentScanner;

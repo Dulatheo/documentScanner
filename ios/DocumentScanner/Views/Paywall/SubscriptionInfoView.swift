@@ -1,15 +1,15 @@
+import StoreKit
 import SwiftUI
 
 /// Shown when a Premium user taps the PRO badge on Home (DESIGN_SPEC §5) —
 /// a free user gets `PaywallView` instead, but there's nothing left to sell
 /// someone already subscribed, so this just confirms their status and hands
-/// off to the platform's own subscription management (`PremiumManager` is a
-/// local mock with no billing details of its own to show).
+/// off to the platform's own subscription management (StoreKit's manage-subscriptions sheet).
 struct SubscriptionInfoView: View {
     @ObservedObject var premiumManager: PremiumManager
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
+    @State private var showManageSubscriptions = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -36,9 +36,7 @@ struct SubscriptionInfoView: View {
 
             VStack(spacing: 14) {
                 Button {
-                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                        openURL(url)
-                    }
+                    showManageSubscriptions = true
                 } label: {
                     Text("Manage Subscription")
                         .font(.system(size: 16, weight: .semibold))
@@ -59,6 +57,10 @@ struct SubscriptionInfoView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.bg.ignoresSafeArea())
+        .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
+        .onChange(of: showManageSubscriptions) { _, isShown in
+            if !isShown { premiumManager.refresh() }
+        }
         .presentationDetents([.height(360)])
         .presentationDragIndicator(.visible)
     }
@@ -70,10 +72,20 @@ struct SubscriptionInfoView: View {
     // `ExportSheetView` (this property's own type is `String`, so a literal
     // assigned to it wouldn't auto-resolve through the String Catalog).
     private var statusText: String {
+        let dateText = premiumManager.expirationDate.map {
+            $0.formatted(date: .abbreviated, time: .omitted)
+        }
         if premiumManager.isTrialActive {
             let format = String(localized: "Free trial \u{00b7} %lld days left")
             return String(format: format, premiumManager.trialDaysRemaining)
         }
-        return String(localized: "Your Premium subscription is active.")
+        let plan = premiumManager.activePlan == .monthly
+            ? String(localized: "Monthly plan")
+            : String(localized: "Yearly plan")
+        guard let dateText else { return String(localized: "Your Premium subscription is active.") }
+        let format = premiumManager.willAutoRenew
+            ? String(localized: "%1$@ \u{00b7} renews on %2$@")
+            : String(localized: "%1$@ \u{00b7} expires on %2$@")
+        return String(format: format, plan, dateText)
     }
 }

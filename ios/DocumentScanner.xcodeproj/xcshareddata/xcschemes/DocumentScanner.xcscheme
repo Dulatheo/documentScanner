@@ -50,6 +50,9 @@
             ReferencedContainer = "container:DocumentScanner.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+         <StoreKitConfigurationFileReference
+         identifier = "../../DocumentScanner/Products.storekit">
+      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
