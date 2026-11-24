@@ -22,6 +22,12 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Document Scanner uses the camera to scan pages into your documents.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Document Scanner can save exported scans to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Document Scanner can import existing photos of pages as document pages.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -42,11 +48,5 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Document Scanner uses the camera to scan pages into your documents.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Document Scanner can import existing photos of pages as document pages.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Document Scanner can save exported scans to your photo library.</string>
 </dict>
 </plist>
