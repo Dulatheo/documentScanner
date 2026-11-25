@@ -116,6 +116,7 @@
     <string name="paywall_trial_fine_print_month">免费 3 天，之后 %1$s/月。可随时取消。</string>
     <string name="paywall_fine_print_year">%1$s/年。自动续订。可随时取消。</string>
     <string name="paywall_fine_print_month">%1$s/月。自动续订。可随时取消。</string>
+    <string name="paywall_auto_renew_disclosure">除非在当前订阅期结束前至少 24 小时取消，否则订阅将自动续期。你可以在账户设置中管理或取消订阅。</string>
     <string name="paywall_load_failed">无法加载订阅选项。</string>
     <string name="paywall_try_again">重试</string>
     <string name="paywall_terms">使用条款</string>

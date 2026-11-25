@@ -145,6 +145,7 @@
     <string name="paywall_trial_fine_print_month">3 days free, then %1$s/month. Cancel anytime.</string>
     <string name="paywall_fine_print_year">%1$s/year. Renews automatically. Cancel anytime.</string>
     <string name="paywall_fine_print_month">%1$s/month. Renews automatically. Cancel anytime.</string>
+    <string name="paywall_auto_renew_disclosure">Subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel it in your account settings.</string>
     <string name="paywall_load_failed">Couldn\'t load subscription options.</string>
     <string name="paywall_try_again">Try Again</string>
     <string name="paywall_terms">Terms of Use</string>

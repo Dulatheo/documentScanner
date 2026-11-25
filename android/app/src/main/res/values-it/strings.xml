@@ -117,6 +117,7 @@
     <string name="paywall_trial_fine_print_month">3 giorni gratis, poi %1$s/mese. Annulla quando vuoi.</string>
     <string name="paywall_fine_print_year">%1$s/anno. Rinnovo automatico. Annulla quando vuoi.</string>
     <string name="paywall_fine_print_month">%1$s/mese. Rinnovo automatico. Annulla quando vuoi.</string>
+    <string name="paywall_auto_renew_disclosure">L\'abbonamento si rinnova automaticamente, a meno che non venga annullato almeno 24 ore prima della fine del periodo in corso. Puoi gestirlo o annullarlo nelle impostazioni del tuo account.</string>
     <string name="paywall_load_failed">Impossibile caricare le opzioni di abbonamento.</string>
     <string name="paywall_try_again">Riprova</string>
     <string name="paywall_terms">Termini d\'uso</string>

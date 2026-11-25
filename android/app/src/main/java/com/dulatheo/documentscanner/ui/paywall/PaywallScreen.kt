@@ -172,7 +172,10 @@ fun PaywallScreen(
                 Spacer(Modifier.height(16.dp))
             }
             Text(
-                if (anyTrial) stringResource(R.string.paywall_trial_headline) else stringResource(R.string.paywall_unlock_headline),
+                // Plain "Unlock Premium" in both cases: the billed amount,
+                // not the free trial, should be the most prominent pricing
+                // element on the screen.
+                stringResource(R.string.paywall_unlock_headline),
                 color = tokens.ink,
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
@@ -261,7 +264,15 @@ fun PaywallScreen(
                     selectedPlan?.let { plan ->
                         Text(
                             finePrint(plan),
-                            color = tokens.ink3,
+                            color = tokens.ink2,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.paywall_auto_renew_disclosure),
+                            color = tokens.ink2,
                             style = MaterialTheme.typography.labelSmall,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
@@ -355,7 +366,7 @@ private fun PlanCard(
             }
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(plan.formattedPrice, color = tokens.ink, style = MaterialTheme.typography.titleSmall)
+            Text(plan.formattedPrice, color = tokens.ink, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             Text(
                 stringResource(if (plan.isYearly) R.string.paywall_per_year else R.string.paywall_per_month),
                 color = tokens.ink3,

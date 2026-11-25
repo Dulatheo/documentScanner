@@ -121,6 +121,7 @@
     <string name="paywall_trial_fine_print_month">3 أيام مجانًا، ثم %1$s شهريًا. يمكنك الإلغاء في أي وقت.</string>
     <string name="paywall_fine_print_year">%1$s سنويًا. يتجدد تلقائيًا. يمكنك الإلغاء في أي وقت.</string>
     <string name="paywall_fine_print_month">%1$s شهريًا. يتجدد تلقائيًا. يمكنك الإلغاء في أي وقت.</string>
+    <string name="paywall_auto_renew_disclosure">يتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارته أو إلغاؤه من إعدادات حسابك.</string>
     <string name="paywall_load_failed">تعذّر تحميل خيارات الاشتراك.</string>
     <string name="paywall_try_again">أعد المحاولة</string>
     <string name="paywall_terms">شروط الاستخدام</string>

@@ -119,6 +119,7 @@
     <string name="paywall_trial_fine_print_month">3 дня бесплатно, затем %1$s/мес. Отмена в любой момент.</string>
     <string name="paywall_fine_print_year">%1$s/год. Продлевается автоматически. Отмена в любой момент.</string>
     <string name="paywall_fine_print_month">%1$s/мес. Продлевается автоматически. Отмена в любой момент.</string>
+    <string name="paywall_auto_renew_disclosure">Подписка продлевается автоматически, если не отменить её минимум за 24 часа до конца текущего периода. Управлять подпиской и отменить её можно в настройках аккаунта.</string>
     <string name="paywall_load_failed">Не удалось загрузить варианты подписки.</string>
     <string name="paywall_try_again">Повторить</string>
     <string name="paywall_terms">Условия использования</string>

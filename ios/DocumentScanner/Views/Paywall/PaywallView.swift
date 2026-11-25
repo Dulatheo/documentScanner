@@ -88,7 +88,10 @@ struct PaywallView: View {
                         }
 
                         VStack(spacing: 8) {
-                            Text(premiumManager.isTrialEligible ? "Try Premium free for 3 days" : "Unlock Premium")
+                            // Plain "Unlock Premium" in both cases: App Review
+                            // (3.1.2) wants the billed amount, not the free
+                            // trial, to be the most prominent pricing element.
+                            Text("Unlock Premium")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(theme.ink)
                                 .multilineTextAlignment(.center)
@@ -169,11 +172,16 @@ struct PaywallView: View {
                 }
                 .disabled(isPurchasing || isRestoring || selectedProduct == nil)
 
-                Text(finePrint)
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.ink3)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 4) {
+                    Text(finePrint)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(theme.ink2)
+                    Text("Subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel it in your account settings.")
+                        .font(.system(size: 11))
+                        .foregroundColor(theme.ink2)
+                }
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 16) {
@@ -255,7 +263,7 @@ struct PaywallView: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(product.displayPrice)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(theme.ink)
                     Text(periodLabel)
                         .font(.system(size: 11))

@@ -1,6 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    id("com.android.application") version "8.5.2" apply false
+    id("com.android.application") version "8.13.1" apply false
     // Kotlin 1.9.x: Compose is wired up via the classic `composeOptions {
     // kotlinCompilerExtensionVersion }` block in app/build.gradle.kts, not
     // the org.jetbrains.kotlin.plugin.compose Gradle plugin (that plugin

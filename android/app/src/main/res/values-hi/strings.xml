@@ -117,6 +117,7 @@
     <string name="paywall_trial_fine_print_month">3 दिन मुफ़्त, फिर %1$s/माह। कभी भी रद्द करें।</string>
     <string name="paywall_fine_print_year">%1$s/वर्ष। स्वतः नवीनीकृत होता है। कभी भी रद्द करें।</string>
     <string name="paywall_fine_print_month">%1$s/माह। स्वतः नवीनीकृत होता है। कभी भी रद्द करें।</string>
+    <string name="paywall_auto_renew_disclosure">सदस्यता अपने आप रिन्यू होती है, जब तक कि मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न किया जाए। आप इसे अपनी खाता सेटिंग में प्रबंधित या रद्द कर सकते हैं।</string>
     <string name="paywall_load_failed">सदस्यता विकल्प लोड नहीं हो सके।</string>
     <string name="paywall_try_again">फिर से कोशिश करें</string>
     <string name="paywall_terms">उपयोग की शर्तें</string>

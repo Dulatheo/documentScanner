@@ -117,6 +117,7 @@
     <string name="paywall_trial_fine_print_month">3 dias grátis, depois %1$s/mês. Cancele quando quiser.</string>
     <string name="paywall_fine_print_year">%1$s/ano. Renova automaticamente. Cancele quando quiser.</string>
     <string name="paywall_fine_print_month">%1$s/mês. Renova automaticamente. Cancele quando quiser.</string>
+    <string name="paywall_auto_renew_disclosure">A assinatura é renovada automaticamente, a menos que seja cancelada pelo menos 24 horas antes do fim do período atual. Gerencie ou cancele nas configurações da sua conta.</string>
     <string name="paywall_load_failed">Não foi possível carregar as opções de assinatura.</string>
     <string name="paywall_try_again">Tentar novamente</string>
     <string name="paywall_terms">Termos de uso</string>

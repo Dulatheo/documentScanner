@@ -116,6 +116,7 @@
     <string name="paywall_trial_fine_print_month">3 gün ücretsiz, ardından %1$s/ay. İstediğin zaman iptal et.</string>
     <string name="paywall_fine_print_year">%1$s/yıl. Otomatik olarak yenilenir. İstediğin zaman iptal et.</string>
     <string name="paywall_fine_print_month">%1$s/ay. Otomatik olarak yenilenir. İstediğin zaman iptal et.</string>
+    <string name="paywall_auto_renew_disclosure">Abonelik, mevcut dönemin bitiminden en az 24 saat önce iptal edilmediği sürece otomatik olarak yenilenir. Hesap ayarlarından yönetebilir veya iptal edebilirsin.</string>
     <string name="paywall_load_failed">Abonelik seçenekleri yüklenemedi.</string>
     <string name="paywall_try_again">Tekrar dene</string>
     <string name="paywall_terms">Kullanım Koşulları</string>

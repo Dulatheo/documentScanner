@@ -6,14 +6,14 @@ plugins {
 
 android {
     namespace = "com.dulatheo.documentscanner"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.dulatheo.documentscanner"
         // ML Kit Document Scanner requires API 21+; this app targets 24+ for
         // broader ML Kit / Play Services module compatibility (see README).
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -94,7 +94,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
 
     // ML Kit — on-device Text Recognition v2 (Latin script model)
-    implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     // Coil for async image loading of on-disk page images/thumbnails
     implementation("io.coil-kt:coil-compose:2.6.0")

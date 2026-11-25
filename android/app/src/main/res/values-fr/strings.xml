@@ -117,6 +117,7 @@
     <string name="paywall_trial_fine_print_month">3 jours gratuits, puis %1$s/mois. Résiliable à tout moment.</string>
     <string name="paywall_fine_print_year">%1$s/an. Renouvellement automatique. Résiliable à tout moment.</string>
     <string name="paywall_fine_print_month">%1$s/mois. Renouvellement automatique. Résiliable à tout moment.</string>
+    <string name="paywall_auto_renew_disclosure">L\'abonnement se renouvelle automatiquement, sauf s\'il est résilié au moins 24 heures avant la fin de la période en cours. Gérez-le ou résiliez-le dans les réglages de votre compte.</string>
     <string name="paywall_load_failed">Impossible de charger les offres d\'abonnement.</string>
     <string name="paywall_try_again">Réessayer</string>
     <string name="paywall_terms">Conditions d\'utilisation</string>
